@@ -623,14 +623,25 @@ function generarProgramacion(fechaISO) {
   const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && t.fechaProg === fechaISO);
   if (!items.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
 
-  let out = `🗓️ Programación técnica – ${fechaTxt}\n`;
+  // Agrupar por equipo asignado (mismo conjunto de técnicos)
+  const grupos = new Map();
   items.forEach(t => {
-    out += `\n📍 ${t.cliente || 'Sin cliente'}\n`;
-    if (t.desc) out += `📝 ${t.desc}\n`;
-    out += `🔧 ${t.titulo}\n`;
-    if (t.recursos) out += `   ${t.recursos}\n`;
-    const tecnicos = (t.team||[]).map(nombreCorto).join(', ');
-    out += `👷 ${tecnicos || 'Sin asignar'}\n`;
+    const team = (t.team||[]).slice().sort();
+    const key = team.join(',');
+    if (!grupos.has(key)) grupos.set(key, { team, tasks: [] });
+    grupos.get(key).tasks.push(t);
+  });
+
+  let out = `🗓️ Programación técnica – ${fechaTxt}\n`;
+  grupos.forEach(g => {
+    const tecnicos = g.team.map(nombreCorto).join(', ');
+    out += `\n👷 ${tecnicos || 'Sin asignar'}\n`;
+    g.tasks.forEach(t => {
+      out += `📍 ${t.cliente || 'Sin cliente'}\n`;
+      if (t.desc) out += `📝 ${t.desc}\n`;
+      out += `🔧 ${t.titulo}\n`;
+      if (t.recursos) out += `   ${t.recursos}\n`;
+    });
   });
   return out.trim();
 }
