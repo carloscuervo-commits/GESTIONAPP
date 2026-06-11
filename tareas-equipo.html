@@ -453,7 +453,7 @@ function apiToTask(r) {
   try { seguimientoHistorial = r.seguimiento_historial ? JSON.parse(r.seguimiento_historial) : []; } catch { seguimientoHistorial = []; }
   return {
     id: r.id, titulo: r.titulo, desc: r.descripcion, area: r.area, estado: r.estado,
-    cliente: r.cliente, fechaProg: (r.fecha_programacion && r.fecha_programacion !== '0000-00-00') ? r.fecha_programacion : '', fecha: r.fecha_limite,
+    cliente: r.cliente, fechaProg: (r.fecha_programacion && r.fecha_programacion !== '0000-00-00') ? r.fecha_programacion : '', fecha: (r.fecha_limite && r.fecha_limite !== '0000-00-00') ? r.fecha_limite : '',
     tiempo: r.tiempo_estimado, tiempoReal: r.tiempo_real, recursos: r.recursos,
     notas: r.notas, reporte: r.reporte, factura: r.factura, team: r.team || [],
     createdAt: r.creado_en, updatedAt: r.actualizado_en,
@@ -750,8 +750,9 @@ function taskCard(t) {
   const team      = t.team||[];
   const segColor = { 'sin-seguimiento':'#94a3b8', 'pendiente':'#ef4444', 'al-dia':'#10b981' }[alertaSeg?.tipo] || ac;
   const segBg    = { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
-  const borderColor = alerta ? '#ef4444' : alertaSeg ? segColor : ac;
-  const bgAlert     = alerta ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
+  const sinProgramar = ['it','if'].includes(t.area) && t.estado === 'solicitud' && !t.fechaProg;
+  const borderColor = alerta ? '#ef4444' : sinProgramar ? '#ef4444' : alertaSeg ? segColor : ac;
+  const bgAlert     = alerta ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
   const showArchivar = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
                     || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
   let segBadge = '';
@@ -768,6 +769,7 @@ function taskCard(t) {
       onclick="openModal('${t.id}')"
       style="border-left:3px solid ${borderColor};${bgAlert}">
     ${alerta ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">🚨 ${alerta} días hábiles sin facturar</div>` : ''}
+    ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${segBadge}
     <div class="task-title">${esc(t.titulo)}</div>
     <div class="task-meta">
