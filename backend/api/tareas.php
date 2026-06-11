@@ -61,17 +61,19 @@ if ($method === 'POST') {
   $now = date('Y-m-d H:i:s');
   $realizadoEn = ($d['estado'] === 'por-facturar' || $d['estado'] === 'realizado') ? $now : null;
   $enviadaEn   = ($d['estado'] === 'enviada') ? $now : null;
+  $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
 
   $stmt = $pdo->prepare("INSERT INTO tareas
     (id, titulo, descripcion, area, estado, cliente, fecha_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, factura, creado_por,
-     realizado_en, enviada_en)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     realizado_en, enviada_en, seguimiento_fecha, seguimiento_historial)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'], $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
     $d['creadoPor'] ?? null, $realizadoEn, $enviadaEn,
+    $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
   ]);
 
   if (!empty($d['team'])) {
@@ -104,16 +106,18 @@ if ($method === 'PUT') {
   $enviadaEn = $prev['enviada_en'];
   if ($estado === 'enviada' && !$enviadaEn) $enviadaEn = date('Y-m-d H:i:s');
 
+  $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
+
   $stmt = $pdo->prepare("UPDATE tareas SET
     titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, factura=?,
-    realizado_en=?, enviada_en=?
+    realizado_en=?, enviada_en=?, seguimiento_fecha=?, seguimiento_historial=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado, $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
-    $realizadoEn, $enviadaEn, $id,
+    $realizadoEn, $enviadaEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial, $id,
   ]);
 
   // Reasignar equipo
