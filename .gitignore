@@ -1,0 +1,5 @@
+# Credenciales de la base de datos - no subir al repo
+backend/config.php
+
+# Herramienta de migración inicial - ya no se necesita
+migrar-datos.html
