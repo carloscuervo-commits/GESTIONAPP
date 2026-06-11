@@ -320,6 +320,28 @@
   </div>
 </div>
 
+<!-- MODAL PROGRAMACIÓN -->
+<div class="modal-overlay" id="prog-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">
+      <span>📋 Programación técnica</span>
+      <button class="modal-close" onclick="closeProgModal()">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Fecha</label>
+      <input type="date" id="prog-fecha" onchange="renderProgPreview()">
+    </div>
+    <div class="form-group full">
+      <label>Mensaje</label>
+      <textarea id="prog-preview" readonly style="min-height:220px;font-family:inherit;font-size:13px;white-space:pre-wrap"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeProgModal()">Cerrar</button>
+      <button class="btn-save" id="btn-copiar-prog" onclick="copiarProgramacion()">📋 Copiar al portapapeles</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
@@ -568,13 +590,76 @@ function diasHabilesDesde(isoDate) {
 }
 
 function alertaFacturacion(t) {
-  if (!['it','if'].includes(t.area)) return null;
-  if (t.estado !== 'realizado') return null;
+  const enFacturacion = (['it','if'].includes(t.area) && t.estado === 'realizado')
+    || (t.area === 'admin' && t.estado === 'por-facturar');
+  if (!enFacturacion) return null;
   const dias = diasHabilesDesde(t.realizadoAt);
   if (dias > 2) return dias;
   return null;
 }
 function getMember(id) { return TEAM.find(m=>m.id===id); }
+
+// ===================== PROGRAMACIÓN TÉCNICA =====================
+function nombreCorto(id) {
+  const m = getMember(id);
+  return m ? m.name.split(' ')[0] : id;
+}
+
+function formatFechaLarga(fechaISO) {
+  if (!fechaISO) return '';
+  const d = new Date(fechaISO + 'T00:00:00');
+  const txt = d.toLocaleDateString('es-CO', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+function tomorrowISO() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+}
+
+function generarProgramacion(fechaISO) {
+  const fechaTxt = formatFechaLarga(fechaISO);
+  const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && t.fechaProg === fechaISO);
+  if (!items.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
+
+  let out = `🗓️ Programación técnica – ${fechaTxt}\n`;
+  items.forEach(t => {
+    out += `\n📍 ${t.cliente || 'Sin cliente'}\n`;
+    if (t.desc) out += `📝 ${t.desc}\n`;
+    out += `🔧 ${t.titulo}\n`;
+    if (t.recursos) out += `   ${t.recursos}\n`;
+    const tecnicos = (t.team||[]).map(nombreCorto).join(', ');
+    out += `👷 ${tecnicos || 'Sin asignar'}\n`;
+  });
+  return out.trim();
+}
+
+function openProgModal() {
+  document.getElementById('prog-fecha').value = tomorrowISO();
+  renderProgPreview();
+  document.getElementById('prog-modal').classList.add('open');
+}
+
+function closeProgModal() {
+  document.getElementById('prog-modal').classList.remove('open');
+}
+
+function renderProgPreview() {
+  const fecha = document.getElementById('prog-fecha').value;
+  document.getElementById('prog-preview').value = generarProgramacion(fecha);
+}
+
+function copiarProgramacion() {
+  const txt = document.getElementById('prog-preview').value;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('btn-copiar-prog');
+    const orig = btn.textContent;
+    btn.textContent = '✅ Copiado';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+// ===================== FIN PROGRAMACIÓN TÉCNICA =====================
 
 function avatarEl(id, size=22) {
   const m = getMember(id);
@@ -824,9 +909,10 @@ function renderDashboard() {
   const ifT  = tasks.filter(t=>t.area==='if'&&act(t));
   const comT = tasks.filter(t=>t.area==='comercial'&&act(t));
 
-  const itAlerts  = tasks.filter(t=>t.area==='it'&&alertaFacturacion(t)!==null);
-  const ifAlerts  = tasks.filter(t=>t.area==='if'&&alertaFacturacion(t)!==null);
-  const allAlerts = [...itAlerts, ...ifAlerts];
+  const itAlerts    = tasks.filter(t=>t.area==='it'&&alertaFacturacion(t)!==null);
+  const ifAlerts    = tasks.filter(t=>t.area==='if'&&alertaFacturacion(t)!==null);
+  const adminAlerts = tasks.filter(t=>t.area==='admin'&&alertaFacturacion(t)!==null);
+  const allAlerts   = [...itAlerts, ...ifAlerts, ...adminAlerts];
 
   const comPorCotizar   = comT.filter(t=>t.estado==='por-cotizar').length;
   const comEnviada      = comT.filter(t=>t.estado==='enviada').length;
@@ -840,7 +926,10 @@ function renderDashboard() {
   const today = new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
   let html = `<div style="max-width:960px">
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;text-transform:capitalize">${today}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--text-muted);text-transform:capitalize">${today}</div>
+      <button class="btn-save" onclick="openProgModal()" style="font-size:12px;padding:7px 14px">📋 Copiar programación</button>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
       ${dashAreaCard('💻','IT','#6366f1','it',
         itT.filter(t=>t.estado==='solicitud').length,
