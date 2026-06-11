@@ -453,7 +453,7 @@ function apiToTask(r) {
   try { seguimientoHistorial = r.seguimiento_historial ? JSON.parse(r.seguimiento_historial) : []; } catch { seguimientoHistorial = []; }
   return {
     id: r.id, titulo: r.titulo, desc: r.descripcion, area: r.area, estado: r.estado,
-    cliente: r.cliente, fechaProg: r.fecha_programacion, fecha: r.fecha_limite,
+    cliente: r.cliente, fechaProg: (r.fecha_programacion && r.fecha_programacion !== '0000-00-00') ? r.fecha_programacion : '', fecha: r.fecha_limite,
     tiempo: r.tiempo_estimado, tiempoReal: r.tiempo_real, recursos: r.recursos,
     notas: r.notas, reporte: r.reporte, factura: r.factura, team: r.team || [],
     createdAt: r.creado_en, updatedAt: r.actualizado_en,
@@ -880,15 +880,16 @@ function dashMetric(label, value, color, highlight=false, area='', estado='') {
   </div>`;
 }
 
-function dashAreaCard(icon, title, color, areaKey, sol, prog, real, alertCount) {
+function dashAreaCard(icon, title, color, areaKey, solSinProg, solProg, ejec, real, alertCount) {
   return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)">
     <div onclick="goToArea('${areaKey}','')" style="font-weight:700;font-size:15px;color:${color};margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
       <span>${icon} ${title} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">→ ver todo</span></span>
       ${alertCount>0?`<span style="font-size:11px;font-weight:700;color:#ef4444;background:#fee2e2;padding:3px 9px;border-radius:99px">🚨 ${alertCount} sin facturar</span>`:''}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${dashMetric('Solicitudes', sol, '#94a3b8', false, areaKey, 'solicitud')}
-      ${dashMetric('Programadas', prog, '#0891b2', false, areaKey, 'programado')}
+      ${dashMetric('Sin programar', solSinProg, '#94a3b8', false, areaKey, 'solicitud')}
+      ${dashMetric('Programadas', solProg, '#0891b2', false, areaKey, 'solicitud')}
+      ${dashMetric('En ejecución', ejec, '#6366f1', false, areaKey, 'programado')}
       ${dashMetric('Realizadas', real, '#ef4444', real>0, areaKey, 'realizado')}
     </div>
   </div>`;
@@ -932,12 +933,14 @@ function renderDashboard() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
       ${dashAreaCard('💻','IT','#6366f1','it',
-        itT.filter(t=>t.estado==='solicitud').length,
+        itT.filter(t=>t.estado==='solicitud'&&!t.fechaProg).length,
+        itT.filter(t=>t.estado==='solicitud'&&t.fechaProg).length,
         itT.filter(t=>t.estado==='programado').length,
         itT.filter(t=>t.estado==='realizado').length,
         itAlerts.length)}
       ${dashAreaCard('🏗️','IF','#f97316','if',
-        ifT.filter(t=>t.estado==='solicitud').length,
+        ifT.filter(t=>t.estado==='solicitud'&&!t.fechaProg).length,
+        ifT.filter(t=>t.estado==='solicitud'&&t.fechaProg).length,
         ifT.filter(t=>t.estado==='programado').length,
         ifT.filter(t=>t.estado==='realizado').length,
         ifAlerts.length)}
