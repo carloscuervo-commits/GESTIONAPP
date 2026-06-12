@@ -403,6 +403,14 @@
         <label>Notas / Bloqueantes</label>
         <textarea id="f-notas" placeholder="Dependencias, bloqueos, comentarios..." style="min-height:55px"></textarea>
       </div>
+      <div class="form-group full" id="grp-labor-admin">
+        <label>🗂 Labor del área administrativa</label>
+        <textarea id="f-labor-admin" placeholder="Si esta tarea requiere apoyo de Administrativo, descríbelo aquí (se creará una tarjeta automática en Administrativo)" style="min-height:55px"></textarea>
+      </div>
+      <div class="form-group full" id="grp-solicitud-comercial">
+        <label>💼 Solicitud para área comercial (cotización)</label>
+        <textarea id="f-solicitud-comercial" placeholder="Si esta tarea requiere una cotización de Comercial, descríbelo aquí (se creará una tarjeta 'Por cotizar' en Comercial)" style="min-height:55px"></textarea>
+      </div>
       <div class="form-group full" id="grupo-reporte" style="display:none">
         <label>📝 Reporte del servicio *</label>
         <textarea id="f-reporte" placeholder="Describe el trabajo realizado, novedades, materiales usados... (también puedes indicar que se adjuntó PDF o fotos)" style="min-height:80px"></textarea>
@@ -445,6 +453,8 @@ function taskToApi(t) {
     tiempoReal: t.tiempoReal, recursos: t.recursos, notas: t.notas,
     reporte: t.reporte, factura: t.factura, team: t.team || [],
     seguimientoFecha: t.seguimientoFecha || null, seguimientoHistorial: t.seguimientoHistorial || [],
+    laborAdmin: t.laborAdmin || '', solicitudComercial: t.solicitudComercial || '',
+    adminTaskId: t.adminTaskId || null, comercialTaskId: t.comercialTaskId || null,
   };
 }
 
@@ -459,6 +469,8 @@ function apiToTask(r) {
     createdAt: r.creado_en, updatedAt: r.actualizado_en,
     realizadoAt: r.realizado_en, enviadaAt: r.enviada_en,
     seguimientoFecha: r.seguimiento_fecha, seguimientoHistorial,
+    laborAdmin: r.solicitud_admin || '', solicitudComercial: r.solicitud_comercial || '',
+    adminTaskId: r.admin_tarea_id || null, comercialTaskId: r.comercial_tarea_id || null,
   };
 }
 
@@ -621,7 +633,8 @@ function tomorrowISO() {
 function generarProgramacion(fechaISO) {
   const fechaTxt = formatFechaLarga(fechaISO);
   const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && t.fechaProg === fechaISO);
-  if (!items.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
+  const adminItems = tasks.filter(t => ['it','if'].includes(t.area) && t.fechaProg === fechaISO && (t.laborAdmin||'').trim());
+  if (!items.length && !adminItems.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
 
   // Agrupar por equipo asignado (mismo conjunto de técnicos)
   const grupos = new Map();
@@ -643,6 +656,16 @@ function generarProgramacion(fechaISO) {
       if (t.recursos) out += `   ${t.recursos}\n`;
     });
   });
+
+  if (adminItems.length) {
+    out += `\n👷 Administrativo\n`;
+    adminItems.forEach(t => {
+      out += `📍 ${t.cliente || 'Sin cliente'}\n`;
+      out += `🔧 ${t.titulo}\n`;
+      out += `🗂 ${t.laborAdmin}\n`;
+    });
+  }
+
   return out.trim();
 }
 
@@ -1109,6 +1132,11 @@ function updateFormForArea() {
     const el = document.getElementById(id);
     if (el) el.style.display = area==='comercial' ? 'none' : '';
   });
+  const itIf = ['it','if'].includes(area);
+  ['grp-labor-admin','grp-solicitud-comercial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = itIf ? '' : 'none';
+  });
   updateEstadoOptions();
 }
 
@@ -1133,6 +1161,8 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-notas').value=t?.notas||'';
   document.getElementById('f-reporte').value=t?.reporte||'';
   document.getElementById('f-factura').value=t?.factura||'';
+  document.getElementById('f-labor-admin').value=t?.laborAdmin||'';
+  document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
   toggleFacturaField(defaultEstado);
   renderSeguimientoSection(t, defaultEstado);
   buildTeamPicker(t?.team||[]);
@@ -1218,6 +1248,9 @@ function saveTask() {
     }
   }
 
+  const laborAdmin = ['it','if'].includes(area) ? document.getElementById('f-labor-admin').value.trim() : '';
+  const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
+
   const task={
     id: editingId||uid(), titulo,
     desc: document.getElementById('f-desc').value.trim(),
@@ -1238,11 +1271,81 @@ function saveTask() {
     realizadoAt: estado==='realizado' ? (prev?.realizadoAt || now) : prev?.realizadoAt || null,
     enviadaAt: estado==='enviada' ? (prev?.enviadaAt || now) : prev?.enviadaAt || null,
     seguimientoFecha, seguimientoHistorial,
+    laborAdmin, solicitudComercial,
+    adminTaskId: prev?.adminTaskId || null,
+    comercialTaskId: prev?.comercialTaskId || null,
   };
+
+  const extraTasks = [];
+
+  // Auto-crear tarjeta en Administrativo si se llenó "Labor del área administrativa" por primera vez
+  if (laborAdmin && !prev?.adminTaskId) {
+    const adminTask = {
+      id: uid(),
+      titulo: `APOYO OPERATIVO: ${task.titulo}`,
+      desc: `Solicitud generada desde la tarjeta "${task.titulo}"${task.cliente?` (cliente: ${task.cliente})`:''}.\n\nLabor solicitada:\n${laborAdmin}`,
+      team: [],
+      area: 'admin',
+      estado: 'pendiente',
+      cliente: task.cliente,
+      fechaProg: task.fechaProg,
+      fecha: '',
+      tiempo: '',
+      tiempoReal: '',
+      recursos: '',
+      notas: '',
+      reporte: '',
+      factura: '',
+      updatedAt: now,
+      createdAt: now,
+      realizadoAt: null,
+      enviadaAt: null,
+      seguimientoFecha: null,
+      seguimientoHistorial: [],
+      laborAdmin: '', solicitudComercial: '',
+      adminTaskId: null, comercialTaskId: null,
+    };
+    extraTasks.push(adminTask);
+    task.adminTaskId = adminTask.id;
+  }
+
+  // Auto-crear tarjeta "Por cotizar" en Comercial si se llenó "Solicitud comercial" por primera vez
+  if (solicitudComercial && !prev?.comercialTaskId) {
+    const comercialTask = {
+      id: uid(),
+      titulo: `COTIZACION OPERATIVO: ${task.titulo}`,
+      desc: `Solicitud de cotización generada desde la tarjeta "${task.titulo}"${task.cliente?` (cliente: ${task.cliente})`:''}.\n\nDetalle:\n${solicitudComercial}`,
+      team: [],
+      area: 'comercial',
+      estado: 'por-cotizar',
+      cliente: task.cliente,
+      fechaProg: '',
+      fecha: '',
+      tiempo: '',
+      tiempoReal: '',
+      recursos: '',
+      notas: '',
+      reporte: '',
+      factura: '',
+      updatedAt: now,
+      createdAt: now,
+      realizadoAt: null,
+      enviadaAt: null,
+      seguimientoFecha: null,
+      seguimientoHistorial: [],
+      laborAdmin: '', solicitudComercial: '',
+      adminTaskId: null, comercialTaskId: null,
+    };
+    extraTasks.push(comercialTask);
+    task.comercialTaskId = comercialTask.id;
+  }
+
   const isNew = !editingId;
   tasks=editingId?tasks.map(t=>t.id===editingId?task:t):[task,...tasks];
+  if (extraTasks.length) tasks = [...extraTasks, ...tasks];
   save(); closeModal(); render();
   syncTask(task, isNew);
+  extraTasks.forEach(et => syncTask(et, true));
 }
 
 function deleteTask() {

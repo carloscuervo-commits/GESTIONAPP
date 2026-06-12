@@ -66,14 +66,17 @@ if ($method === 'POST') {
   $stmt = $pdo->prepare("INSERT INTO tareas
     (id, titulo, descripcion, area, estado, cliente, fecha_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, factura, creado_por,
-     realizado_en, enviada_en, seguimiento_fecha, seguimiento_historial)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     realizado_en, enviada_en, seguimiento_fecha, seguimiento_historial,
+     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'], $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
     $d['creadoPor'] ?? null, $realizadoEn, $enviadaEn,
     $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
+    $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null,
   ]);
 
   if (!empty($d['team'])) {
@@ -111,13 +114,16 @@ if ($method === 'PUT') {
   $stmt = $pdo->prepare("UPDATE tareas SET
     titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, factura=?,
-    realizado_en=?, enviada_en=?, seguimiento_fecha=?, seguimiento_historial=?
+    realizado_en=?, enviada_en=?, seguimiento_fecha=?, seguimiento_historial=?,
+    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado, $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
-    $realizadoEn, $enviadaEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial, $id,
+    $realizadoEn, $enviadaEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
+    $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $id,
   ]);
 
   // Reasignar equipo
