@@ -40,9 +40,15 @@ if (!$dueDate) {
   $dueDate = date('Y-m-d', strtotime($date . ' +8 days'));
 }
 
+// Plazo de pago en días = diferencia entre dueDate y date (mínimo 0)
+$dias = (int) round((strtotime($dueDate) - strtotime($date)) / 86400);
+if ($dias < 0) $dias = 0;
+
 $payload = [
-  'date'    => $date,
-  'dueDate' => $dueDate,
+  'date'            => $date,
+  'dueDate'         => $dueDate,
+  'paymentForm'     => 'CREDIT',
+  'termsConditions' => 'Pago a ' . $dias . ' días',
   'client'  => ['id' => $client['id']],
   'items'  => array_map(function ($it) {
     return [

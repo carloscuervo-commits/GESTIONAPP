@@ -45,5 +45,7 @@ Para tarjetas de área IT o IF solo se usan **4 ítems** del catálogo de Alegra
 
 ## Forma de pago / fecha de vencimiento
 
-- Alegra exige `dueDate` (fecha de vencimiento) al crear la factura — no la asigna automáticamente.
+- Alegra exige `dueDate` (fecha de vencimiento) y `paymentForm` al crear la factura — no los asigna automáticamente.
 - Por defecto, la app propone `dueDate = date + 8 días`. Se muestra un aviso al usuario indicando que la fecha de vencimiento se estableció a 8 días por defecto y que puede editarla en el formulario antes de crear la factura.
+- La factura se crea siempre con `paymentForm = "CREDIT"` (a crédito).
+- El plazo de pago (`termsConditions`, ej. "Pago a 8 días") se calcula automáticamente como la diferencia en días entre `dueDate` y `date`.
