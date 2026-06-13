@@ -4,6 +4,16 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
+## Estado actual (última actualización: 2026-06-12)
+
+- Último cambio desplegado: rediseño de la tarjeta de tarea para IT/IF (orden Cliente → Título → Descripción → Equipo asignado; equipo asignado con `<select>` "+ Agregar técnico..." + chips removibles; ocultos fecha límite, tiempo estimado, tiempo real, recursos y notas para IT/IF). Ver decisión #10 más abajo.
+- **Cambio pendiente de deploy**: `alertaFacturacion(t)` ahora devuelve `{dias, vencido}` (antes devolvía `días` solo si > 2, o `null`). Se muestra en el dashboard ("🚨 Realizados sin facturar") apenas la tarea IT/IF/Admin queda "por facturar" (ya no espera 3 días), con el contador de días hábiles transcurridos al lado (igual que seguimiento comercial). El plazo máximo para facturar bajó de 3 a 2 días hábiles (`vencido = dias >= 2`); al llegarlo, el renglón del dashboard y el borde/fondo de la tarjeta en kanban se pintan en rojo.
+- Deploy ya hecho y verificado en producción.
+- **Importante: el deploy ya NO se hace automáticamente.** Cuando se necesite desplegar, usar la conversación "deploy" (con `DEPLOY.md` adjunto), no hacerlo en esta conversación.
+- Pendiente conocido: tarea #14, recordatorio diario de seguimientos comerciales (ver sección "Pendientes conocidos"), aplazada por el usuario.
+- Nota de seguridad pendiente: `backend/config_alegra.php` con credenciales reales versionado en git (ver "Notas de seguridad pendientes").
+- Instrucción permanente: mantener este archivo (`CONTEXTO.md`) actualizado con cada cambio (arquitectura, convenciones, estructura, pendientes).
+
 ## Stack y versiones
 
 - **Frontend**: HTML + JavaScript vanilla, todo en un único archivo `tareas-equipo.html` (~1700 líneas). Sin frameworks, sin build step. CSS embebido en el mismo archivo.
@@ -81,6 +91,8 @@ DEPLOYPATH=/home/innovate/public_html/gestion/
 8. **IDs de tareas**: UUID generado en el frontend (`crypto.randomUUID()` o similar) o con `bin2hex(random_bytes(16))` en el backend si no viene `id`. Columna `CHAR(36)`.
 
 9. **Trazabilidad de cambios de estado**: cada cambio de `estado` en una tarea se registra en `tarea_historial` vía `registrarHistorial()` (no se registra si el estado no cambió).
+
+10. **Tarjeta de tarea simplificada para IT/IF**: el modal "Nueva Tarea"/edición tiene orden de campos fijo (Cliente → Título → Descripción → Equipo asignado → Área/Estado/...) para todas las áreas. Cuando `area` es `it` o `if`, `updateFormForArea()` oculta además `grp-fecha` (fecha límite), `grp-tiempo`, `grp-treal`, `grp-recursos` y `grp-notas` (todos con `id` asignado para poder ocultarlos). El **equipo asignado** ya no usa chips seleccionables tipo toggle: `buildTeamPicker()` ahora renderiza los miembros ya asignados como chips con botón "✕" para quitar (`toggleTeamChip`), más un `<select>` "+ Agregar técnico..." con los miembros disponibles que al elegir uno lo agrega (`addTeamMember`). Esto aplica a todas las áreas, no solo IT/IF.
 
 ## Convenciones de código
 

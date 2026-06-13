@@ -611,8 +611,7 @@ function alertaFacturacion(t) {
     || (t.area === 'admin' && t.estado === 'por-facturar');
   if (!enFacturacion) return null;
   const dias = diasHabilesDesde(t.realizadoAt);
-  if (dias > 2) return dias;
-  return null;
+  return { dias, vencido: dias >= 2 };
 }
 function getMember(id) { return TEAM.find(m=>m.id===id); }
 
@@ -805,8 +804,8 @@ function taskCard(t) {
   const segColor = { 'sin-seguimiento':'#94a3b8', 'pendiente':'#ef4444', 'al-dia':'#10b981' }[alertaSeg?.tipo] || ac;
   const segBg    = { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
   const sinProgramar = ['it','if'].includes(t.area) && t.estado === 'solicitud' && !t.fechaProg;
-  const borderColor = alerta ? '#ef4444' : sinProgramar ? '#ef4444' : alertaSeg ? segColor : ac;
-  const bgAlert     = alerta ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
+  const borderColor = (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : alertaSeg ? segColor : ac;
+  const bgAlert     = (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
   const showArchivar = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
                     || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
   let segBadge = '';
@@ -822,7 +821,7 @@ function taskCard(t) {
       ondragend="onDragEnd(event)"
       onclick="openModal('${t.id}')"
       style="border-left:3px solid ${borderColor};${bgAlert}">
-    ${alerta ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">🚨 ${alerta} días hábiles sin facturar</div>` : ''}
+    ${alerta ? `<div style="font-size:11px;font-weight:700;color:${alerta.vencido?'#ef4444':'#92400e'};margin-bottom:4px">🧾 ${alerta.dias} día${alerta.dias===1?'':'s'} hábil${alerta.dias===1?'':'es'} sin facturar</div>` : ''}
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${segBadge}
     <div class="task-title">${esc(t.titulo)}</div>
@@ -1017,15 +1016,19 @@ function renderDashboard() {
 
   if (allAlerts.length) {
     html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">🚨 Realizados sin facturar — más de 2 días hábiles</div>
+      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">🚨 Realizados sin facturar</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${allAlerts.map(t=>`
-          <div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:white;border-radius:8px;border:1px solid #fecaca;cursor:pointer;font-size:13px">
+        ${allAlerts.map(t=>{
+          const a = alertaFacturacion(t);
+          const vencido = a && a.vencido;
+          return `
+          <div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
             <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#94a3b8'}25;color:${(AREAS[t.area]||{}).color||'#94a3b8'}">${(AREAS[t.area]||{}).label||t.area}</span>
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
-            <span style="color:#ef4444;font-weight:700;font-size:12px">${diasHabilesDesde(t.realizadoAt)} días</span>
-          </div>`).join('')}
+            <span style="color:#ef4444;font-weight:700;font-size:12px">${a.dias} día${a.dias===1?'':'s'}</span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }
