@@ -1,4 +1,5 @@
 <?php
 require_once __DIR__ . '/../db.php';
 applyCors();
-jsonOut(['debug' => 'ok', 'step' => 1]);
+require_once __DIR__ . '/../config_alegra.php';
+jsonOut(['debug' => 'ok', 'step' => 2, 'email' => ALEGRA_EMAIL]);
