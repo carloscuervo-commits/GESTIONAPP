@@ -1594,10 +1594,17 @@ function renderFacturaForm() {
         <label style="font-size:11px;color:var(--text-muted)">Fecha factura</label>
         <input type="date" id="fact-fecha" value="${f.date}" style="width:100%">
       </div>
+      <div style="width:140px">
+        <label style="font-size:11px;color:var(--text-muted)">Fecha vencimiento</label>
+        <input type="date" id="fact-vencimiento" value="${f.dueDate}" style="width:100%">
+      </div>
       <div style="width:100px">
         <label style="font-size:11px;color:var(--text-muted)">CTINN</label>
         <input type="text" value="${esc(f.ctinn||'-')}" disabled style="width:100%">
       </div>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:12px">
+      ℹ️ La fecha de vencimiento se estableció por defecto a 8 días desde hoy. Si deseas cambiarla, edita el campo "Fecha vencimiento".
     </div>
     <div style="font-weight:600;font-size:13px;margin-bottom:6px">Ítems de la factura</div>
     ${itemsHtml}
@@ -1614,6 +1621,7 @@ async function crearFacturaAlegra() {
   const statusEl = document.getElementById('fact-crear-status');
   const clienteId = document.getElementById('fact-cliente-id').value.trim();
   const date = document.getElementById('fact-fecha').value;
+  const dueDate = document.getElementById('fact-vencimiento').value;
 
   if (!clienteId) { statusEl.innerHTML = '<span style="color:#ef4444">Falta el ID del cliente en Alegra.</span>'; return; }
 
@@ -1632,7 +1640,7 @@ async function crearFacturaAlegra() {
     const res = await fetch(`${API_BASE}/alegra_crear_factura.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, client: { id: Number(clienteId) || clienteId }, items }),
+      body: JSON.stringify({ date, dueDate, client: { id: Number(clienteId) || clienteId }, items }),
     });
     const data = await res.json();
     if (data.error) {
@@ -1646,6 +1654,7 @@ async function crearFacturaAlegra() {
     statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo conectar con el servidor.</span>';
   }
 }
+// ===================== FIN FACTURACION =====================
 // ===================== FIN FACTURACION =====================
 
 // Inject task if not already present (solo en modo local; en modo API los datos viven en la BD)

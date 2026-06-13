@@ -22,6 +22,7 @@ $body = jsonInput();
 $date = $body['date'] ?? null;
 $client = $body['client'] ?? null;
 $items = $body['items'] ?? null;
+$dueDate = $body['dueDate'] ?? null;
 
 if (!$date || empty($client['id']) || !is_array($items) || empty($items)) {
   jsonOut(['error' => 'Faltan datos: se requiere date, client.id e items[]'], 400);
@@ -33,9 +34,16 @@ foreach ($items as $it) {
   }
 }
 
+// La fecha de vencimiento es obligatoria para Alegra; si no se envía,
+// por defecto se usa la fecha de la factura + 8 días.
+if (!$dueDate) {
+  $dueDate = date('Y-m-d', strtotime($date . ' +8 days'));
+}
+
 $payload = [
-  'date'   => $date,
-  'client' => ['id' => $client['id']],
+  'date'    => $date,
+  'dueDate' => $dueDate,
+  'client'  => ['id' => $client['id']],
   'items'  => array_map(function ($it) {
     return [
       'id'          => (int) $it['id'],

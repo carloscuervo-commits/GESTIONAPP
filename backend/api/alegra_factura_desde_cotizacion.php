@@ -81,6 +81,7 @@ jsonOut([
   'aviso_cliente'      => $avisoCliente,
   'fecha_cotizacion'   => $datos['fecha_cotizacion'],
   'date'               => date('Y-m-d'), // fecha de la factura = hoy
+  'dueDate'            => date('Y-m-d', strtotime('+8 days')), // vencimiento por defecto: 8 días
   'items'              => $datos['items'],
   'totales_cotizacion' => [
     'subtotal' => $datos['subtotal'],
