@@ -904,7 +904,12 @@ function setArea(a) {
   if (isOther) document.getElementById('dashboard-view').style.display = 'none';
   if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
   else if (isFacturacion) { /* nada que cargar al entrar */ }
-  else render();
+  else {
+    // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
+    // un área específica mostramos el tablero kanban de esa área.
+    if (currentView === 'dashboard') { setView('kanban'); return; }
+    render();
+  }
 }
 
 function estadoLabel(area, estado) {
