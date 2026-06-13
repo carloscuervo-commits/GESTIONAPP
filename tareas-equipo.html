@@ -30,6 +30,7 @@
   <button class="area-tab" data-area="admin" onclick="setArea('admin')">📁 Administrativo <span class="tab-count" id="cnt-admin">0</span></button>
   <button class="area-tab" data-area="comercial" onclick="setArea('comercial')">💼 Comercial <span class="tab-count" id="cnt-comercial">0</span></button>
   <button class="area-tab" data-area="cartera" onclick="setArea('cartera')">💰 Cartera <span class="tab-count" id="cnt-cartera">0</span></button>
+  <button class="area-tab" data-area="facturacion" onclick="setArea('facturacion')">🧾 Facturación</button>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -69,6 +70,22 @@
     Consultando cartera en Alegra...
   </div>
   <div class="cartera-kanban" id="cartera-kanban"></div>
+</div>
+
+<!-- FACTURACION VIEW -->
+<div id="facturacion-view" style="display:none;padding:16px 20px 30px">
+  <div style="background:var(--card-bg, #fff);border:1px solid var(--border, #e5e7eb);border-radius:var(--radius);padding:20px;max-width:760px;margin:0 auto">
+    <div style="font-weight:700;font-size:15px;margin-bottom:6px">🧾 Crear factura desde cotización</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+      Sube el archivo .docx de la cotización. Se extraerán los datos según las reglas de facturación y podrás revisarlos/editarlos antes de crear la factura en Alegra.
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="fact-file-input" accept=".docx" style="font-size:13px">
+      <button class="btn-save" id="fact-procesar-btn" onclick="procesarCotizacionFile()">Procesar cotización</button>
+    </div>
+    <div id="fact-status" style="margin-top:14px;font-size:13px"></div>
+    <div id="fact-resultado" style="margin-top:18px;display:none"></div>
+  </div>
 </div>
 
 <!-- CARTERA MODAL -->
@@ -595,8 +612,10 @@ function taskCard(t) {
   const alertaSeg = alertaSeguimiento(t);
   const ac        = (AREAS[t.area]||{}).color || '#94a3b8';
   const team      = t.team||[];
-  const segColor = { 'sin-seguimiento':'#94a3b8', 'pendiente':'#ef4444', 'al-dia':'#10b981' }[alertaSeg?.tipo] || ac;
-  const segBg    = { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
+  const segColor = (alertaSeg?.tipo==='sin-seguimiento' && alertaSeg.vencido) ? '#ef4444'
+    : { 'sin-seguimiento':'#94a3b8', 'pendiente':'#ef4444', 'al-dia':'#10b981' }[alertaSeg?.tipo] || ac;
+  const segBg    = (alertaSeg?.tipo==='sin-seguimiento' && alertaSeg.vencido) ? 'background:#fff5f5;'
+    : { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
   const sinProgramar = ['it','if'].includes(t.area) && t.estado === 'solicitud' && !t.fechaProg;
   const borderColor = (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : alertaSeg ? segColor : ac;
   const bgAlert     = (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
@@ -604,7 +623,7 @@ function taskCard(t) {
                     || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
   let segBadge = '';
   if (alertaSeg?.tipo === 'sin-seguimiento') {
-    segBadge = `<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">📋 Sin seguimiento aún${alertaSeg.dias>0?` · ${alertaSeg.dias}d`:''}</div>`;
+    segBadge = `<div style="font-size:11px;font-weight:700;color:${alertaSeg.vencido?'#ef4444':'#64748b'};margin-bottom:4px">📋 ${alertaSeg.dias} día${alertaSeg.dias===1?'':'s'} sin contactar</div>`;
   } else if (alertaSeg?.tipo === 'pendiente') {
     segBadge = `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">🔔 Seguimiento pendiente (${alertaSeg.fecha})</div>`;
   } else if (alertaSeg?.tipo === 'al-dia') {
@@ -834,10 +853,11 @@ function renderDashboard() {
       <div style="display:flex;flex-direction:column;gap:6px">
         ${comSeguimiento.map(t=>{
           const a = alertaSeguimiento(t);
+          const vencido = a.tipo==='sin-seguimiento' && a.vencido;
           const tag = a.tipo==='pendiente'
             ? `<span style="color:#ef4444;font-weight:700;font-size:12px">🔔 ${a.fecha}</span>`
-            : `<span style="color:#64748b;font-weight:700;font-size:12px">📋 ${a.dias>0?a.dias+'d sin contactar':'sin seguimiento'}</span>`;
-          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:white;border-radius:8px;border:1px solid #fde68a;cursor:pointer;font-size:13px">
+            : `<span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">📋 ${a.dias} día${a.dias===1?'':'s'} sin contactar</span>`;
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fde68a'};cursor:pointer;font-size:13px">
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
             ${tag}
@@ -856,14 +876,19 @@ function setArea(a) {
   document.querySelectorAll('.area-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.area-tab[data-area="${a}"]`).classList.add('active');
   const isCartera = a === 'cartera';
-  document.getElementById('kanban-view').style.display   = isCartera ? 'none' : (currentView==='kanban'?'flex':'none');
-  document.getElementById('lista-view').style.display    = isCartera ? 'none' : (currentView==='lista'?'block':'none');
+  const isFacturacion = a === 'facturacion';
+  const isOther = isCartera || isFacturacion;
+  document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
+  document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   document.getElementById('cartera-view').style.display  = isCartera ? 'block' : 'none';
-  document.querySelector('.filters').style.display       = isCartera ? 'none' : 'flex';
-  document.getElementById('stats').style.display         = isCartera ? 'none' : 'grid';
-  document.querySelector('.view-toggle').style.display   = isCartera ? 'none' : 'flex';
-  document.querySelector('.btn-add').style.display       = isCartera ? 'none' : 'inline-flex';
+  document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
+  document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
+  document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
+  document.querySelector('.view-toggle').style.display   = isOther ? 'none' : 'flex';
+  document.querySelector('.btn-add').style.display       = isOther ? 'none' : 'inline-flex';
+  if (isOther) document.getElementById('dashboard-view').style.display = 'none';
   if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
+  else if (isFacturacion) { /* nada que cargar al entrar */ }
   else render();
 }
 
@@ -884,7 +909,7 @@ function alertaSeguimiento(t) {
   const today = new Date().toISOString().split('T')[0];
   if (!hist.length) {
     const dias = t.enviadaAt ? diasHabilesDesde(t.enviadaAt) : 0;
-    return { tipo: 'sin-seguimiento', dias };
+    return { tipo: 'sin-seguimiento', dias, vencido: dias >= 2 };
   }
   if (t.seguimientoFecha && t.seguimientoFecha <= today) {
     return { tipo: 'pendiente', fecha: t.seguimientoFecha };
@@ -1475,6 +1500,152 @@ function saveCarteraItem() {
   renderCartera();
 }
 // ===================== FIN CARTERA =====================
+
+// ===================== FACTURACION =====================
+const ALEGRA_ITEM_OPCIONES = [
+  { id: 16, label: 'IT — Mano de obra (id 16)' },
+  { id: 12, label: 'MIT — Mercancía/materiales IT (id 12)' },
+  { id: 17, label: 'IF — Mano de obra (id 17)' },
+  { id: 8,  label: 'MIF — Mercancía/materiales IF (id 8)' },
+];
+let facturaActual = null; // datos devueltos por alegra_factura_desde_cotizacion.php, editados en el formulario
+
+async function procesarCotizacionFile() {
+  const input = document.getElementById('fact-file-input');
+  const statusEl = document.getElementById('fact-status');
+  const resEl = document.getElementById('fact-resultado');
+  resEl.style.display = 'none';
+  resEl.innerHTML = '';
+
+  if (!input.files || !input.files[0]) {
+    statusEl.innerHTML = '<span style="color:#ef4444">Selecciona primero un archivo .docx</span>';
+    return;
+  }
+  if (!API_BASE) {
+    statusEl.innerHTML = '<span style="color:#ef4444">Esta función requiere conexión al servidor (no disponible en modo local).</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '⏳ Procesando cotización...';
+  try {
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    const res = await fetch(`${API_BASE}/alegra_factura_desde_cotizacion.php`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) {
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      return;
+    }
+    statusEl.innerHTML = '✅ Cotización procesada. Revisa los datos antes de crear la factura.';
+    facturaActual = data;
+    renderFacturaForm();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo conectar con el servidor.</span>';
+  }
+}
+
+function renderFacturaForm() {
+  const f = facturaActual;
+  const resEl = document.getElementById('fact-resultado');
+  resEl.style.display = 'block';
+
+  const opcionesCliente = (f.clientes_candidatos||[]).map(c =>
+    `<option value="${c.id}">${esc(c.name)} (id ${c.id})</option>`).join('');
+
+  const avisoHtml = f.aviso_cliente
+    ? `<div style="background:#fff5f5;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">⚠️ ${esc(f.aviso_cliente)}</div>`
+    : '';
+
+  const itemsHtml = f.items.map((it, idx) => `
+    <div style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <label style="font-size:11px;color:var(--text-muted)">Ítem Alegra</label>
+          <select id="fact-item-${idx}-id" style="width:100%">
+            ${ALEGRA_ITEM_OPCIONES.map(o=>`<option value="${o.id}" ${o.id===it.alegra_item_id?'selected':''}>${o.label}</option>`).join('')}
+          </select>
+        </div>
+        <div style="width:90px">
+          <label style="font-size:11px;color:var(--text-muted)">Cantidad</label>
+          <input type="number" id="fact-item-${idx}-qty" value="${it.quantity}" min="1" step="1" style="width:100%">
+        </div>
+        <div style="width:130px">
+          <label style="font-size:11px;color:var(--text-muted)">Precio (sin IVA)</label>
+          <input type="number" id="fact-item-${idx}-price" value="${it.price}" min="0" step="1" style="width:100%">
+        </div>
+      </div>
+      <label style="font-size:11px;color:var(--text-muted)">Descripción</label>
+      <textarea id="fact-item-${idx}-desc" rows="3" style="width:100%;font-size:13px">${esc(it.description)}</textarea>
+    </div>
+  `).join('');
+
+  resEl.innerHTML = `
+    ${avisoHtml}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:220px">
+        <label style="font-size:11px;color:var(--text-muted)">Cliente</label>
+        ${opcionesCliente
+          ? `<select id="fact-cliente-id" style="width:100%">${opcionesCliente}</select>`
+          : `<input type="text" id="fact-cliente-id" placeholder="ID de cliente en Alegra" style="width:100%">`}
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">En la cotización: "${esc(f.cliente_nombre_cotizacion||'-')}"</div>
+      </div>
+      <div style="width:140px">
+        <label style="font-size:11px;color:var(--text-muted)">Fecha factura</label>
+        <input type="date" id="fact-fecha" value="${f.date}" style="width:100%">
+      </div>
+      <div style="width:100px">
+        <label style="font-size:11px;color:var(--text-muted)">CTINN</label>
+        <input type="text" value="${esc(f.ctinn||'-')}" disabled style="width:100%">
+      </div>
+    </div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:6px">Ítems de la factura</div>
+    ${itemsHtml}
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+      Total cotización (referencia): ${formatCOP(f.totales_cotizacion?.total||0)}
+    </div>
+    <button class="btn-save" onclick="crearFacturaAlegra()">Crear factura en Alegra</button>
+    <div id="fact-crear-status" style="margin-top:10px;font-size:13px"></div>
+  `;
+}
+
+async function crearFacturaAlegra() {
+  const f = facturaActual;
+  const statusEl = document.getElementById('fact-crear-status');
+  const clienteId = document.getElementById('fact-cliente-id').value.trim();
+  const date = document.getElementById('fact-fecha').value;
+
+  if (!clienteId) { statusEl.innerHTML = '<span style="color:#ef4444">Falta el ID del cliente en Alegra.</span>'; return; }
+
+  const items = f.items.map((it, idx) => ({
+    id: Number(document.getElementById(`fact-item-${idx}-id`).value),
+    description: document.getElementById(`fact-item-${idx}-desc`).value,
+    quantity: Number(document.getElementById(`fact-item-${idx}-qty`).value) || 1,
+    price: Number(document.getElementById(`fact-item-${idx}-price`).value) || 0,
+    tax: [{ id: 5 }],
+  }));
+
+  if (!confirm('¿Crear esta factura en Alegra? Esta acción no se puede deshacer desde aquí.')) return;
+
+  statusEl.innerHTML = '⏳ Creando factura en Alegra...';
+  try {
+    const res = await fetch(`${API_BASE}/alegra_crear_factura.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, client: { id: Number(clienteId) || clienteId }, items }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      return;
+    }
+    statusEl.innerHTML = `✅ Factura creada en Alegra (No. ${esc(data.numberTemplate?.fullNumber || data.id || '')}).`;
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo conectar con el servidor.</span>';
+  }
+}
+// ===================== FIN FACTURACION =====================
 
 // Inject task if not already present (solo en modo local; en modo API los datos viven en la BD)
 function migrarSeedLocal(){
