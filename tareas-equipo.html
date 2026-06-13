@@ -127,6 +127,9 @@
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
   .form-group { display: flex; flex-direction: column; gap: 4px; }
   .form-group.full { grid-column: 1 / -1; }
+  .cliente-suggestions { position:absolute; top:100%; left:0; right:0; z-index:20; background:var(--bg); border:1px solid var(--border); border-radius:8px; margin-top:2px; max-height:160px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,.08); }
+  .cliente-suggestions div { padding:6px 10px; font-size:13px; cursor:pointer; }
+  .cliente-suggestions div:hover { background:var(--border); }
   label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
   input, select, textarea { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--bg); }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); background: white; }
@@ -375,9 +378,10 @@
         <label>Estado</label>
         <select id="f-est" onchange="onEstadoChange(this.value)"></select>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="position:relative">
         <label>Cliente</label>
-        <input type="text" id="f-cliente" placeholder="Nombre del cliente...">
+        <input type="text" id="f-cliente" placeholder="Nombre del cliente..." autocomplete="off" oninput="onClienteInput()" onblur="hideClienteSuggestions()">
+        <div id="cliente-suggestions" class="cliente-suggestions" style="display:none"></div>
       </div>
       <div class="form-group" id="grp-fechaprog">
         <label>Fecha de programación</label>
@@ -1153,6 +1157,9 @@ function openModal(id, preArea, preEstado) {
   const defaultEstado = preEstado || t?.estado || AREA_FLOWS[defaultArea]?.[0]?.id || 'pendiente';
   updateEstadoOptions(defaultEstado);
   document.getElementById('f-cliente').value=t?.cliente||'';
+  document.getElementById('cliente-suggestions').style.display='none';
+  clienteUltimaBusqueda = [];
+  clienteValidadoAlegra = t?.cliente ? true : null;
   document.getElementById('f-fechaprog').value=t?.fechaProg||'';
   document.getElementById('f-fecha').value=t?.fecha||'';
   document.getElementById('f-tiempo').value=t?.tiempo||'';
@@ -1169,6 +1176,53 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('modal').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),50);
 }
+
+// ===================== AUTOCOMPLETAR CLIENTE (ALEGRA) =====================
+let clienteSuggestTimer = null;
+let clienteUltimaBusqueda = [];
+let clienteValidadoAlegra = null; // true = coincide con un contacto de Alegra, null = sin verificar
+
+function onClienteInput() {
+  clienteValidadoAlegra = null;
+  const q = document.getElementById('f-cliente').value.trim();
+  const box = document.getElementById('cliente-suggestions');
+  clearTimeout(clienteSuggestTimer);
+  if (q.length < 2) { box.style.display = 'none'; return; }
+  clienteSuggestTimer = setTimeout(() => buscarClientesAlegra(q), 300);
+}
+
+async function buscarClientesAlegra(q) {
+  const box = document.getElementById('cliente-suggestions');
+  if (!API_BASE) { box.style.display = 'none'; return; }
+  try {
+    const res = await fetch(`${API_BASE}/alegra_contactos.php?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    clienteUltimaBusqueda = Array.isArray(data) ? data : [];
+    if (!clienteUltimaBusqueda.length) {
+      box.innerHTML = '<div style="color:var(--text-muted)">Sin coincidencias en Alegra</div>';
+      box.style.display = 'block';
+      return;
+    }
+    box.innerHTML = clienteUltimaBusqueda.map((c,i) => `<div onmousedown="seleccionarClienteAlegraIdx(${i})">${esc(c.name)}</div>`).join('');
+    box.style.display = 'block';
+  } catch (e) { box.style.display = 'none'; }
+}
+
+function seleccionarClienteAlegraIdx(i) {
+  const c = clienteUltimaBusqueda[i];
+  if (!c) return;
+  document.getElementById('f-cliente').value = c.name;
+  clienteValidadoAlegra = true;
+  hideClienteSuggestions();
+}
+
+function hideClienteSuggestions() {
+  setTimeout(() => {
+    const box = document.getElementById('cliente-suggestions');
+    if (box) box.style.display = 'none';
+  }, 150);
+}
+// ===================== FIN AUTOCOMPLETAR CLIENTE =====================
 
 function toggleFacturaField(estado) {
   const showReporte  = ['realizado','facturado','archivado'].includes(estado);
@@ -1246,6 +1300,13 @@ function saveTask() {
     } else {
       seguimientoFecha = null; // ya no está esperando seguimiento
     }
+  }
+
+  // Verificar cliente contra Alegra
+  const clienteVal = document.getElementById('f-cliente').value.trim();
+  if (clienteVal && clienteValidadoAlegra !== true) {
+    const match = clienteUltimaBusqueda.find(c => (c.name||'').toLowerCase() === clienteVal.toLowerCase());
+    if (!match) alert(`⚠️ El cliente "${clienteVal}" no se encontró en Alegra. La tarea se guardará igual, pero revisa el nombre si vas a facturar.`);
   }
 
   const laborAdmin = ['it','if'].includes(area) ? document.getElementById('f-labor-admin').value.trim() : '';
