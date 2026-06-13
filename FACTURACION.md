@@ -49,3 +49,11 @@ Para tarjetas de área IT o IF solo se usan **4 ítems** del catálogo de Alegra
 - Por defecto, la app propone `dueDate = date + 8 días`. Se muestra un aviso al usuario indicando que la fecha de vencimiento se estableció a 8 días por defecto y que puede editarla en el formulario antes de crear la factura.
 - La factura se crea siempre con `paymentForm = "CREDIT"` (a crédito).
 - El plazo de pago (`termsConditions`, ej. "Pago a 8 días") se calcula automáticamente como la diferencia en días entre `dueDate` y `date`.
+
+## Ciclo completo: Cotización (Comercial) → Programación (IT/IF) → Facturación
+
+1. **Comercial**: al crear/editar una tarjeta de Comercial se puede adjuntar el archivo de cotización (`.docx`) en el campo "Cotización". El archivo se guarda en `backend/uploads/cotizaciones/{id}.docx` y el nombre original queda registrado en `tareas.cotizacion_docx`.
+2. **Aprobación**: cuando una tarjeta de Comercial pasa a estado **"Aprobada ✅"**, se debe elegir a qué área operativa se mueve (IT o IF) en el selector "Mover cotización aprobada a". Al guardar, la misma tarjeta cambia de `area` (comercial → it/if) y de `estado` a **"Pendientes"** (`solicitud`), conservando el `.docx` adjunto.
+3. **Ejecución**: la tarjeta sigue el flujo normal de IT/IF (Pendientes → En ejecución → Por facturar).
+4. **Por facturar**: si la tarjeta tiene un `.docx` de cotización adjunto, aparece el botón **"🧾 Generar factura desde cotización"**. Al hacer clic, la app va a la pestaña Facturación, procesa el `.docx` ya adjunto (sin necesidad de volver a subirlo) y muestra el formulario de factura prellenado.
+5. **Facturado**: al crear la factura en Alegra exitosamente, la tarjeta pasa automáticamente a estado **"Facturado ✅"** y se guarda el número de factura generado.

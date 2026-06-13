@@ -16,15 +16,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   jsonOut(['error' => 'Método no soportado'], 405);
 }
 
-if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-  jsonOut(['error' => 'No se recibió el archivo (campo "file")'], 400);
-}
+// Permite dos orígenes para el .docx:
+// 1) archivo subido directamente (campo "file")
+// 2) "tareaId": usa la cotización ya adjuntada a esa tarea de Comercial
+$tareaId = $_POST['tareaId'] ?? null;
 
-$tmpPath = $_FILES['file']['tmp_name'];
-$nombreOriginal = $_FILES['file']['name'];
+if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
+  $tmpPath = $_FILES['file']['tmp_name'];
+  $nombreOriginal = $_FILES['file']['name'];
 
-if (!preg_match('/\.docx$/i', $nombreOriginal)) {
-  jsonOut(['error' => 'El archivo debe ser .docx'], 400);
+  if (!preg_match('/\.docx$/i', $nombreOriginal)) {
+    jsonOut(['error' => 'El archivo debe ser .docx'], 400);
+  }
+} elseif ($tareaId) {
+  $tmpPath = __DIR__ . '/../uploads/cotizaciones/' . $tareaId . '.docx';
+  if (!file_exists($tmpPath)) {
+    jsonOut(['error' => 'No hay cotización adjunta a esta tarea'], 404);
+  }
+} else {
+  jsonOut(['error' => 'No se recibió el archivo (campo "file") ni "tareaId"'], 400);
 }
 
 try {
@@ -75,6 +85,7 @@ if (!empty($datos['cliente_nombre'])) {
 
 // --- Armar respuesta ---
 jsonOut([
+  'tareaId'            => $tareaId,
   'ctinn'              => $datos['ctinn'],
   'cliente_nombre_cotizacion' => $datos['cliente_nombre'],
   'clientes_candidatos' => $clientesCandidatos,

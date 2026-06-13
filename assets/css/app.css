@@ -33,6 +33,7 @@
   .area-tab[data-area="if"].active { background: #f97316; }
   .area-tab[data-area="admin"].active { background: #10b981; }
   .area-tab[data-area="comercial"].active { background: #3b82f6; }
+  .area-tab[data-area="facturacion"].active { background: #8b5cf6; }
   .area-tab .tab-count { display: inline-block; background: rgba(0,0,0,0.15); border-radius: 99px; padding: 0 6px; font-size: 11px; margin-left: 5px; }
   .area-tab:not(.active) .tab-count { background: var(--border); color: var(--text-muted); }
 

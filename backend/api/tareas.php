@@ -67,8 +67,8 @@ if ($method === 'POST') {
     (id, titulo, descripcion, area, estado, cliente, fecha_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, factura, creado_por,
      realizado_en, enviada_en, seguimiento_fecha, seguimiento_historial,
-     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'], $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
@@ -76,7 +76,7 @@ if ($method === 'POST') {
     $d['creadoPor'] ?? null, $realizadoEn, $enviadaEn,
     $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
-    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $d['cotizacionDocx'] ?? null,
   ]);
 
   if (!empty($d['team'])) {
@@ -95,7 +95,7 @@ if ($method === 'PUT') {
   $id = $_GET['id'] ?? null;
   if (!$id) jsonOut(['error' => 'id requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT estado, realizado_en, enviada_en FROM tareas WHERE id = ?");
+  $stmt = $pdo->prepare("SELECT estado, realizado_en, enviada_en, cotizacion_docx FROM tareas WHERE id = ?");
   $stmt->execute([$id]);
   $prev = $stmt->fetch();
   if (!$prev) jsonOut(['error' => 'No encontrada'], 404);
@@ -110,12 +110,13 @@ if ($method === 'PUT') {
   if ($estado === 'enviada' && !$enviadaEn) $enviadaEn = date('Y-m-d H:i:s');
 
   $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
+  $cotizacionDocx = array_key_exists('cotizacionDocx', $d) ? $d['cotizacionDocx'] : $prev['cotizacion_docx'];
 
   $stmt = $pdo->prepare("UPDATE tareas SET
     titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, factura=?,
     realizado_en=?, enviada_en=?, seguimiento_fecha=?, seguimiento_historial=?,
-    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?
+    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado, $d['cliente'] ?? null,
@@ -123,7 +124,7 @@ if ($method === 'PUT') {
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
     $realizadoEn, $enviadaEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
-    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $id,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx, $id,
   ]);
 
   // Reasignar equipo

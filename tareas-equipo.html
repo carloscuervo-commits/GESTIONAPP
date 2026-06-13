@@ -24,8 +24,7 @@
 </div>
 
 <div class="area-tabs">
-  <button class="area-tab active" data-area="all" onclick="setArea('all')">🏢 Todas <span class="tab-count" id="cnt-all">0</span></button>
-  <button class="area-tab" data-area="it" onclick="setArea('it')">💻 IT <span class="tab-count" id="cnt-it">0</span></button>
+  <button class="area-tab active" data-area="it" onclick="setArea('it')">💻 IT <span class="tab-count" id="cnt-it">0</span></button>
   <button class="area-tab" data-area="if" onclick="setArea('if')">🏗️ IF <span class="tab-count" id="cnt-if">0</span></button>
   <button class="area-tab" data-area="admin" onclick="setArea('admin')">📁 Administrativo <span class="tab-count" id="cnt-admin">0</span></button>
   <button class="area-tab" data-area="comercial" onclick="setArea('comercial')">💼 Comercial <span class="tab-count" id="cnt-comercial">0</span></button>
@@ -227,6 +226,19 @@
         <label>💼 Solicitud para área comercial (cotización)</label>
         <textarea id="f-solicitud-comercial" placeholder="Si esta tarea requiere una cotización de Comercial, descríbelo aquí (se creará una tarjeta 'Por cotizar' en Comercial)" style="min-height:55px"></textarea>
       </div>
+      <div class="form-group full" id="grp-cotizacion-docx" style="display:none">
+        <label>📎 Cotización (.docx)</label>
+        <input type="file" id="f-cotizacion-file" accept=".docx" style="font-size:13px">
+        <div id="cotizacion-docx-info" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+      </div>
+      <div class="form-group full" id="grp-aprobar-area" style="display:none">
+        <label>✅ Mover cotización aprobada a</label>
+        <select id="f-aprobar-area">
+          <option value="it">IT (pendiente)</option>
+          <option value="if">IF (pendiente)</option>
+        </select>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Al guardar, esta tarjeta se moverá al área operativa elegida, en estado "Pendientes".</div>
+      </div>
       <div class="form-group full" id="grupo-reporte" style="display:none">
         <label>📝 Reporte del servicio *</label>
         <textarea id="f-reporte" placeholder="Describe el trabajo realizado, novedades, materiales usados... (también puedes indicar que se adjuntó PDF o fotos)" style="min-height:80px"></textarea>
@@ -271,6 +283,7 @@ function taskToApi(t) {
     seguimientoFecha: t.seguimientoFecha || null, seguimientoHistorial: t.seguimientoHistorial || [],
     laborAdmin: t.laborAdmin || '', solicitudComercial: t.solicitudComercial || '',
     adminTaskId: t.adminTaskId || null, comercialTaskId: t.comercialTaskId || null,
+    cotizacionDocx: t.cotizacionDocx || null,
   };
 }
 
@@ -287,6 +300,7 @@ function apiToTask(r) {
     seguimientoFecha: r.seguimiento_fecha, seguimientoHistorial,
     laborAdmin: r.solicitud_admin || '', solicitudComercial: r.solicitud_comercial || '',
     adminTaskId: r.admin_tarea_id || null, comercialTaskId: r.comercial_tarea_id || null,
+    cotizacionDocx: r.cotizacion_docx || null,
   };
 }
 
@@ -377,12 +391,13 @@ function updateEstadoOptions(keepValue) {
   toggleFacturaField(sel.value);
   const t = editingId ? tasks.find(x=>x.id===editingId) : null;
   renderSeguimientoSection(t, sel.value);
+  toggleAprobarAreaGroup(area, sel.value);
 }
 
 let tasks = [];
 let editingId = null;
 let currentView = 'dashboard';
-let currentArea = 'all';
+let currentArea = 'it';
 let selectedTeam = []; // ids
 
 async function load() {
@@ -575,7 +590,6 @@ function updateFilters() {
 
 function updateTabCounts() {
   const active = t => t.estado !== 'archivado';
-  document.getElementById('cnt-all').textContent = tasks.filter(active).length;
   Object.keys(AREAS).forEach(a => {
     const el = document.getElementById('cnt-'+a);
     if (el) el.textContent = tasks.filter(t=>t.area===a&&active(t)).length;
@@ -648,6 +662,7 @@ function taskCard(t) {
     ${t.recursos?`<div class="task-date">🔧 ${esc(t.recursos.slice(0,45))}${t.recursos.length>45?'...':''}</div>`:''}
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
+    ${(['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) ? `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>` : ''}
     ${showArchivar ? `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>` : ''}
   </div>`;
 }
@@ -985,6 +1000,8 @@ function updateFormForArea() {
     const el = document.getElementById(id);
     if (el) el.style.display = itIf ? '' : 'none';
   });
+  const elCot = document.getElementById('grp-cotizacion-docx');
+  if (elCot) elCot.style.display = area==='comercial' ? '' : 'none';
   updateEstadoOptions();
 }
 
@@ -1016,6 +1033,15 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
   toggleFacturaField(defaultEstado);
   renderSeguimientoSection(t, defaultEstado);
+  toggleAprobarAreaGroup(defaultArea, defaultEstado);
+  const fCotFile = document.getElementById('f-cotizacion-file');
+  if (fCotFile) fCotFile.value = '';
+  const cdInfo = document.getElementById('cotizacion-docx-info');
+  if (cdInfo) {
+    cdInfo.innerHTML = t?.cotizacionDocx
+      ? `📄 Adjunto: ${esc(t.cotizacionDocx)}${API_BASE?` · <a href="${API_BASE}/cotizacion_docx.php?id=${t.id}" target="_blank">Descargar</a>`:''}`
+      : 'Sin cotización adjunta';
+  }
   buildTeamPicker(t?.team||[]);
   document.getElementById('modal').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),50);
@@ -1079,6 +1105,12 @@ function onEstadoChange(estado) {
   toggleFacturaField(estado);
   const t = editingId ? tasks.find(x=>x.id===editingId) : null;
   renderSeguimientoSection(t, estado);
+  toggleAprobarAreaGroup(document.getElementById('f-area').value, estado);
+}
+
+function toggleAprobarAreaGroup(area, estado) {
+  const el = document.getElementById('grp-aprobar-area');
+  if (el) el.style.display = (area==='comercial' && estado==='aprobada') ? '' : 'none';
 }
 
 // Sugiere la próxima fecha de seguimiento: hoy + 3 días hábiles
@@ -1115,7 +1147,7 @@ function renderSeguimientoSection(t, estadoOverride) {
 
 function closeModal() { document.getElementById('modal').classList.remove('open'); editingId=null; selectedTeam=[]; }
 
-function saveTask() {
+async function saveTask() {
   const titulo  = document.getElementById('f-titulo').value.trim();
   const estado  = document.getElementById('f-est').value;
   const area    = document.getElementById('f-area').value;
@@ -1179,7 +1211,18 @@ function saveTask() {
     laborAdmin, solicitudComercial,
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
+    cotizacionDocx: prev?.cotizacionDocx || null,
   };
+
+  // Si una cotización de Comercial se aprueba, mover la tarjeta al área
+  // operativa (IT/IF) elegida, en estado "Pendientes"
+  if (area === 'comercial' && estado === 'aprobada') {
+    const aprobarArea = document.getElementById('f-aprobar-area');
+    if (aprobarArea && aprobarArea.value) {
+      task.area = aprobarArea.value;
+      task.estado = 'solicitud';
+    }
+  }
 
   const extraTasks = [];
 
@@ -1249,8 +1292,30 @@ function saveTask() {
   tasks=editingId?tasks.map(t=>t.id===editingId?task:t):[task,...tasks];
   if (extraTasks.length) tasks = [...extraTasks, ...tasks];
   save(); closeModal(); render();
-  syncTask(task, isNew);
+  await syncTask(task, isNew);
   extraTasks.forEach(et => syncTask(et, true));
+
+  // Subir cotización (.docx) si se seleccionó un archivo
+  const fCotFile = document.getElementById('f-cotizacion-file');
+  if (fCotFile && fCotFile.files && fCotFile.files[0] && API_BASE) {
+    try {
+      const fd = new FormData();
+      fd.append('id', task.id);
+      fd.append('file', fCotFile.files[0]);
+      const resp = await fetch(`${API_BASE}/cotizacion_docx.php`, { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (data.ok) {
+        const idx = tasks.findIndex(t=>t.id===task.id);
+        if (idx>=0) tasks[idx].cotizacionDocx = data.nombre;
+        save(); render();
+      } else {
+        alert('⚠️ No se pudo subir la cotización: ' + (data.error||'error desconocido'));
+      }
+    } catch (e) {
+      console.error('Error subiendo cotización', e);
+      alert('⚠️ No se pudo subir la cotización.');
+    }
+  }
 }
 
 function deleteTask() {
@@ -1510,6 +1575,35 @@ const ALEGRA_ITEM_OPCIONES = [
 ];
 let facturaActual = null; // datos devueltos por alegra_factura_desde_cotizacion.php, editados en el formulario
 
+async function generarFacturaDesdeTarea(id, event) {
+  if (event) event.stopPropagation();
+  if (!API_BASE) { alert('Esta función requiere conexión al servidor (no disponible en modo local).'); return; }
+
+  setArea('facturacion');
+  const statusEl = document.getElementById('fact-status');
+  const resEl = document.getElementById('fact-resultado');
+  resEl.style.display = 'none';
+  resEl.innerHTML = '';
+  statusEl.innerHTML = '⏳ Procesando cotización...';
+
+  try {
+    const fd = new FormData();
+    fd.append('tareaId', id);
+    const res = await fetch(`${API_BASE}/alegra_factura_desde_cotizacion.php`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) {
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      return;
+    }
+    statusEl.innerHTML = '✅ Cotización procesada. Revisa los datos antes de crear la factura.';
+    facturaActual = data;
+    renderFacturaForm();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo conectar con el servidor.</span>';
+  }
+}
+
 async function procesarCotizacionFile() {
   const input = document.getElementById('fact-file-input');
   const statusEl = document.getElementById('fact-status');
@@ -1598,13 +1692,18 @@ function renderFacturaForm() {
         <label style="font-size:11px;color:var(--text-muted)">Fecha vencimiento</label>
         <input type="date" id="fact-vencimiento" value="${f.dueDate}" style="width:100%">
       </div>
+      <div style="width:140px">
+        <label style="font-size:11px;color:var(--text-muted)">Fecha ejecución/entrega</label>
+        <input type="date" id="fact-ejecucion" value="${f.date}" style="width:100%">
+      </div>
       <div style="width:100px">
         <label style="font-size:11px;color:var(--text-muted)">CTINN</label>
         <input type="text" value="${esc(f.ctinn||'-')}" disabled style="width:100%">
       </div>
     </div>
     <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:12px">
-      ℹ️ La fecha de vencimiento se estableció por defecto a 8 días desde hoy. Si deseas cambiarla, edita el campo "Fecha vencimiento".
+      ℹ️ La fecha de vencimiento se estableció por defecto a 8 días desde hoy. Si deseas cambiarla, edita el campo "Fecha vencimiento".<br>
+      ℹ️ La "Fecha ejecución/entrega" se agrega automáticamente a la descripción de cada ítem.
     </div>
     <div style="font-weight:600;font-size:13px;margin-bottom:6px">Ítems de la factura</div>
     ${itemsHtml}
@@ -1622,12 +1721,19 @@ async function crearFacturaAlegra() {
   const clienteId = document.getElementById('fact-cliente-id').value.trim();
   const date = document.getElementById('fact-fecha').value;
   const dueDate = document.getElementById('fact-vencimiento').value;
+  const ejecucion = document.getElementById('fact-ejecucion').value;
 
   if (!clienteId) { statusEl.innerHTML = '<span style="color:#ef4444">Falta el ID del cliente en Alegra.</span>'; return; }
 
+  let ejecucionTexto = '';
+  if (ejecucion) {
+    const [y, m, d] = ejecucion.split('-');
+    ejecucionTexto = ` - Fecha de ejecución/entrega: ${d}/${m}/${y}`;
+  }
+
   const items = f.items.map((it, idx) => ({
     id: Number(document.getElementById(`fact-item-${idx}-id`).value),
-    description: document.getElementById(`fact-item-${idx}-desc`).value,
+    description: document.getElementById(`fact-item-${idx}-desc`).value + ejecucionTexto,
     quantity: Number(document.getElementById(`fact-item-${idx}-qty`).value) || 1,
     price: Number(document.getElementById(`fact-item-${idx}-price`).value) || 0,
     tax: [{ id: 5 }],
@@ -1648,7 +1754,22 @@ async function crearFacturaAlegra() {
       statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}${data.status?` (status ${data.status})`:''}${detalle?`<br><span style="font-size:11px">${esc(detalle)}</span>`:''}</span>`;
       return;
     }
-    statusEl.innerHTML = `✅ Factura creada en Alegra (No. ${esc(data.numberTemplate?.fullNumber || data.id || '')}).`;
+    const numeroFactura = data.numberTemplate?.fullNumber || data.id || '';
+    statusEl.innerHTML = `✅ Factura creada en Alegra (No. ${esc(numeroFactura)}).`;
+
+    // Si la factura se generó desde una tarea de IT/IF, mover la tarjeta a "Facturado"
+    if (f.tareaId) {
+      const idx = tasks.findIndex(t=>t.id===f.tareaId);
+      if (idx>=0) {
+        tasks[idx].estado = 'facturado';
+        tasks[idx].factura = String(numeroFactura);
+        if (!tasks[idx].realizadoAt) tasks[idx].realizadoAt = new Date().toISOString();
+        save();
+        statusEl.innerHTML += '<br>✅ La tarea se movió a "Facturado".';
+        await syncTask(tasks[idx], false);
+        render();
+      }
+    }
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo conectar con el servidor.</span>';
