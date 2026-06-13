@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $q = trim($_GET['q'] ?? '');
-if ($q === '' || mb_strlen($q) < 2) {
+if ($q === '' || strlen($q) < 2) {
   jsonOut([]);
 }
 
