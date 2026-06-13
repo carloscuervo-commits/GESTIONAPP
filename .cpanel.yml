@@ -5,6 +5,7 @@ deployment:
     - /bin/cp -r tareas-equipo.html $DEPLOYPATH
     - /bin/mkdir -p $DEPLOYPATH/backend/api
     - /bin/cp -r backend/db.php $DEPLOYPATH/backend/
+    - /bin/cp -r backend/config_alegra.php $DEPLOYPATH/backend/
     - /bin/cp -r backend/api/. $DEPLOYPATH/backend/api/
     - /bin/mkdir -p $DEPLOYPATH/db
     - /bin/cp -r db/. $DEPLOYPATH/db/
