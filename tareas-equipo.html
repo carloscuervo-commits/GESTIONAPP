@@ -1636,7 +1636,8 @@ async function crearFacturaAlegra() {
     });
     const data = await res.json();
     if (data.error) {
-      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      const detalle = typeof data.detalle === 'string' ? data.detalle : JSON.stringify(data.detalle);
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}${data.status?` (status ${data.status})`:''}${detalle?`<br><span style="font-size:11px">${esc(detalle)}</span>`:''}</span>`;
       return;
     }
     statusEl.innerHTML = `✅ Factura creada en Alegra (No. ${esc(data.numberTemplate?.fullNumber || data.id || '')}).`;
