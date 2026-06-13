@@ -136,11 +136,12 @@
   textarea { resize: vertical; min-height: 65px; }
 
   /* TEAM PICKER */
-  .team-picker { display: flex; flex-wrap: wrap; gap: 7px; padding: 8px 0 2px; }
-  .team-chip { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border: 1.5px solid var(--border); border-radius: 99px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-muted); background: var(--bg); transition: all .12s; user-select: none; }
-  .team-chip:hover { border-color: #a5b4fc; color: var(--text); }
-  .team-chip.selected { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 700; }
+  .team-picker { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 2px; }
+  .team-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .team-chip { display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 5px; border: 1.5px solid var(--primary); border-radius: 99px; cursor: default; font-size: 12px; font-weight: 700; color: var(--primary); background: var(--primary-light); user-select: none; }
   .team-chip .chip-avatar { width: 22px; height: 22px; border-radius: 50%; color: white; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .team-chip .chip-remove { cursor: pointer; font-size: 11px; color: var(--primary); opacity: .7; padding: 0 2px; }
+  .team-chip .chip-remove:hover { opacity: 1; }
 
   .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
   .btn-cancel { padding: 7px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; }
@@ -353,15 +354,20 @@
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="form-grid">
-      <div class="form-group full">
+      <div class="form-group full" id="grp-cliente" style="position:relative">
+        <label>Cliente</label>
+        <input type="text" id="f-cliente" placeholder="Nombre del cliente..." autocomplete="off" oninput="onClienteInput()" onblur="hideClienteSuggestions()">
+        <div id="cliente-suggestions" class="cliente-suggestions" style="display:none"></div>
+      </div>
+      <div class="form-group full" id="grp-titulo">
         <label>Título *</label>
         <input type="text" id="f-titulo" placeholder="Descripción breve de la tarea">
       </div>
-      <div class="form-group full">
+      <div class="form-group full" id="grp-desc">
         <label>Descripción</label>
         <textarea id="f-desc" placeholder="Detalles, contexto, entregables..."></textarea>
       </div>
-      <div class="form-group full">
+      <div class="form-group full" id="grp-team">
         <label>Equipo asignado</label>
         <div class="team-picker" id="team-picker"></div>
       </div>
@@ -377,11 +383,6 @@
       <div class="form-group">
         <label>Estado</label>
         <select id="f-est" onchange="onEstadoChange(this.value)"></select>
-      </div>
-      <div class="form-group" style="position:relative">
-        <label>Cliente</label>
-        <input type="text" id="f-cliente" placeholder="Nombre del cliente..." autocomplete="off" oninput="onClienteInput()" onblur="hideClienteSuggestions()">
-        <div id="cliente-suggestions" class="cliente-suggestions" style="display:none"></div>
       </div>
       <div class="form-group" id="grp-fechaprog">
         <label>Fecha de programación</label>
@@ -403,7 +404,7 @@
         <label>Recursos necesarios</label>
         <textarea id="f-recursos" placeholder="Herramientas, presupuesto, personas de apoyo, accesos..." style="min-height:55px"></textarea>
       </div>
-      <div class="form-group full">
+      <div class="form-group full" id="grp-notas">
         <label>Notas / Bloqueantes</label>
         <textarea id="f-notas" placeholder="Dependencias, bloqueos, comentarios..." style="min-height:55px"></textarea>
       </div>
@@ -709,16 +710,31 @@ function avatarEl(id, size=22) {
 function buildTeamPicker(selected=[]) {
   selectedTeam = [...selected];
   const el = document.getElementById('team-picker');
-  el.innerHTML = TEAM.map(m => `
-    <div class="team-chip ${selectedTeam.includes(m.id)?'selected':''}" data-id="${m.id}" onclick="toggleTeamChip('${m.id}')">
+  const chips = selectedTeam.map(id => {
+    const m = getMember(id);
+    if (!m) return '';
+    return `
+    <div class="team-chip" data-id="${id}">
       <div class="chip-avatar" style="background:${m.color}">${m.initials}</div>
-      <span>${m.name.split(' ')[0]} ${m.name.split(' ')[1]}</span>
-    </div>`).join('');
+      <span>${m.name.split(' ')[0]} ${m.name.split(' ')[1]||''}</span>
+      <span class="chip-remove" onclick="toggleTeamChip('${id}')" title="Quitar">✕</span>
+    </div>`;
+  }).join('');
+  const disponibles = TEAM.filter(m => !selectedTeam.includes(m.id));
+  const options = `<option value="">+ Agregar técnico...</option>` +
+    disponibles.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  el.innerHTML = `<div class="team-chips">${chips}</div>
+    <select id="team-select" onchange="addTeamMember(this.value)">${options}</select>`;
+}
+
+function addTeamMember(id) {
+  if (!id || selectedTeam.includes(id)) return;
+  selectedTeam.push(id);
+  buildTeamPicker(selectedTeam);
 }
 
 function toggleTeamChip(id) {
-  if (selectedTeam.includes(id)) selectedTeam = selectedTeam.filter(x=>x!==id);
-  else selectedTeam.push(id);
+  selectedTeam = selectedTeam.filter(x=>x!==id);
   buildTeamPicker(selectedTeam);
 }
 
@@ -1137,6 +1153,12 @@ function updateFormForArea() {
     if (el) el.style.display = area==='comercial' ? 'none' : '';
   });
   const itIf = ['it','if'].includes(area);
+  // En IT/IF se simplifica la tarjeta: solo fecha de programación, sin fecha límite,
+  // tiempo estimado/real, recursos ni notas.
+  ['grp-fecha','grp-tiempo','grp-treal','grp-recursos','grp-notas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && itIf) el.style.display = 'none';
+  });
   ['grp-labor-admin','grp-solicitud-comercial'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = itIf ? '' : 'none';
