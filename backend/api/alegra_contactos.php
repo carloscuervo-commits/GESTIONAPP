@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/db.php';
 applyCors();
 
-require_once __DIR__ . '/../config_alegra.php';
+require_once __DIR__ . '/../config/config_alegra.php';
 
 // --------------------------------------------------------------
 // GET /alegra_contactos.php?q=texto

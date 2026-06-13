@@ -3,9 +3,12 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/innovate/public_html/gestion/
     - /bin/cp -r tareas-equipo.html $DEPLOYPATH
+    - /bin/mkdir -p $DEPLOYPATH/assets/css
+    - /bin/cp -r assets/css/. $DEPLOYPATH/assets/css/
+    - /bin/mkdir -p $DEPLOYPATH/backend/lib
+    - /bin/cp -r backend/lib/. $DEPLOYPATH/backend/lib/
     - /bin/mkdir -p $DEPLOYPATH/backend/api
-    - /bin/cp -r backend/db.php $DEPLOYPATH/backend/
-    - /bin/cp -r backend/config_alegra.php $DEPLOYPATH/backend/
     - /bin/cp -r backend/api/. $DEPLOYPATH/backend/api/
+    - /bin/mkdir -p $DEPLOYPATH/backend/uploads
     - /bin/mkdir -p $DEPLOYPATH/db
     - /bin/cp -r db/. $DEPLOYPATH/db/

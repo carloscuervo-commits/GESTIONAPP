@@ -7,22 +7,37 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 ## Estado actual (última actualización: 2026-06-12)
 
 - Último cambio desplegado: rediseño de la tarjeta de tarea para IT/IF (orden Cliente → Título → Descripción → Equipo asignado; equipo asignado con `<select>` "+ Agregar técnico..." + chips removibles; ocultos fecha límite, tiempo estimado, tiempo real, recursos y notas para IT/IF). Ver decisión #10 más abajo.
-- **Cambio pendiente de deploy**: `alertaFacturacion(t)` ahora devuelve `{dias, vencido}` (antes devolvía `días` solo si > 2, o `null`). Se muestra en el dashboard ("🚨 Realizados sin facturar") apenas la tarea IT/IF/Admin queda "por facturar" (ya no espera 3 días), con el contador de días hábiles transcurridos al lado (igual que seguimiento comercial). El plazo máximo para facturar bajó de 3 a 2 días hábiles (`vencido = dias >= 2`); al llegarlo, el renglón del dashboard y el borde/fondo de la tarjeta en kanban se pintan en rojo.
+- **Cambios pendientes de deploy**:
+  1. `alertaFacturacion(t)` ahora devuelve `{dias, vencido}` (antes devolvía `días` solo si > 2, o `null`). Se muestra en el dashboard ("🚨 Realizados sin facturar") apenas la tarea IT/IF/Admin queda "por facturar" (ya no espera 3 días), con el contador de días hábiles transcurridos al lado (igual que seguimiento comercial). El plazo máximo para facturar bajó de 3 a 2 días hábiles (`vencido = dias >= 2`); al llegarlo, el renglón del dashboard y el borde/fondo de la tarjeta en kanban se pintan en rojo.
+  2. **Reorganización de carpetas (preparación para crecimiento, ver sección "Roadmap / arquitectura objetivo")**: `backend/config.php` y `backend/config_alegra.php` se movieron a `backend/config/`; `backend/db.php` se movió a `backend/lib/`. Se creó `assets/css/app.css` (CSS extraído del `<style>` embebido de `tareas-equipo.html`, que ahora lo enlaza con `<link>`). Se creó `backend/uploads/` (vacía, para futuras fotos de reportes). `.gitignore` y `.cpanel.yml` actualizados acorde. **Acción manual pendiente en el servidor antes de este deploy**: copiar el `config.php` y `config_alegra.php` actuales (en `backend/`) a `backend/config/` (con el mismo contenido/credenciales), ya que estos archivos no se suben por git/deploy.
 - Deploy ya hecho y verificado en producción.
 - **Importante: el deploy ya NO se hace automáticamente.** Cuando se necesite desplegar, usar la conversación "deploy" (con `DEPLOY.md` adjunto), no hacerlo en esta conversación.
 - Pendiente conocido: tarea #14, recordatorio diario de seguimientos comerciales (ver sección "Pendientes conocidos"), aplazada por el usuario.
-- Nota de seguridad pendiente: `backend/config_alegra.php` con credenciales reales versionado en git (ver "Notas de seguridad pendientes").
+- Nota de seguridad resuelta en código (pendiente de deploy + acción manual en servidor): `backend/config_alegra.php` ya no se sube a git ni se copia por deploy (ver punto 2 arriba y "Notas de seguridad pendientes").
 - Instrucción permanente: mantener este archivo (`CONTEXTO.md`) actualizado con cada cambio (arquitectura, convenciones, estructura, pendientes).
+
+## Roadmap / arquitectura objetivo
+
+La app va a crecer para cubrir gestión integral de la empresa: reportes de visitas técnicas con fotos, comunicación con clientes/técnicos por correo y WhatsApp, y manejo de usuarios con login por técnico. Decisiones para cuando se construya cada pieza (aún no implementadas):
+
+- **Frontend modular**: migrar `tareas-equipo.html` de un único `<script>` a `<script type="module">` dividido por dominio (`assets/js/core.js`, `auth.js`, `tareas.js`, `reportes.js`, `comunicaciones.js`, `usuarios.js`), sin build step. El HTML queda como shell. (CSS ya se extrajo a `assets/css/app.css` como primer paso.)
+- **Backend por dominio dentro de `api/`**: `api/auth/` (login.php, logout.php, me.php), `api/reportes.php` (reportes de visita + fotos), `api/comunicaciones.php` (cola de envío email/WhatsApp), además de los existentes.
+- **`backend/lib/`**: además de `db.php`, irán `auth.php` (helper `requireAuth($roles)`), `MailService.php`, `WhatsAppService.php`, `AlegraService.php`, `PdfService.php`.
+- **`backend/config/`**: además de `config.php` y `config_alegra.php`, irán `config_mail.php` y `config_whatsapp.php` — todos gitignored, creados manualmente en el servidor.
+- **Autenticación**: sesiones PHP + `password_hash`/`password_verify`, tabla `usuarios` con columna `password_hash` y `rol` (admin/tecnico/comercial/admin_if). Pantalla de login en el frontend.
+- **Fotos / reportes de visita**: tabla `reportes_visita` + `reporte_fotos`, archivos en `backend/uploads/reportes/<año>/<mes>/`, PDF con `dompdf` (primer uso de Composer en el proyecto).
+- **Mensajería**: tabla `mensajes_salientes` (cola con destinatario, canal, plantilla, payload, estado, intentos) + cron que procesa — empezar con la tarea #14 (recordatorio de seguimientos) como caso piloto.
+- **Orden sugerido de implementación**: 1) usuarios/login, 2) reportes de visita con fotos, 3) email/WhatsApp (piloto tarea #14).
 
 ## Stack y versiones
 
-- **Frontend**: HTML + JavaScript vanilla, todo en un único archivo `tareas-equipo.html` (~1700 líneas). Sin frameworks, sin build step. CSS embebido en el mismo archivo.
+- **Frontend**: HTML + JavaScript vanilla, todo en un único archivo `tareas-equipo.html` (~1500 líneas tras extraer el CSS). Sin frameworks, sin build step. CSS en `assets/css/app.css`, enlazado con `<link>`.
 - **Backend**: PHP plano (sin frameworks), expuesto como endpoints REST sencillos bajo `backend/api/`.
 - **Base de datos**: MySQL (InnoDB, charset `utf8mb4`), acceso vía PDO.
 - **Hosting**: cPanel (`grupoinnovate.com`), cuenta `innovate`.
 - **Control de versiones / deploy**: GitHub (`carloscuervo-commits/GESTIONAPP`) + cPanel **Git™ Version Control**, que hace `pull` y ejecuta `.cpanel.yml` para copiar archivos a producción.
 - **Integración externa**: API REST de Alegra (`https://api.alegra.com/api/v1/...`), autenticación Basic Auth (base64 `email:token`).
-- **Zona horaria**: `America/Bogota` (definida en `backend/config.php`).
+- **Zona horaria**: `America/Bogota` (definida en `backend/config/config.php`).
 
 No hay `package.json`, `composer.json` ni gestor de dependencias — todo es código directo.
 
@@ -31,13 +46,19 @@ No hay `package.json`, `composer.json` ni gestor de dependencias — todo es có
 ```
 GESTIONAPP/
 ├── .cpanel.yml                  # Script de deploy: qué archivos se copian a producción y a dónde
-├── .gitignore                   # Ignora backend/config.php y migrar-datos.html
-├── tareas-equipo.html           # Frontend completo (HTML+CSS+JS, SPA de una sola página)
+├── .gitignore                   # Ignora backend/config/*.php, migrar-datos.html y backend/uploads/*
+├── tareas-equipo.html           # Frontend (HTML+JS, SPA de una sola página). CSS vive en assets/css/app.css
 ├── migrar-datos.html            # Herramienta de migración inicial (ya no se usa, ignorada en git)
+├── assets/
+│   └── css/
+│       └── app.css              # CSS extraído de tareas-equipo.html
 ├── backend/
-│   ├── config.php               # Credenciales de BD (NO está en git, debe crearse manualmente en el servidor)
-│   ├── config_alegra.php        # Credenciales API de Alegra (define ALEGRA_EMAIL / ALEGRA_TOKEN)
-│   ├── db.php                   # Helpers comunes: getDB(), jsonOut(), jsonInput(), applyCors()
+│   ├── config/
+│   │   ├── config.php           # Credenciales de BD (NO está en git, debe crearse manualmente en el servidor)
+│   │   └── config_alegra.php    # Credenciales API de Alegra (NO está en git, debe crearse manualmente en el servidor)
+│   ├── lib/
+│   │   └── db.php                # Helpers comunes: getDB(), jsonOut(), jsonInput(), applyCors()
+│   ├── uploads/                   # Archivos subidos por la app (fotos de reportes, etc.) — gitignored
 │   ├── migracion_admin_comercial.sql
 │   └── api/
 │       ├── tareas.php           # CRUD de tareas (GET/POST/PUT/DELETE)
@@ -48,18 +69,21 @@ GESTIONAPP/
     └── 002_seguimiento.sql      # Migración: columnas seguimiento_fecha y seguimiento_historial
 ```
 
+Ver sección "Roadmap / arquitectura objetivo" para la estructura destino conforme se agreguen autenticación, reportes y mensajería.
+
 ### `.cpanel.yml` — qué se despliega
 
 ```yaml
 DEPLOYPATH=/home/innovate/public_html/gestion/
 - tareas-equipo.html          -> DEPLOYPATH
-- backend/db.php              -> DEPLOYPATH/backend/
-- backend/config_alegra.php   -> DEPLOYPATH/backend/
+- assets/css/*                 -> DEPLOYPATH/assets/css/
+- backend/lib/*                -> DEPLOYPATH/backend/lib/
 - backend/api/*                -> DEPLOYPATH/backend/api/
+- (mkdir) backend/uploads/      -> DEPLOYPATH/backend/uploads/
 - db/*                          -> DEPLOYPATH/db/
 ```
 
-⚠️ `backend/config.php` **no** se copia por deploy (está en `.gitignore` y no existe en el repo); debe existir manualmente en el servidor con las credenciales reales de la BD. Cualquier archivo nuevo de backend que se necesite en producción debe agregarse explícitamente aquí, o el deploy "tendrá éxito" pero el archivo no llegará al servidor.
+⚠️ `backend/config/config.php` y `backend/config/config_alegra.php` **no** se copian por deploy (están en `.gitignore` y no existen en el repo); deben existir manualmente en el servidor con las credenciales reales (BD y Alegra respectivamente). Cualquier archivo nuevo de backend que se necesite en producción debe agregarse explícitamente aquí, o el deploy "tendrá éxito" pero el archivo no llegará al servidor.
 
 ## Decisiones de arquitectura
 
@@ -86,7 +110,7 @@ DEPLOYPATH=/home/innovate/public_html/gestion/
 
 6. **Integración Alegra como autocomplete, no como sincronización**: `alegra_contactos.php` es un proxy delgado que consulta `GET /contacts?name=...` en Alegra y devuelve `[{id, name}, ...]` simplificado. Se usa solo para sugerir nombres de cliente al escribir (mínimo 2 caracteres) — no hay sincronización bidireccional ni almacenamiento de IDs de Alegra en la BD todavía.
 
-7. **Helpers backend centralizados en `db.php`**: `applyCors()` (CORS abierto `*` + maneja `OPTIONS`), `jsonOut($data, $code)` (responde JSON y `exit`), `jsonInput()` (lee body JSON), `getDB()` (PDO singleton con `ERRMODE_EXCEPTION`, `FETCH_ASSOC`, `EMULATE_PREPARES=false`). Todos los endpoints nuevos deben `require_once __DIR__ . '/../db.php'` y empezar con `applyCors()`.
+7. **Helpers backend centralizados en `backend/lib/db.php`**: `applyCors()` (CORS abierto `*` + maneja `OPTIONS`), `jsonOut($data, $code)` (responde JSON y `exit`), `jsonInput()` (lee body JSON), `getDB()` (PDO singleton con `ERRMODE_EXCEPTION`, `FETCH_ASSOC`, `EMULATE_PREPARES=false`). Todos los endpoints nuevos deben `require_once __DIR__ . '/../lib/db.php'` y empezar con `applyCors()`. Configs sensibles (`config.php`, `config_alegra.php`, y los que se agreguen como `config_mail.php`/`config_whatsapp.php`) viven en `backend/config/`, gitignored.
 
 8. **IDs de tareas**: UUID generado en el frontend (`crypto.randomUUID()` o similar) o con `bin2hex(random_bytes(16))` en el backend si no viene `id`. Columna `CHAR(36)`.
 
@@ -122,7 +146,7 @@ DEPLOYPATH=/home/innovate/public_html/gestion/
 
 ## Notas de seguridad pendientes
 
-- `backend/config_alegra.php` contiene credenciales reales de Alegra (`ALEGRA_EMAIL`, `ALEGRA_TOKEN`) y **está versionado en git** (no está en `.gitignore`). Idealmente debería tratarse igual que `backend/config.php` (ignorado, creado manualmente en el servidor). Pendiente de resolver.
+- `config_alegra.php` (ahora en `backend/config/`) contiene credenciales reales de Alegra (`ALEGRA_EMAIL`, `ALEGRA_TOKEN`). Ya se agregó a `.gitignore` y se quitó del `.cpanel.yml`, igual que `config.php`. **Pendiente**: (1) hacer el deploy de la reorganización de carpetas, creando antes manualmente `backend/config/config.php` y `backend/config/config_alegra.php` en el servidor con las credenciales reales; (2) idealmente rotar el token de Alegra, ya que quedó expuesto en el historial de git de versiones anteriores.
 
 ## Pendientes conocidos
 

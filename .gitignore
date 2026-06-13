@@ -1,5 +1,11 @@
-# Credenciales de la base de datos - no subir al repo
-backend/config.php
+# Credenciales y configuración sensible - no subir al repo
+# (deben crearse manualmente en el servidor)
+backend/config/config.php
+backend/config/config_alegra.php
 
 # Herramienta de migración inicial - ya no se necesita
 migrar-datos.html
+
+# Fotos y archivos subidos por la app (reportes de visita, etc.)
+backend/uploads/*
+!backend/uploads/.gitkeep
