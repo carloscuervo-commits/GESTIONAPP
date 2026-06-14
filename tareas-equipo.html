@@ -181,19 +181,6 @@
         <label>Equipo asignado</label>
         <div class="team-picker" id="team-picker"></div>
       </div>
-      <div class="form-group">
-        <label>Área</label>
-        <select id="f-area" onchange="updateFormForArea()">
-          <option value="it">IT</option>
-          <option value="if">IF</option>
-          <option value="admin">Administrativo</option>
-          <option value="comercial">Comercial</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Estado</label>
-        <select id="f-est" onchange="onEstadoChange(this.value)"></select>
-      </div>
       <div class="form-group" id="grp-fechaprog">
         <label>Fecha de programación</label>
         <input type="date" id="f-fechaprog">
@@ -255,6 +242,19 @@
           <label style="margin:0;white-space:nowrap">Próximo seguimiento:</label>
           <input type="date" id="f-seg-fecha" style="flex:0 0 auto">
         </div>
+      </div>
+      <div class="form-group" id="grp-area">
+        <label>Área</label>
+        <select id="f-area" onchange="updateFormForArea()">
+          <option value="it">IT</option>
+          <option value="if">IF</option>
+          <option value="admin">Administrativo</option>
+          <option value="comercial">Comercial</option>
+        </select>
+      </div>
+      <div class="form-group" id="grp-estado">
+        <label>Estado</label>
+        <select id="f-est" onchange="onEstadoChange(this.value)"></select>
       </div>
     </div>
     <div class="modal-actions">
@@ -1007,6 +1007,8 @@ function updateFormForArea() {
   });
   const elCot = document.getElementById('grp-cotizacion-docx');
   if (elCot) elCot.style.display = area==='comercial' ? '' : 'none';
+  const elTeam = document.getElementById('grp-team');
+  if (elTeam) elTeam.style.display = area==='comercial' ? 'none' : '';
   updateEstadoOptions();
 }
 
