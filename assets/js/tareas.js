@@ -557,6 +557,14 @@ function openModal(id, preArea, preEstado) {
       ? `📄 Adjunto: ${esc(t.cotizacionDocx)}${API_BASE?` · <a href="${API_BASE}/cotizacion_docx.php?id=${t.id}" target="_blank">Descargar</a>`:''}`
       : 'Sin cotización adjunta';
   }
+  const fRepFile = document.getElementById('f-reporte-file');
+  if (fRepFile) fRepFile.value = '';
+  const raInfo = document.getElementById('reporte-archivo-info');
+  if (raInfo) {
+    raInfo.innerHTML = t?.reporteArchivo
+      ? `📄 Adjunto: ${esc(t.reporteArchivo)}${API_BASE?` · <a href="${API_BASE}/reporte_archivo.php?id=${t.id}" target="_blank">Descargar</a>`:''}`
+      : 'Sin archivo adjunto';
+  }
   buildTeamPicker(t?.team||[]);
   document.getElementById('modal').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),50);
@@ -610,7 +618,7 @@ function hideClienteSuggestions() {
 // ===================== FIN AUTOCOMPLETAR CLIENTE =====================
 
 function toggleFacturaField(estado) {
-  const showReporte  = ['realizado','facturado','archivado'].includes(estado);
+  const showReporte  = ['programado','realizado','facturado','archivado'].includes(estado);
   const showFactura  = ['facturado','archivado','por-facturar'].includes(estado);
   document.getElementById('grupo-reporte').style.display  = showReporte  ? 'flex' : 'none';
   document.getElementById('grupo-factura').style.display  = showFactura  ? 'flex' : 'none';
@@ -664,12 +672,26 @@ function closeModal() { document.getElementById('modal').classList.remove('open'
 
 async function saveTask() {
   const titulo  = document.getElementById('f-titulo').value.trim();
-  const estado  = document.getElementById('f-est').value;
+  let estado    = document.getElementById('f-est').value;
   const area    = document.getElementById('f-area').value;
   const fechaProg = document.getElementById('f-fechaprog').value;
   const reporte = document.getElementById('f-reporte').value.trim();
   const factura = document.getElementById('f-factura').value.trim();
   if (!titulo) { alert('El título es obligatorio'); return; }
+
+  // Si una tarjeta operativa "En ejecución" recibe el reporte del servicio
+  // (texto y/o archivo adjunto), preguntar si se quiere mover a "Por facturar"
+  if (['it','if'].includes(area) && estado === 'programado') {
+    const fRepFileCheck = document.getElementById('f-reporte-file');
+    const tieneArchivo = fRepFileCheck && fRepFileCheck.files && fRepFileCheck.files[0];
+    if (reporte || tieneArchivo) {
+      if (confirm('Agregaste el reporte del servicio. ¿Deseas mover esta tarjeta a "Por facturar"?')) {
+        estado = 'realizado';
+        document.getElementById('f-est').value = estado;
+      }
+    }
+  }
+
   // Validaciones por estado en IT/IF
   if (['it','if'].includes(area)) {
     if (estado==='programado' && !fechaProg) { alert('Para pasar a En ejecución debes ingresar la Fecha de programación'); return; }
@@ -728,6 +750,7 @@ async function saveTask() {
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
     cotizacionDocx: prev?.cotizacionDocx || null,
+    reporteArchivo: prev?.reporteArchivo || null,
   };
 
   // Si una cotización de Comercial se aprueba, mover la tarjeta al área
@@ -832,6 +855,28 @@ async function saveTask() {
       alert('⚠️ No se pudo subir la cotización.');
     }
   }
+
+  // Subir archivo adjunto del reporte del servicio si se seleccionó uno
+  const fRepFile = document.getElementById('f-reporte-file');
+  if (fRepFile && fRepFile.files && fRepFile.files[0] && API_BASE) {
+    try {
+      const fd = new FormData();
+      fd.append('id', task.id);
+      fd.append('file', fRepFile.files[0]);
+      const resp = await fetch(`${API_BASE}/reporte_archivo.php`, { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (data.ok) {
+        const idx = tasks.findIndex(t=>t.id===task.id);
+        if (idx>=0) tasks[idx].reporteArchivo = data.nombre;
+        save(); render();
+      } else {
+        alert('⚠️ No se pudo subir el archivo del reporte: ' + (data.error||'error desconocido'));
+      }
+    } catch (e) {
+      console.error('Error subiendo archivo del reporte', e);
+      alert('⚠️ No se pudo subir el archivo del reporte.');
+    }
+  }
 }
 
 function deleteTask() {
@@ -844,4 +889,3 @@ function deleteTask() {
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
 document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
-

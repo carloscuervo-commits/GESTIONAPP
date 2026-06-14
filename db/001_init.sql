@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS tareas (
   realizado_en        DATETIME     NULL,   -- usado para alerta de facturación (IT/IF)
   enviada_en          DATETIME     NULL,   -- usado para alerta "por confirmar" (comercial)
   programado_en       DATETIME     NULL,   -- fecha en que la tarea pasó a "En ejecución" (IT/IF), usado para contador de días en ejecución
+  reporte_archivo     VARCHAR(255) NULL,   -- nombre original del archivo adjunto al reporte del servicio (IT/IF)
 
   CONSTRAINT fk_tareas_creador FOREIGN KEY (creado_por) REFERENCES usuarios(id)
     ON DELETE SET NULL,

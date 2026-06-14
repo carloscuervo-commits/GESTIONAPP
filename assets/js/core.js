@@ -17,6 +17,7 @@ function taskToApi(t) {
     adminTaskId: t.adminTaskId || null, comercialTaskId: t.comercialTaskId || null,
     cotizacionDocx: t.cotizacionDocx || null,
     programadoAt: t.programadoAt || null,
+    reporteArchivo: t.reporteArchivo || null,
   };
 }
 
@@ -34,6 +35,7 @@ function apiToTask(r) {
     laborAdmin: r.solicitud_admin || '', solicitudComercial: r.solicitud_comercial || '',
     adminTaskId: r.admin_tarea_id || null, comercialTaskId: r.comercial_tarea_id || null,
     cotizacionDocx: r.cotizacion_docx || null,
+    reporteArchivo: r.reporte_archivo || null,
   };
 }
 
