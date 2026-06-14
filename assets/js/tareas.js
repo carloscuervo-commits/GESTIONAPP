@@ -116,6 +116,16 @@ function taskCard(t) {
   } else if (alertaSeg?.tipo === 'al-dia') {
     segBadge = `<div style="font-size:11px;font-weight:600;color:#059669;margin-bottom:4px">✓ Próx. seguimiento: ${alertaSeg.fecha}</div>`;
   }
+  let diasEstadoBadge = '';
+  if (['it','if'].includes(t.area)) {
+    if (t.estado === 'solicitud') {
+      const dias = diasHabilesDesde(t.createdAt);
+      diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">⏳ ${dias} día${dias===1?'':'s'} en pendientes</div>`;
+    } else if (t.estado === 'programado') {
+      const dias = diasHabilesDesde(t.programadoAt);
+      diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">🔧 ${dias} día${dias===1?'':'s'} en ejecución</div>`;
+    }
+  }
   return `<div class="task-card" data-id="${t.id}" draggable="true"
       ondragstart="onDragStart(event,'${t.id}')"
       ondragend="onDragEnd(event)"
@@ -123,6 +133,7 @@ function taskCard(t) {
       style="border-left:3px solid ${borderColor};${bgAlert}">
     ${alerta ? `<div style="font-size:11px;font-weight:700;color:${alerta.vencido?'#ef4444':'#92400e'};margin-bottom:4px">🧾 ${alerta.dias} día${alerta.dias===1?'':'s'} hábil${alerta.dias===1?'':'es'} sin facturar</div>` : ''}
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
+    ${diasEstadoBadge}
     ${segBadge}
     <div class="task-title">${esc(t.titulo)}</div>
     <div class="task-meta">
@@ -270,6 +281,7 @@ function renderDashboard() {
   const ifAlerts    = tasks.filter(t=>t.area==='if'&&alertaFacturacion(t)!==null);
   const adminAlerts = tasks.filter(t=>t.area==='admin'&&alertaFacturacion(t)!==null);
   const allAlerts   = [...itAlerts, ...ifAlerts, ...adminAlerts];
+  const sinProgAlerts = tasks.filter(t=>act(t) && alertaProgramacion(t)!==null);
 
   const comPorCotizar   = comT.filter(t=>t.estado==='por-cotizar').length;
   const comEnviada      = comT.filter(t=>t.estado==='enviada').length;
@@ -315,6 +327,10 @@ function renderDashboard() {
       </div>
     </div>`;
 
+  if (allAlerts.length || sinProgAlerts.length || comT.some(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); })) {
+    html += `<div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:10px">🔔 Zona de alertas</div>`;
+  }
+
   if (allAlerts.length) {
     html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">🚨 Realizados sin facturar</div>
@@ -336,7 +352,7 @@ function renderDashboard() {
 
   const comSeguimiento = comT.filter(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); });
   if (comSeguimiento.length) {
-    html += `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:16px">
+    html += `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:16px;margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:10px">📞 Cotizaciones enviadas que necesitan seguimiento</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${comSeguimiento.map(t=>{
@@ -349,6 +365,24 @@ function renderDashboard() {
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
             ${tag}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (sinProgAlerts.length) {
+    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px">
+      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">⚠️ Pendientes sin programar</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${sinProgAlerts.map(t=>{
+          const a = alertaProgramacion(t);
+          const vencido = a.vencido;
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#94a3b8'}25;color:${(AREAS[t.area]||{}).color||'#94a3b8'}">${(AREAS[t.area]||{}).label||t.area}</span>
+            <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
+            ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
+            <span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">📅 ${a.dias} día${a.dias===1?'':'s'} sin programar</span>
           </div>`;
         }).join('')}
       </div>
@@ -450,6 +484,7 @@ function onDrop(e, estado) {
     ...x, estado,
     realizadoAt: estado==='realizado' ? (x.realizadoAt||now) : x.realizadoAt,
     enviadaAt:   estado==='enviada'   ? (x.enviadaAt||now)   : x.enviadaAt,
+    programadoAt: estado==='programado' ? (x.programadoAt||now) : x.programadoAt,
     seguimientoFecha: x.area==='comercial'
       ? (estado==='enviada' ? (x.seguimientoFecha || sugerirFechaSeguimiento()) : null)
       : x.seguimientoFecha,
@@ -687,6 +722,7 @@ async function saveTask() {
     createdAt: prev?.createdAt || now,
     realizadoAt: estado==='realizado' ? (prev?.realizadoAt || now) : prev?.realizadoAt || null,
     enviadaAt: estado==='enviada' ? (prev?.enviadaAt || now) : prev?.enviadaAt || null,
+    programadoAt: estado==='programado' ? (prev?.programadoAt || now) : prev?.programadoAt || null,
     seguimientoFecha, seguimientoHistorial,
     laborAdmin, solicitudComercial,
     adminTaskId: prev?.adminTaskId || null,

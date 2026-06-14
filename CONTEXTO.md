@@ -8,6 +8,12 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
 - Último cambio desplegado: rediseño de la tarjeta de tarea para IT/IF (orden Cliente → Título → Descripción → Equipo asignado; equipo asignado con `<select>` "+ Agregar técnico..." + chips removibles; ocultos fecha límite, tiempo estimado, tiempo real, recursos y notas para IT/IF). Ver decisión #10 más abajo.
 - **Cambios pendientes de deploy**:
+  -3. **Contadores de días y nueva alerta "Pendientes sin programar" (2026-06-13)**:
+     - IT e IF son las "tarjetas operativas". En sus tarjetas del kanban ahora se muestra un contador de días según el estado: en "Pendientes" (`estado==='solicitud'`) se muestra "⏳ N días en pendientes" (días hábiles desde `createdAt`); en "En ejecución" (`estado==='programado'`) se muestra "🔧 N días en ejecución" (días hábiles desde el nuevo campo `programadoAt`).
+     - Nuevo campo `programadoAt` (frontend) / `programado_en` (BD, `DATETIME NULL`): se registra la primera vez que una tarea IT/IF pasa a "En ejecución" (mismo patrón que `realizadoAt`/`realizado_en` y `enviadaAt`/`enviada_en`). Actualizado en `assets/js/core.js` (`taskToApi`/`apiToTask`), `assets/js/tareas.js` (`onDrop`, `saveTask`), `backend/api/tareas.php` (POST y PUT) y `db/001_init.sql`.
+     - **Acción pendiente en deploy**: ejecutar la migración `backend/migracion_programado_en.sql` (`ALTER TABLE tareas ADD COLUMN programado_en DATETIME NULL AFTER enviada_en;`) en la base de datos antes de publicar estos cambios.
+     - La sección inferior del dashboard (antes sin título, con "🚨 Realizados sin facturar" y "📞 Cotizaciones enviadas que necesitan seguimiento") ahora se titula **"🔔 Zona de alertas"**.
+     - Nueva alerta dentro de "Zona de alertas": **"⚠️ Pendientes sin programar"** — lista tarjetas IT/IF en "Pendientes" (`estado==='solicitud'`) sin `fechaProg`, mostrando "📅 N días sin programar" (días hábiles desde `createdAt`, vía nueva función `alertaProgramacion(t)` en `core.js`). Se pinta en rojo (`#fee2e2`/`#ef4444`) cuando `dias >= 2` (2+ días hábiles sin programar).
   -2. **Ajustes de formulario y navegación del dashboard (2026-06-13)**:
      - `setArea()`: si se hace clic en una pestaña de área (IT/IF/Admin/Comercial) estando en la vista Dashboard, ahora cambia automáticamente a la vista Kanban de esa área (antes no hacía nada).
      - Formulario de tarea: el grupo "Equipo asignado" (`grp-team`) se oculta cuando el área seleccionada es Comercial (lógica agregada en `updateFormForArea()`).

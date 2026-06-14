@@ -16,6 +16,7 @@ function taskToApi(t) {
     laborAdmin: t.laborAdmin || '', solicitudComercial: t.solicitudComercial || '',
     adminTaskId: t.adminTaskId || null, comercialTaskId: t.comercialTaskId || null,
     cotizacionDocx: t.cotizacionDocx || null,
+    programadoAt: t.programadoAt || null,
   };
 }
 
@@ -28,7 +29,7 @@ function apiToTask(r) {
     tiempo: r.tiempo_estimado, tiempoReal: r.tiempo_real, recursos: r.recursos,
     notas: r.notas, reporte: r.reporte, factura: r.factura, team: r.team || [],
     createdAt: r.creado_en, updatedAt: r.actualizado_en,
-    realizadoAt: r.realizado_en, enviadaAt: r.enviada_en,
+    realizadoAt: r.realizado_en, enviadaAt: r.enviada_en, programadoAt: r.programado_en,
     seguimientoFecha: r.seguimiento_fecha, seguimientoHistorial,
     laborAdmin: r.solicitud_admin || '', solicitudComercial: r.solicitud_comercial || '',
     adminTaskId: r.admin_tarea_id || null, comercialTaskId: r.comercial_tarea_id || null,
@@ -169,6 +170,14 @@ function alertaFacturacion(t) {
     || (t.area === 'admin' && t.estado === 'por-facturar');
   if (!enFacturacion) return null;
   const dias = diasHabilesDesde(t.realizadoAt);
+  return { dias, vencido: dias >= 2 };
+}
+
+// Tarjetas operativas (IT/IF) en "Pendientes" sin fecha de programación.
+// Devuelve { dias, vencido } (vencido = 2+ días hábiles sin programar) o null si no aplica.
+function alertaProgramacion(t) {
+  if (!['it','if'].includes(t.area) || t.estado !== 'solicitud' || t.fechaProg) return null;
+  const dias = diasHabilesDesde(t.createdAt);
   return { dias, vencido: dias >= 2 };
 }
 function getMember(id) { return TEAM.find(m=>m.id===id); }
