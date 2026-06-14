@@ -5,6 +5,8 @@ deployment:
     - /bin/cp -r tareas-equipo.html $DEPLOYPATH
     - /bin/mkdir -p $DEPLOYPATH/assets/css
     - /bin/cp -r assets/css/. $DEPLOYPATH/assets/css/
+    - /bin/mkdir -p $DEPLOYPATH/assets/js
+    - /bin/cp -r assets/js/. $DEPLOYPATH/assets/js/
     - /bin/mkdir -p $DEPLOYPATH/backend/lib
     - /bin/cp -r backend/lib/. $DEPLOYPATH/backend/lib/
     - /bin/mkdir -p $DEPLOYPATH/backend/api

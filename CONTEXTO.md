@@ -4,10 +4,15 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-12)
+## Estado actual (última actualización: 2026-06-13)
 
 - Último cambio desplegado: rediseño de la tarjeta de tarea para IT/IF (orden Cliente → Título → Descripción → Equipo asignado; equipo asignado con `<select>` "+ Agregar técnico..." + chips removibles; ocultos fecha límite, tiempo estimado, tiempo real, recursos y notas para IT/IF). Ver decisión #10 más abajo.
 - **Cambios pendientes de deploy**:
+  -2. **Ajustes de formulario y navegación del dashboard (2026-06-13)**:
+     - `setArea()`: si se hace clic en una pestaña de área (IT/IF/Admin/Comercial) estando en la vista Dashboard, ahora cambia automáticamente a la vista Kanban de esa área (antes no hacía nada).
+     - Formulario de tarea: el grupo "Equipo asignado" (`grp-team`) se oculta cuando el área seleccionada es Comercial (lógica agregada en `updateFormForArea()`).
+     - Formulario de tarea: los campos "Área" (`f-area`, ahora con `id="grp-area"`) y "Estado" (`f-est`, ahora con `id="grp-estado"`) se movieron al final del formulario (`.form-grid`), para todas las áreas/tarjetas.
+  -1. **Migración frontend a módulos JS** (primer paso del roadmap "Frontend modular"): el `<script>` único de `tareas-equipo.html` (~1586 líneas) se dividió en 5 archivos clásicos (sin `type="module"`, mismo scope global compartido, mismo orden de ejecución) bajo `assets/js/`: `core.js` (config/API, estado global, helpers, programación técnica), `tareas.js` (render, kanban, dashboard, modal, autocompletar cliente, drag&drop), `cartera.js`, `facturacion.js` y `app.js` (migración de datos locales + `init()`). `tareas-equipo.html` ahora solo tiene 5 `<script src="assets/js/...">` en ese orden. `.cpanel.yml` actualizado para copiar `assets/js/`. Sin cambios de comportamiento, solo reorganización.
   0. **Ciclo completo cotización → programación → facturación** (ver `FACTURACION.md`, sección "Ciclo completo"):
      - Tarjetas de Comercial ahora permiten adjuntar el `.docx` de la cotización (campo nuevo `cotizacion_docx` en `tareas`, migración `backend/migracion_cotizacion_docx.sql` — ejecutar antes de este deploy).
      - Nuevo endpoint `backend/api/cotizacion_docx.php` (POST sube/guarda el `.docx` en `backend/uploads/cotizaciones/{id}.docx`, GET descarga, DELETE elimina).
@@ -36,7 +41,7 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
 La app va a crecer para cubrir gestión integral de la empresa: reportes de visitas técnicas con fotos, comunicación con clientes/técnicos por correo y WhatsApp, y manejo de usuarios con login por técnico. Decisiones para cuando se construya cada pieza (aún no implementadas):
 
-- **Frontend modular**: migrar `tareas-equipo.html` de un único `<script>` a `<script type="module">` dividido por dominio (`assets/js/core.js`, `auth.js`, `tareas.js`, `reportes.js`, `comunicaciones.js`, `usuarios.js`), sin build step. El HTML queda como shell. (CSS ya se extrajo a `assets/css/app.css` como primer paso.)
+- **Frontend modular**: ✅ primer paso hecho (ver punto -1 arriba) — `assets/js/core.js`, `tareas.js`, `cartera.js`, `facturacion.js`, `app.js` (scripts clásicos, scope global compartido). Pendiente: si se agregan dominios nuevos (`auth.js`, `reportes.js`, `comunicaciones.js`, `usuarios.js`), seguir el mismo patrón; evaluar más adelante migrar a `type="module"` con imports/exports explícitos si el scope global compartido empieza a generar conflictos. (CSS ya se extrajo a `assets/css/app.css`.)
 - **Backend por dominio dentro de `api/`**: `api/auth/` (login.php, logout.php, me.php), `api/reportes.php` (reportes de visita + fotos), `api/comunicaciones.php` (cola de envío email/WhatsApp), además de los existentes.
 - **`backend/lib/`**: además de `db.php`, irán `auth.php` (helper `requireAuth($roles)`), `MailService.php`, `WhatsAppService.php`, `AlegraService.php`, `PdfService.php`.
 - **`backend/config/`**: además de `config.php` y `config_alegra.php`, irán `config_mail.php` y `config_whatsapp.php` — todos gitignored, creados manualmente en el servidor.
