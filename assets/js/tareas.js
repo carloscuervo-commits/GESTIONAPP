@@ -547,6 +547,10 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-labor-admin').value=t?.laborAdmin||'';
   document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
   toggleFacturaField(defaultEstado);
+  const faInfo = document.getElementById('facturas-alegra-info');
+  const faLista = document.getElementById('facturas-alegra-lista');
+  if (faInfo) faInfo.textContent = '';
+  if (faLista) faLista.style.display = 'none';
   renderSeguimientoSection(t, defaultEstado);
   toggleAprobarAreaGroup(defaultArea, defaultEstado);
   const fCotFile = document.getElementById('f-cotizacion-file');
@@ -616,6 +620,47 @@ function hideClienteSuggestions() {
   }, 150);
 }
 // ===================== FIN AUTOCOMPLETAR CLIENTE =====================
+
+// ===================== BUSCAR FACTURAS EN ALEGRA (por cliente) =====================
+async function buscarFacturasAlegraCliente() {
+  const cliente = document.getElementById('f-cliente').value.trim();
+  const info = document.getElementById('facturas-alegra-info');
+  const lista = document.getElementById('facturas-alegra-lista');
+  if (!cliente) { info.textContent = 'Primero ingresa el nombre del cliente.'; return; }
+  if (!API_BASE) { info.textContent = 'Sin conexión al servidor.'; return; }
+  info.textContent = 'Buscando facturas en Alegra...';
+  lista.style.display = 'none';
+  try {
+    const res = await fetch(`${API_BASE}/alegra_facturas_cliente.php?cliente=${encodeURIComponent(cliente)}`);
+    const data = await res.json();
+    if (data.error) { info.textContent = '⚠️ ' + data.error; return; }
+    const facturas = data.facturas || [];
+    if (!facturas.length) {
+      info.textContent = `No se encontraron facturas en Alegra para "${esc(data.cliente_alegra || cliente)}".`;
+      return;
+    }
+    info.textContent = `Facturas de "${data.cliente_alegra || cliente}" — selecciona la que corresponde:`;
+    lista.innerHTML = facturas.map((f,i) => {
+      const valor = Number(f.total||0).toLocaleString('es-CO', {minimumFractionDigits:0});
+      return `<div onmousedown="seleccionarFacturaAlegra(${i})">📄 ${esc(f.numero)} · ${esc(f.fecha)} · $${valor}</div>`;
+    }).join('');
+    lista.dataset.facturas = JSON.stringify(facturas);
+    lista.style.display = 'block';
+  } catch (e) {
+    info.textContent = 'No se pudo conectar con Alegra.';
+  }
+}
+
+function seleccionarFacturaAlegra(i) {
+  const lista = document.getElementById('facturas-alegra-lista');
+  const facturas = JSON.parse(lista.dataset.facturas || '[]');
+  const f = facturas[i];
+  if (!f) return;
+  document.getElementById('f-factura').value = f.numero;
+  lista.style.display = 'none';
+  document.getElementById('facturas-alegra-info').textContent = `✅ Factura ${f.numero} seleccionada.`;
+}
+// ===================== FIN BUSCAR FACTURAS EN ALEGRA =====================
 
 function toggleFacturaField(estado) {
   const showReporte  = ['programado','realizado','facturado','archivado'].includes(estado);
