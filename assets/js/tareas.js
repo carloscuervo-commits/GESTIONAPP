@@ -228,6 +228,15 @@ function render() {
 
 function setView(v) {
   currentView=v;
+  if (v === 'dashboard') {
+    // Salir de las vistas especiales (Cartera/Facturación) al volver al Dashboard
+    document.getElementById('facturacion-view').style.display = 'none';
+    document.getElementById('cartera-view').style.display = 'none';
+    document.querySelector('.filters').style.display = 'none';
+    document.querySelector('.btn-add').style.display = 'inline-flex';
+    document.getElementById('btn-kanban').style.display = '';
+    document.getElementById('btn-lista').style.display = '';
+  }
   document.getElementById('dashboard-view').style.display=v==='dashboard'?'block':'none';
   document.getElementById('kanban-view').style.display=v==='kanban'?'flex':'none';
   document.getElementById('lista-view').style.display=v==='lista'?'block':'none';
@@ -431,7 +440,9 @@ function setArea(a) {
   document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
-  document.querySelector('.view-toggle').style.display   = isOther ? 'none' : 'flex';
+  document.querySelector('.view-toggle').style.display   = 'flex';
+  document.getElementById('btn-kanban').style.display    = isOther ? 'none' : '';
+  document.getElementById('btn-lista').style.display     = isOther ? 'none' : '';
   document.querySelector('.btn-add').style.display       = isOther ? 'none' : 'inline-flex';
   if (isOther) document.getElementById('dashboard-view').style.display = 'none';
   if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
