@@ -104,8 +104,9 @@ function taskCard(t) {
   const segBg    = (alertaSeg?.tipo==='sin-seguimiento' && alertaSeg.vencido) ? 'background:#fff5f5;'
     : { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
   const sinProgramar = ['it','if'].includes(t.area) && t.estado === 'solicitud' && !t.fechaProg;
-  const borderColor = (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : alertaSeg ? segColor : ac;
-  const bgAlert     = (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
+  const porCotizar   = alertaPorCotizar(t);
+  const borderColor = (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : (porCotizar&&porCotizar.vencido) ? '#ef4444' : alertaSeg ? segColor : ac;
+  const bgAlert     = (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (porCotizar&&porCotizar.vencido) ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
   const showArchivar = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
                     || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
   let segBadge = '';
@@ -125,6 +126,8 @@ function taskCard(t) {
       const dias = diasHabilesDesde(t.programadoAt);
       diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">🔧 ${dias} día${dias===1?'':'s'} en ejecución</div>`;
     }
+  } else if (porCotizar) {
+    diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:${porCotizar.vencido?'#ef4444':'#64748b'};margin-bottom:4px">⏳ ${porCotizar.dias} día${porCotizar.dias===1?'':'s'} sin cotizar</div>`;
   }
   return `<div class="task-card" data-id="${t.id}" draggable="true"
       ondragstart="onDragStart(event,'${t.id}')"
@@ -282,6 +285,7 @@ function renderDashboard() {
   const adminAlerts = tasks.filter(t=>t.area==='admin'&&alertaFacturacion(t)!==null);
   const allAlerts   = [...itAlerts, ...ifAlerts, ...adminAlerts];
   const sinProgAlerts = tasks.filter(t=>act(t) && alertaProgramacion(t)!==null);
+  const sinCotizarAlerts = tasks.filter(t=>act(t) && alertaPorCotizar(t)!==null);
 
   const comPorCotizar   = comT.filter(t=>t.estado==='por-cotizar').length;
   const comEnviada      = comT.filter(t=>t.estado==='enviada').length;
@@ -327,10 +331,30 @@ function renderDashboard() {
       </div>
     </div>`;
 
-  if (allAlerts.length || sinProgAlerts.length || comT.some(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); })) {
+  if (allAlerts.length || sinProgAlerts.length || sinCotizarAlerts.length || comT.some(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); })) {
     html += `<div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:10px">🔔 Zona de alertas</div>`;
   }
 
+  // 1. Pendientes sin programar
+  if (sinProgAlerts.length) {
+    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">⚠️ Pendientes sin programar</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${sinProgAlerts.map(t=>{
+          const a = alertaProgramacion(t);
+          const vencido = a.vencido;
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#94a3b8'}25;color:${(AREAS[t.area]||{}).color||'#94a3b8'}">${(AREAS[t.area]||{}).label||t.area}</span>
+            <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
+            ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
+            <span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">📅 ${a.dias} día${a.dias===1?'':'s'} sin programar</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 2. Pendientes sin facturar
   if (allAlerts.length) {
     html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">🚨 Realizados sin facturar</div>
@@ -350,10 +374,29 @@ function renderDashboard() {
     </div>`;
   }
 
+  // 3. Pendientes por cotizar
+  if (sinCotizarAlerts.length) {
+    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">⏳ Pendientes por cotizar</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${sinCotizarAlerts.map(t=>{
+          const a = alertaPorCotizar(t);
+          const vencido = a.vencido;
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
+            <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
+            ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
+            <span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">⏳ ${a.dias} día${a.dias===1?'':'s'} sin cotizar</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 4. Cotizado por seguimiento
   const comSeguimiento = comT.filter(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); });
   if (comSeguimiento.length) {
     html += `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:10px">📞 Cotizaciones enviadas que necesitan seguimiento</div>
+      <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:10px">📞 Cotizado por seguimiento</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${comSeguimiento.map(t=>{
           const a = alertaSeguimiento(t);
@@ -365,24 +408,6 @@ function renderDashboard() {
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
             ${tag}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }
-
-  if (sinProgAlerts.length) {
-    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px">
-      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">⚠️ Pendientes sin programar</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${sinProgAlerts.map(t=>{
-          const a = alertaProgramacion(t);
-          const vencido = a.vencido;
-          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
-            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#94a3b8'}25;color:${(AREAS[t.area]||{}).color||'#94a3b8'}">${(AREAS[t.area]||{}).label||t.area}</span>
-            <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
-            ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
-            <span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">📅 ${a.dias} día${a.dias===1?'':'s'} sin programar</span>
           </div>`;
         }).join('')}
       </div>

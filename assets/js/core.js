@@ -182,6 +182,14 @@ function alertaProgramacion(t) {
   const dias = diasHabilesDesde(t.createdAt);
   return { dias, vencido: dias >= 2 };
 }
+
+// Tarjetas comerciales en "Por cotizar".
+// Devuelve { dias, vencido } (vencido = 3+ días hábiles sin cotizar) o null si no aplica.
+function alertaPorCotizar(t) {
+  if (t.area !== 'comercial' || t.estado !== 'por-cotizar') return null;
+  const dias = diasHabilesDesde(t.createdAt);
+  return { dias, vencido: dias >= 3 };
+}
 function getMember(id) { return TEAM.find(m=>m.id===id); }
 
 // ===================== PROGRAMACIÓN TÉCNICA =====================
