@@ -473,14 +473,24 @@ function onDrop(e, estado) {
   const t = tasks.find(x=>x.id===dragId);
   if (!t || t.estado===estado) { dragId=null; return; }
   const area = t.area;
+  const movedId = dragId;
+  dragId=null;
   // Validate requirements
   if (['it','if'].includes(area)) {
-    if (estado==='programado' && !t.fechaProg) { openModal(dragId, null, estado); dragId=null; return; }
-    if (estado==='realizado'  && !t.reporte)   { openModal(dragId, null, estado); dragId=null; return; }
-    if (estado==='facturado'  && !t.factura)   { openModal(dragId, null, estado); dragId=null; return; }
+    if (estado==='programado' && !t.fechaProg) { openModal(movedId, null, estado); return; }
+    if (estado==='realizado'  && !t.reporte)   { openModal(movedId, null, estado); return; }
+    if (estado==='facturado'  && !t.factura)   { openModal(movedId, null, estado); return; }
+  }
+  // Cotización aprobada: preguntar a qué área operativa enviarla
+  if (area==='comercial' && estado==='aprobada') {
+    mostrarPopupAprobarArea().then(destino => {
+      if (!destino) { render(); return; } // cancelado: la tarjeta vuelve a su columna
+      moverCotizacionAprobada(movedId, destino);
+    });
+    return;
   }
   const now = new Date().toISOString();
-  tasks = tasks.map(x => x.id===dragId ? {
+  tasks = tasks.map(x => x.id===movedId ? {
     ...x, estado,
     realizadoAt: estado==='realizado' ? (x.realizadoAt||now) : x.realizadoAt,
     enviadaAt:   estado==='enviada'   ? (x.enviadaAt||now)   : x.enviadaAt,
@@ -490,9 +500,18 @@ function onDrop(e, estado) {
       : x.seguimientoFecha,
     updatedAt: now,
   } : x);
-  const movedId = dragId;
-  dragId=null; save(); render();
+  save(); render();
   syncEstado(movedId);
+}
+
+// Mueve una cotización aprobada (Comercial) a Pendientes IT/IF
+function moverCotizacionAprobada(id, destino) {
+  const now = new Date().toISOString();
+  tasks = tasks.map(x => x.id===id ? {
+    ...x, area: destino, estado: 'solicitud', updatedAt: now,
+  } : x);
+  save(); render();
+  syncEstado(id);
 }
 
 function updateFormForArea() {
@@ -673,13 +692,35 @@ function onEstadoChange(estado) {
   toggleFacturaField(estado);
   const t = editingId ? tasks.find(x=>x.id===editingId) : null;
   renderSeguimientoSection(t, estado);
-  toggleAprobarAreaGroup(document.getElementById('f-area').value, estado);
+  const area = document.getElementById('f-area').value;
+  const grp = document.getElementById('grp-aprobar-area');
+  const wasShowing = grp && grp.style.display !== 'none';
+  toggleAprobarAreaGroup(area, estado);
+  if (area==='comercial' && estado==='aprobada' && !wasShowing) {
+    mostrarPopupAprobarArea().then(destino => {
+      if (destino) document.getElementById('f-aprobar-area').value = destino;
+    });
+  }
 }
 
 function toggleAprobarAreaGroup(area, estado) {
   const el = document.getElementById('grp-aprobar-area');
   if (el) el.style.display = (area==='comercial' && estado==='aprobada') ? '' : 'none';
 }
+
+// ===================== POPUP: ¿A qué área enviar la cotización aprobada? =====================
+let _popupAprobarResolve = null;
+function mostrarPopupAprobarArea() {
+  return new Promise(resolve => {
+    _popupAprobarResolve = resolve;
+    document.getElementById('popup-aprobar-area').classList.add('open');
+  });
+}
+function resolverPopupAprobarArea(valor) {
+  document.getElementById('popup-aprobar-area').classList.remove('open');
+  if (_popupAprobarResolve) { _popupAprobarResolve(valor); _popupAprobarResolve = null; }
+}
+// ===================== FIN POPUP =====================
 
 // Sugiere la próxima fecha de seguimiento: hoy + 3 días hábiles
 function sugerirFechaSeguimiento() {
