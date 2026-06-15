@@ -1,16 +1,16 @@
   :root {
     color-scheme: light;
-    --bg: #f5f6fa;
+    --bg: #f6f8f9;
     --card: #ffffff;
-    --border: #e2e8f0;
-    --primary: #4f46e5;
-    --primary-light: #eef2ff;
-    --text: #1e293b;
-    --text-muted: #64748b;
-    --green: #10b981;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --blue: #3b82f6;
+    --border: #e1e7ea;
+    --primary: #14a8bd;
+    --primary-light: #e6f7f9;
+    --text: #3f3f46;
+    --text-muted: #8b8d93;
+    --green: #8dc63f;
+    --yellow: #f7941e;
+    --red: #e63946;
+    --blue: #14a8bd;
     --radius: 10px;
     --shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
@@ -29,10 +29,10 @@
   .area-tab { padding: 8px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); white-space: nowrap; border-bottom: 3px solid transparent; transition: all .15s; }
   .area-tab:hover { color: var(--text); background: var(--bg); }
   .area-tab.active { color: white; }
-  .area-tab[data-area="it"].active { background: #6366f1; }
-  .area-tab[data-area="if"].active { background: #f97316; }
-  .area-tab[data-area="admin"].active { background: #10b981; }
-  .area-tab[data-area="comercial"].active { background: #3b82f6; }
+  .area-tab[data-area="it"].active { background: #14a8bd; }
+  .area-tab[data-area="if"].active { background: #f7941e; }
+  .area-tab[data-area="admin"].active { background: #8dc63f; }
+  .area-tab[data-area="comercial"].active { background: #ec008c; }
   .area-tab[data-area="facturacion"].active { background: #8b5cf6; }
   .area-tab .tab-count { display: inline-block; background: rgba(0,0,0,0.15); border-radius: 99px; padding: 0 6px; font-size: 11px; margin-left: 5px; }
   .area-tab:not(.active) .tab-count { background: var(--border); color: var(--text-muted); }
@@ -55,22 +55,22 @@
   .kanban-col { flex: 0 0 255px; }
   .col-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-radius: 8px 8px 0 0; font-weight: 600; font-size: 13px; color: white; }
   .col-header .count { background: rgba(0,0,0,0.18); border-radius: 99px; padding: 1px 8px; font-size: 11px; }
-  .col-body { background: #eef0f5; border-radius: 0 0 8px 8px; padding: 8px; min-height: 180px; display: flex; flex-direction: column; gap: 8px; }
-  .col-pendiente .col-header    { background: #94a3b8; }
+  .col-body { background: #eef2f4; border-radius: 0 0 8px 8px; padding: 8px; min-height: 180px; display: flex; flex-direction: column; gap: 8px; }
+  .col-pendiente .col-header    { background: #a3a6ab; }
   .col-en-progreso .col-header  { background: var(--blue); }
   .col-bloqueada .col-header    { background: var(--red); }
-  .col-por-facturar .col-header { background: #d97706; }
-  .col-archivado .col-header    { background: #64748b; }
+  .col-por-facturar .col-header { background: #f7941e; }
+  .col-archivado .col-header    { background: #8b8d93; }
   /* Comercial */
-  .col-por-cotizar .col-header  { background: #8b5cf6; }
-  .col-enviada .col-header      { background: #6366f1; }
-  .col-aprobada .col-header     { background: #10b981; }
+  .col-por-cotizar .col-header  { background: #ec008c; }
+  .col-enviada .col-header      { background: #14a8bd; }
+  .col-aprobada .col-header     { background: #8dc63f; }
   .col-rechazada .col-header    { background: var(--red); }
   /* IT / IF */
-  .col-solicitud .col-header    { background: #94a3b8; }
+  .col-solicitud .col-header    { background: #a3a6ab; }
   .col-programado .col-header   { background: #0891b2; }
-  .col-realizado .col-header    { background: #10b981; }
-  .col-facturado .col-header    { background: #7c3aed; }
+  .col-realizado .col-header    { background: #8dc63f; }
+  .col-facturado .col-header    { background: #ec008c; }
 
   .task-card { background: var(--card); border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow); border: 1px solid var(--border); cursor: pointer; transition: transform .1s, box-shadow .1s; }
   .task-card:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -96,19 +96,19 @@
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #f8fafc; cursor: pointer; }
   .status-pill { padding: 2px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-block; }
-  .status-pendiente   { background: #f1f5f9; color: #64748b; }
-  .status-en-progreso { background: #dbeafe; color: #1d4ed8; }
-  .status-bloqueada   { background: #fee2e2; color: #991b1b; }
-  .status-por-facturar{ background: #fef3c7; color: #92400e; }
-  .status-archivado   { background: #f1f5f9; color: #475569; }
-  .status-por-cotizar { background: #f3e8ff; color: #6b21a8; }
-  .status-enviada     { background: #eef2ff; color: #4338ca; }
-  .status-aprobada    { background: #dcfce7; color: #166534; }
-  .status-rechazada   { background: #fee2e2; color: #991b1b; }
-  .status-solicitud   { background: #f1f5f9; color: #64748b; }
-  .status-programado  { background: #e0f2fe; color: #075985; }
-  .status-realizado   { background: #dcfce7; color: #166534; }
-  .status-facturado   { background: #f3e8ff; color: #6b21a8; }
+  .status-pendiente   { background: #f1f3f4; color: #8b8d93; }
+  .status-en-progreso { background: #e6f7f9; color: #0e7a8a; }
+  .status-bloqueada   { background: #fdeeee; color: #b3212c; }
+  .status-por-facturar{ background: #fff4e6; color: #9a5b0f; }
+  .status-archivado   { background: #f1f3f4; color: #6b6d72; }
+  .status-por-cotizar { background: #fde6f3; color: #a3006b; }
+  .status-enviada     { background: #e6f7f9; color: #0e7a8a; }
+  .status-aprobada    { background: #f1f9e6; color: #5a8c1e; }
+  .status-rechazada   { background: #fdeeee; color: #b3212c; }
+  .status-solicitud   { background: #f1f3f4; color: #8b8d93; }
+  .status-programado  { background: #e6f7f9; color: #0e7a8a; }
+  .status-realizado   { background: #f1f9e6; color: #5a8c1e; }
+  .status-facturado   { background: #fde6f3; color: #a3006b; }
 
   /* MODAL */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
@@ -139,7 +139,7 @@
   .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
   .btn-cancel { padding: 7px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; }
   .btn-save { padding: 7px 18px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
-  .btn-delete { padding: 7px 12px; background: #fee2e2; color: var(--red); border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; margin-right: auto; }
+  .btn-delete { padding: 7px 12px; background: #fdeeee; color: var(--red); border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; margin-right: auto; }
 
   .empty { text-align: center; padding: 30px 20px; color: var(--text-muted); font-size: 13px; }
 
@@ -168,27 +168,27 @@
   .hide-comercial { display: none !important; }
 
   /* CARTERA */
-  .area-tab[data-area="cartera"].active { background: #0f766e; }
+  .area-tab[data-area="cartera"].active { background: #0e7a8a; }
   .cartera-view { padding: 0 20px 20px; }
   .cartera-toolbar { display: flex; gap: 8px; padding: 12px 20px 8px; align-items: center; flex-wrap: wrap; }
   .cartera-kanban { display: flex; gap: 12px; overflow-x: auto; min-height: calc(100vh - 260px); }
-  .col-por-contactar .col-header { background: #94a3b8; }
-  .col-llamado .col-header       { background: #6366f1; }
+  .col-por-contactar .col-header { background: #a3a6ab; }
+  .col-llamado .col-header       { background: #14a8bd; }
   .col-correo .col-header        { background: #0891b2; }
-  .col-acuerdo .col-header       { background: #d97706; }
-  .col-pagado .col-header        { background: #10b981; }
-  .cartera-card { background: var(--card); border-radius: 8px; padding: 11px 12px; box-shadow: var(--shadow); border: 1px solid var(--border); cursor: pointer; transition: transform .1s, box-shadow .1s; border-left: 3px solid #0f766e; }
+  .col-acuerdo .col-header       { background: #f7941e; }
+  .col-pagado .col-header        { background: #8dc63f; }
+  .cartera-card { background: var(--card); border-radius: 8px; padding: 11px 12px; box-shadow: var(--shadow); border: 1px solid var(--border); cursor: pointer; transition: transform .1s, box-shadow .1s; border-left: 3px solid #0e7a8a; }
   .cartera-card:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-  .cartera-card.vencida-grave { border-left-color: #ef4444; background: #fff5f5; }
+  .cartera-card.vencida-grave { border-left-color: #e63946; background: #fdeeee; }
   .cartera-nombre { font-weight: 700; font-size: 13px; margin-bottom: 5px; }
-  .cartera-monto { font-size: 18px; font-weight: 800; color: #0f766e; margin-bottom: 3px; }
-  .cartera-monto.alta { color: #ef4444; }
+  .cartera-monto { font-size: 18px; font-weight: 800; color: #0e7a8a; margin-bottom: 3px; }
+  .cartera-monto.alta { color: #e63946; }
   .cartera-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
   .cartera-badge { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; margin-top: 5px; }
   .cartera-loading { text-align: center; padding: 60px 20px; color: var(--text-muted); }
   .sort-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; background: var(--card); cursor: pointer; color: var(--text-muted); }
-  .sort-btn.active { background: #0f766e; color: white; border-color: #0f766e; }
-  .btn-refresh { padding: 6px 14px; background: #0f766e; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .sort-btn.active { background: #0e7a8a; color: white; border-color: #0e7a8a; }
+  .btn-refresh { padding: 6px 14px; background: #0e7a8a; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
   .btn-refresh:hover { opacity: .85; }
 
   /* CARTERA MODAL */

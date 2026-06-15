@@ -337,17 +337,17 @@ function renderDashboard() {
 
   // 1. Pendientes sin programar
   if (sinProgAlerts.length) {
-    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">⚠️ Pendientes sin programar</div>
+    html += `<div style="background:#8dc63f;border:1px solid #8dc63f;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">⚠️ Pendientes sin programar</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${sinProgAlerts.map(t=>{
           const a = alertaProgramacion(t);
           const vencido = a.vencido;
-          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
-            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#94a3b8'}25;color:${(AREAS[t.area]||{}).color||'#94a3b8'}">${(AREAS[t.area]||{}).label||t.area}</span>
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.5);cursor:pointer;font-size:13px">
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#a3a6ab'}25;color:${(AREAS[t.area]||{}).color||'#a3a6ab'}">${(AREAS[t.area]||{}).label||t.area}</span>
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
-            <span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">📅 ${a.dias} día${a.dias===1?'':'s'} sin programar</span>
+            <span style="color:${vencido?'#e63946':'var(--text)'};font-weight:700;font-size:12px">📅 ${a.dias} día${a.dias===1?'':'s'} sin programar</span>
           </div>`;
         }).join('')}
       </div>
@@ -356,18 +356,18 @@ function renderDashboard() {
 
   // 2. Pendientes sin facturar
   if (allAlerts.length) {
-    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">🚨 Realizados sin facturar</div>
+    html += `<div style="background:#f7941e;border:1px solid #f7941e;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚨 Realizados sin facturar</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${allAlerts.map(t=>{
           const a = alertaFacturacion(t);
           const vencido = a && a.vencido;
           return `
-          <div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
-            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#94a3b8'}25;color:${(AREAS[t.area]||{}).color||'#94a3b8'}">${(AREAS[t.area]||{}).label||t.area}</span>
+          <div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.5);cursor:pointer;font-size:13px">
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[t.area]||{}).color||'#a3a6ab'}25;color:${(AREAS[t.area]||{}).color||'#a3a6ab'}">${(AREAS[t.area]||{}).label||t.area}</span>
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
-            <span style="color:#ef4444;font-weight:700;font-size:12px">${a.dias} día${a.dias===1?'':'s'}</span>
+            <span style="color:${vencido?'#e63946':'var(--text)'};font-weight:700;font-size:12px">${a.dias} día${a.dias===1?'':'s'}</span>
           </div>`;
         }).join('')}
       </div>
@@ -376,16 +376,16 @@ function renderDashboard() {
 
   // 3. Pendientes por cotizar
   if (sinCotizarAlerts.length) {
-    html += `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ef4444;margin-bottom:10px">⏳ Pendientes por cotizar</div>
+    html += `<div style="background:#ec008c;border:1px solid #ec008c;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">⏳ Pendientes por cotizar</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${sinCotizarAlerts.map(t=>{
           const a = alertaPorCotizar(t);
           const vencido = a.vencido;
-          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fecaca'};cursor:pointer;font-size:13px">
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.5);cursor:pointer;font-size:13px">
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
-            <span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">⏳ ${a.dias} día${a.dias===1?'':'s'} sin cotizar</span>
+            <span style="color:${vencido?'#e63946':'var(--text)'};font-weight:700;font-size:12px">⏳ ${a.dias} día${a.dias===1?'':'s'} sin cotizar</span>
           </div>`;
         }).join('')}
       </div>
@@ -395,16 +395,16 @@ function renderDashboard() {
   // 4. Cotizado por seguimiento
   const comSeguimiento = comT.filter(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); });
   if (comSeguimiento.length) {
-    html += `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:10px">📞 Cotizado por seguimiento</div>
+    html += `<div style="background:#14a8bd;border:1px solid #14a8bd;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📞 Cotizado por seguimiento</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${comSeguimiento.map(t=>{
           const a = alertaSeguimiento(t);
           const vencido = a.tipo==='sin-seguimiento' && a.vencido;
           const tag = a.tipo==='pendiente'
-            ? `<span style="color:#ef4444;font-weight:700;font-size:12px">🔔 ${a.fecha}</span>`
-            : `<span style="color:${vencido?'#ef4444':'#64748b'};font-weight:700;font-size:12px">📋 ${a.dias} día${a.dias===1?'':'s'} sin contactar</span>`;
-          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${vencido?'#fee2e2':'white'};border-radius:8px;border:1px solid ${vencido?'#ef4444':'#fde68a'};cursor:pointer;font-size:13px">
+            ? `<span style="color:#e63946;font-weight:700;font-size:12px">🔔 ${a.fecha}</span>`
+            : `<span style="color:${vencido?'#e63946':'var(--text)'};font-weight:700;font-size:12px">📋 ${a.dias} día${a.dias===1?'':'s'} sin contactar</span>`;
+          return `<div onclick="openModal('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.5);cursor:pointer;font-size:13px">
             <span style="font-weight:600;flex:1">${esc(t.titulo)}</span>
             ${t.cliente?`<span style="color:var(--text-muted);font-size:11px">👤 ${esc(t.cliente)}</span>`:''}
             ${tag}
