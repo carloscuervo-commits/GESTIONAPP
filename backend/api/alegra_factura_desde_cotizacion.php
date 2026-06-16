@@ -61,7 +61,7 @@ if (!empty($datos['cliente_nombre'])) {
   if (empty($clientesCandidatos)) {
     $palabras = preg_split('/\s+/', trim(preg_replace('/^[A-Z]\.[A-Z]\.\s*/i', '', $datos['cliente_nombre'])));
     $palabras = array_values(array_filter($palabras, fn($p) => mb_strlen($p) >= 3));
-    if (count($palabras) > 1) {
+    if (count($palabras) >= 1) {
       // probar con cada palabra individualmente y combinar resultados
       $vistos = [];
       foreach ($palabras as $palabra) {
