@@ -68,8 +68,8 @@ if ($method === 'POST') {
     (id, titulo, descripcion, area, estado, cliente, fecha_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
-     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'], $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
@@ -78,6 +78,7 @@ if ($method === 'POST') {
     $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $d['cotizacionDocx'] ?? null,
+    empty($d['incluyeProg']) ? 0 : 1,
   ]);
 
   if (!empty($d['team'])) {
@@ -120,7 +121,7 @@ if ($method === 'PUT') {
     titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, factura=?,
     realizado_en=?, enviada_en=?, programado_en=?, seguimiento_fecha=?, seguimiento_historial=?,
-    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?
+    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado, $d['cliente'] ?? null,
@@ -128,7 +129,8 @@ if ($method === 'PUT') {
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
     $realizadoEn, $enviadaEn, $programadoEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
-    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx, $id,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx,
+    empty($d['incluyeProg']) ? 0 : 1, $id,
   ]);
 
   // Reasignar equipo

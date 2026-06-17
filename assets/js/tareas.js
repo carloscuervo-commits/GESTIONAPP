@@ -568,6 +568,8 @@ function updateFormForArea() {
     const el = document.getElementById(id);
     if (el) el.style.display = itIf ? '' : 'none';
   });
+  const elIncProg = document.getElementById('grp-incluye-prog');
+  if (elIncProg) elIncProg.style.display = area === 'admin' ? '' : 'none';
   const elCot = document.getElementById('grp-cotizacion-docx');
   if (elCot) elCot.style.display = area==='comercial' ? '' : 'none';
   const elTeam = document.getElementById('grp-team');
@@ -600,6 +602,8 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-reporte').value=t?.reporte||'';
   document.getElementById('f-factura').value=t?.factura||'';
   document.getElementById('f-labor-admin').value=t?.laborAdmin||'';
+  const elChk = document.getElementById('f-incluye-prog');
+  if (elChk) elChk.checked = !!(t?.incluyeProg);
   document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
   toggleFacturaField(defaultEstado);
   const faInfo = document.getElementById('facturas-alegra-info');
@@ -846,6 +850,7 @@ async function saveTask() {
 
   const laborAdmin = ['it','if'].includes(area) ? document.getElementById('f-labor-admin').value.trim() : '';
   const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
+  const incluyeProg = area === 'admin' ? !!(document.getElementById('f-incluye-prog')?.checked) : false;
 
   const task={
     id: editingId||uid(), titulo,
@@ -868,7 +873,7 @@ async function saveTask() {
     enviadaAt: estado==='enviada' ? (prev?.enviadaAt || now) : prev?.enviadaAt || null,
     programadoAt: estado==='programado' ? (prev?.programadoAt || now) : prev?.programadoAt || null,
     seguimientoFecha, seguimientoHistorial,
-    laborAdmin, solicitudComercial,
+    laborAdmin, solicitudComercial, incluyeProg,
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
     cotizacionDocx: prev?.cotizacionDocx || null,
@@ -911,7 +916,7 @@ async function saveTask() {
       enviadaAt: null,
       seguimientoFecha: null,
       seguimientoHistorial: [],
-      laborAdmin: '', solicitudComercial: '',
+      laborAdmin: '', solicitudComercial: '', incluyeProg: false,
       adminTaskId: null, comercialTaskId: null,
     };
     extraTasks.push(adminTask);
@@ -942,7 +947,7 @@ async function saveTask() {
       enviadaAt: null,
       seguimientoFecha: null,
       seguimientoHistorial: [],
-      laborAdmin: '', solicitudComercial: '',
+      laborAdmin: '', solicitudComercial: '', incluyeProg: false,
       adminTaskId: null, comercialTaskId: null,
     };
     extraTasks.push(comercialTask);

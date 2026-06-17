@@ -18,6 +18,7 @@ function taskToApi(t) {
     cotizacionDocx: t.cotizacionDocx || null,
     programadoAt: t.programadoAt || null,
     reporteArchivo: t.reporteArchivo || null,
+    incluyeProg: t.incluyeProg ? 1 : 0,
   };
 }
 
@@ -36,6 +37,7 @@ function apiToTask(r) {
     adminTaskId: r.admin_tarea_id || null, comercialTaskId: r.comercial_tarea_id || null,
     cotizacionDocx: r.cotizacion_docx || null,
     reporteArchivo: r.reporte_archivo || null,
+    incluyeProg: r.incluye_prog == 1,
   };
 }
 
@@ -215,9 +217,10 @@ function generarProgramacion(fechaISO) {
   const fechaTxt = formatFechaLarga(fechaISO);
   const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && t.fechaProg === fechaISO);
   const adminItems = tasks.filter(t => ['it','if'].includes(t.area) && t.fechaProg === fechaISO && (t.laborAdmin||'').trim());
-  if (!items.length && !adminItems.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
+  const adminProgItems = tasks.filter(t => t.area === 'admin' && t.incluyeProg && t.fechaProg === fechaISO);
+  if (!items.length && !adminItems.length && !adminProgItems.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
 
-  // Agrupar por equipo asignado (mismo conjunto de técnicos)
+  // Agrupar IT/IF por equipo asignado
   const grupos = new Map();
   items.forEach(t => {
     const team = (t.team||[]).slice().sort();
@@ -238,12 +241,24 @@ function generarProgramacion(fechaISO) {
     });
   });
 
+  // Sección Administrativo: tareas IT/IF con laborAdmin
   if (adminItems.length) {
     out += `\n👷 Administrativo\n`;
     adminItems.forEach(t => {
       out += `📍 ${t.cliente || 'Sin cliente'}\n`;
       out += `🔧 ${t.titulo}\n`;
       out += `🗂 ${t.laborAdmin}\n`;
+    });
+  }
+
+  // Sección Administrativo: tareas del área Admin marcadas con "Incluir en programación"
+  if (adminProgItems.length) {
+    if (!adminItems.length) out += `\n👷 Administrativo\n`;
+    adminProgItems.forEach(t => {
+      out += `📍 ${t.cliente || 'Sin cliente'}\n`;
+      if (t.desc) out += `📝 ${t.desc}\n`;
+      out += `🗂 ${t.titulo}\n`;
+      if (t.recursos) out += `   ${t.recursos}\n`;
     });
   }
 
