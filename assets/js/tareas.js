@@ -150,7 +150,7 @@ function taskCard(t) {
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
     ${(['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) ? `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>` : ''}
-    ${(['it','if'].includes(t.area)) ? renderVisitaBoton(t) : ''}
+    ${(['it','if'].includes(t.area) && !['realizado','facturado','archivado'].includes(t.estado)) ? renderVisitaBoton(t) : ''}
     ${showArchivar ? `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>` : ''}
   </div>`;
 }

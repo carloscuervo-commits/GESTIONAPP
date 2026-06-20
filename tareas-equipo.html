@@ -345,13 +345,25 @@
   </div>
 </div>
 
+<!-- MODAL: ¿la tarea quedó terminada con esta visita? -->
+<div class="modal-overlay" id="popup-tarea-terminada" style="z-index:360">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-title" style="justify-content:center">✅ ¿Se terminó la tarea?</div>
+    <p style="margin:0 0 16px;color:var(--text-muted);font-size:13px">¿Con esta visita la tarea quedó completamente terminada, o falta continuar en otra visita (trabajo de varios días)?</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-save" style="width:100%" onclick="resolverTareaTerminada(true)">✅ Sí, se terminó — mover a "Por facturar"</button>
+      <button class="btn-cancel" style="width:100%" onclick="resolverTareaTerminada(false)">⏳ No, falta continuar (otra visita)</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/js/core.js?v=20260617a"></script>
 <script src="assets/js/auth.js?v=20260620a"></script>
-<script src="assets/js/tareas.js?v=20260620b"></script>
+<script src="assets/js/tareas.js?v=20260620c"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260614b"></script>
-<script src="assets/js/reportes.js?v=20260620c"></script>
+<script src="assets/js/reportes.js?v=20260620d"></script>
 <script src="assets/js/app.js?v=20260620b"></script>
 </body>
 </html>

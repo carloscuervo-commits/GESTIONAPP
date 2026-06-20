@@ -166,7 +166,28 @@ function abrirFormularioReporte(reporte) {
 
 function cerrarFormularioReporte() {
   document.getElementById('reporte-modal').classList.remove('open');
+  if (!reporteActual) { cargarVisitasActivas(); return; }
+  // Al terminar de diligenciar el reporte, preguntamos si la tarea quedó
+  // completamente lista (se mueve a "Por facturar") o si falta continuar
+  // en otra visita (trabajo de varios días) — en ese caso no se cambia
+  // el estado y queda disponible para "Iniciar visita" otra vez.
+  document.getElementById('popup-tarea-terminada').classList.add('open');
+}
+
+function resolverTareaTerminada(terminada) {
+  document.getElementById('popup-tarea-terminada').classList.remove('open');
+  const tareaId = reporteActual ? reporteActual.tarea_id : null;
   reporteActual = null;
+
+  if (terminada && tareaId) {
+    const idx = tasks.findIndex(t => t.id === tareaId);
+    if (idx >= 0) {
+      tasks[idx].estado = 'realizado';
+      tasks[idx].updatedAt = new Date().toISOString();
+      save();
+      syncTask(tasks[idx], false);
+    }
+  }
   cargarVisitasActivas();
 }
 
