@@ -40,6 +40,18 @@ if ($method === 'POST') {
   if (!$rep) jsonOut(['error' => 'Reporte no encontrado'], 404);
   if (!$rep['pdf_archivo']) jsonOut(['error' => 'Este reporte aún no tiene un PDF generado'], 422);
 
+  // Freno de seguridad: si se envió hace menos de 20 segundos, no reenviar.
+  // Protege contra doble/triple clic accidental (ej. cuando el botón no
+  // muestra feedback claro por una versión vieja cacheada en el navegador).
+  if (!empty($rep['enviado_en'])) {
+    $segundosDesdeEnvio = time() - strtotime($rep['enviado_en']);
+    if ($segundosDesdeEnvio >= 0 && $segundosDesdeEnvio < 20) {
+      jsonOut([
+        'error' => 'Este reporte ya se envió hace ' . $segundosDesdeEnvio . ' segundos (a: ' . ($rep['enviado_a'] ?: '-') . '). Espera un momento antes de reenviarlo para evitar duplicados.',
+      ], 429);
+    }
+  }
+
   $correos = $d['correos'] ?? [];
   if (!is_array($correos)) $correos = [];
   $correos[] = CORREO_ADMIN_FIJO;
