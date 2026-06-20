@@ -228,12 +228,12 @@ function renderFormularioReporte() {
     </div>
     ${seccionesHtml}
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-      <button class="btn-save" onclick="generarPDFReporte()">📄 ${yaGenerado ? 'Regenerar PDF' : 'Generar PDF'}</button>
+      <button class="btn-save" id="btn-generar-pdf" onclick="generarPDFReporte(this)">📄 ${yaGenerado ? 'Regenerar PDF' : 'Generar PDF'}</button>
       <div id="reporte-pdf-status" style="font-size:13px">${yaGenerado ? `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank">Ver PDF</a>` : ''}</div>
       <div id="reporte-envio" style="${yaGenerado ? '' : 'display:none;'}border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
         <label style="font-size:12px;color:var(--text-muted)">Correo adicional del cliente (siempre se envía copia a administrativo@innovate.com.co)</label>
         <input type="email" id="reporte-correo-cliente" placeholder="cliente@correo.com" style="width:100%;margin:6px 0 10px">
-        <button class="btn-save" onclick="enviarCorreoReporte()">📧 Enviar por correo</button>
+        <button class="btn-save" id="btn-enviar-correo" onclick="enviarCorreoReporte(this)">📧 Enviar por correo</button>
         <div id="reporte-envio-status" style="font-size:13px;margin-top:6px">${r.estado === 'enviado' ? `✅ Enviado a: ${esc(r.enviado_a || '')}` : ''}</div>
       </div>
     </div>
@@ -347,9 +347,22 @@ async function cargarImagenDataURL(url) {
   });
 }
 
-async function generarPDFReporte() {
+let _generandoPDF = false;
+
+async function generarPDFReporte(btn) {
+  if (_generandoPDF) return; // evita doble clic mientras se genera
+  _generandoPDF = true;
+
   const statusEl = document.getElementById('reporte-pdf-status');
-  statusEl.textContent = '⏳ Generando PDF...';
+  const botonEl = btn || document.getElementById('btn-generar-pdf');
+  const textoOriginalBoton = botonEl ? botonEl.innerHTML : '';
+  if (botonEl) {
+    botonEl.disabled = true;
+    botonEl.style.opacity = '0.7';
+    botonEl.style.cursor = 'wait';
+    botonEl.innerHTML = '⏳ Generando PDF... espera un momento';
+  }
+  statusEl.innerHTML = '⏳ Generando PDF, esto puede tardar unos segundos...';
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -454,14 +467,27 @@ async function generarPDFReporte() {
     fd.append('file', blobPdf, `reporte-${r.id}.pdf`);
     const res = await fetch(`${API_BASE}/reporte_pdf.php`, { method: 'POST', body: fd });
     const data = await res.json();
-    if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
+    if (data.error) {
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      if (botonEl) botonEl.innerHTML = textoOriginalBoton;
+      return;
+    }
 
     reporteActual.pdf_archivo = data.archivo;
     statusEl.innerHTML = `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank">Ver PDF</a>`;
     document.getElementById('reporte-envio').style.display = 'block';
+    if (botonEl) botonEl.innerHTML = '📄 Regenerar PDF';
   } catch (e) {
     console.error(e);
-    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo generar el PDF.</span>';
+    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo generar el PDF. Verifica tu conexión e intenta de nuevo.</span>';
+    if (botonEl) botonEl.innerHTML = textoOriginalBoton;
+  } finally {
+    _generandoPDF = false;
+    if (botonEl) {
+      botonEl.disabled = false;
+      botonEl.style.opacity = '';
+      botonEl.style.cursor = '';
+    }
   }
 }
 
@@ -475,10 +501,23 @@ async function precargarCorreoCliente() {
   } catch (e) { /* silencioso: si Alegra no responde, el técnico escribe el correo a mano */ }
 }
 
-async function enviarCorreoReporte() {
+let _enviandoCorreo = false;
+
+async function enviarCorreoReporte(btn) {
+  if (_enviandoCorreo) return; // evita doble clic mientras se envía
+  _enviandoCorreo = true;
+
   const statusEl = document.getElementById('reporte-envio-status');
   const correoCliente = document.getElementById('reporte-correo-cliente').value.trim();
-  statusEl.textContent = '⏳ Enviando...';
+  const botonEl = btn || document.getElementById('btn-enviar-correo');
+  const textoOriginalBoton = botonEl ? botonEl.innerHTML : '';
+  if (botonEl) {
+    botonEl.disabled = true;
+    botonEl.style.opacity = '0.7';
+    botonEl.style.cursor = 'wait';
+    botonEl.innerHTML = '⏳ Enviando...';
+  }
+  statusEl.innerHTML = '⏳ Enviando correo, espera un momento...';
   try {
     const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -487,6 +526,17 @@ async function enviarCorreoReporte() {
     const data = await res.json();
     if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
     statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))}`;
-  } catch (e) { console.error(e); statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo enviar el correo.</span>'; }
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo enviar el correo. Verifica tu conexión e intenta de nuevo.</span>';
+  } finally {
+    _enviandoCorreo = false;
+    if (botonEl) {
+      botonEl.disabled = false;
+      botonEl.style.opacity = '';
+      botonEl.style.cursor = '';
+      botonEl.innerHTML = textoOriginalBoton;
+    }
+  }
 }
 // ===================== FIN REPORTES DE VISITA =====================
