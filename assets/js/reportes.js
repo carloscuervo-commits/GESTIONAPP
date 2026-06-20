@@ -102,7 +102,8 @@ function closeVisitaTecnicoModal() {
 async function iniciarVisita(tareaId, event) {
   if (event) event.stopPropagation();
   if (!API_BASE) { alert('Esta función requiere conexión al servidor (no disponible en modo local).'); return; }
-  abrirSelectorTecnico(tareaId, '🚀 ¿Quién inicia la visita?', async (tecnicoId) => {
+
+  const ejecutar = async (tecnicoId) => {
     try {
       const res = await fetch(`${API_BASE}/reportes.php`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -113,14 +114,20 @@ async function iniciarVisita(tareaId, event) {
       visitasActivas[tareaId] = data;
       render();
     } catch (e) { console.error(e); alert('No se pudo iniciar la visita. Revisa tu conexión.'); }
-  });
+  };
+
+  // Con login activo, el usuario que inicia la visita ya se conoce (currentUser).
+  // Si por algún motivo no hay sesión, se pregunta como respaldo.
+  if (currentUser && currentUser.id) ejecutar(currentUser.id);
+  else abrirSelectorTecnico(tareaId, '🚀 ¿Quién inicia la visita?', ejecutar);
 }
 
 async function finalizarVisita(tareaId, event) {
   if (event) event.stopPropagation();
   const visita = visitasActivas[tareaId];
   if (!visita) { alert('No hay una visita en curso para esta tarea.'); return; }
-  abrirSelectorTecnico(tareaId, '🏁 ¿Quién finaliza la visita?', async (tecnicoId) => {
+
+  const ejecutar = async (tecnicoId) => {
     try {
       const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -133,7 +140,10 @@ async function finalizarVisita(tareaId, event) {
       render();
       abrirFormularioReporte(data);
     } catch (e) { console.error(e); alert('No se pudo finalizar la visita. Revisa tu conexión.'); }
-  });
+  };
+
+  if (currentUser && currentUser.id) ejecutar(currentUser.id);
+  else abrirSelectorTecnico(tareaId, '🏁 ¿Quién finaliza la visita?', ejecutar);
 }
 
 async function continuarReporte(reporteId, event) {

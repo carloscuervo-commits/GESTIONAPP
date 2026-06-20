@@ -56,11 +56,20 @@ function migrarSeedLocal(){
   }
 }
 
-(async function init(){
+async function iniciarApp(){
   await load();
   loadCartera();
   updateCarteraCount();
   migrarSeedLocal();
   await cargarVisitasActivas();
-  setView('dashboard');
+  aplicarPermisosUI();
+  setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
+}
+
+(async function init(){
+  // Si no hay sesión válida, cargarSesion() muestra la pantalla de login
+  // y devuelve false; iniciarApp() se llama desde auth.js al loguearse.
+  const sesionOk = await cargarSesion();
+  if (!sesionOk) return;
+  await iniciarApp();
 })();

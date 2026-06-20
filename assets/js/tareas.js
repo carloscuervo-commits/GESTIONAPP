@@ -228,6 +228,7 @@ function render() {
 }
 
 function setView(v) {
+  if (currentUser && currentUser.perfil === 'tecnico' && v === 'dashboard') v = 'kanban'; // técnicos no ven el dashboard global
   currentView=v;
   if (v === 'dashboard') {
     // Salir de las vistas especiales (Cartera/Facturación) al volver al Dashboard
@@ -429,6 +430,7 @@ function renderDashboard() {
 }
 
 function setArea(a) {
+  if (currentUser && currentUser.perfil === 'tecnico' && !['it','if'].includes(a)) return; // técnicos solo ven IT/IF
   currentArea=a;
   document.querySelectorAll('.area-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.area-tab[data-area="${a}"]`).classList.add('active');
