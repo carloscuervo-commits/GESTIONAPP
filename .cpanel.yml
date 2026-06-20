@@ -7,6 +7,8 @@ deployment:
     - /bin/cp -r assets/css/. $DEPLOYPATH/assets/css/
     - /bin/mkdir -p $DEPLOYPATH/assets/js
     - /bin/cp -r assets/js/. $DEPLOYPATH/assets/js/
+    - /bin/mkdir -p $DEPLOYPATH/assets/img
+    - /bin/cp -r assets/img/. $DEPLOYPATH/assets/img/
     - /bin/mkdir -p $DEPLOYPATH/backend/lib
     - /bin/cp -r backend/lib/. $DEPLOYPATH/backend/lib/
     - /bin/mkdir -p $DEPLOYPATH/backend/api
@@ -14,5 +16,7 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/backend/uploads
     - /bin/mkdir -p $DEPLOYPATH/backend/uploads/cotizaciones
     - /bin/mkdir -p $DEPLOYPATH/backend/uploads/reportes
+    - /bin/mkdir -p $DEPLOYPATH/backend/uploads/reporte_fotos
+    - /bin/mkdir -p $DEPLOYPATH/backend/uploads/reporte_pdf
     - /bin/mkdir -p $DEPLOYPATH/db
     - /bin/cp -r db/. $DEPLOYPATH/db/

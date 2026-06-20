@@ -294,10 +294,35 @@
   </div>
 </div>
 
+<!-- MODAL: selector rápido de técnico (check-in / check-out de visita) -->
+<div class="modal-overlay" id="visita-tecnico-modal" style="z-index:300">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div class="modal-title" id="visita-tecnico-titulo" style="justify-content:center">¿Quién está en sitio?</div>
+    <div id="visita-tecnico-lista" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn-cancel" style="width:100%;margin-top:10px" onclick="closeVisitaTecnicoModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: formulario de reporte de visita (mobile-first) -->
+<div class="modal-overlay" id="reporte-modal" style="z-index:350">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">
+      <span>📋 Reporte de visita</span>
+      <button class="modal-close" onclick="cerrarFormularioReporte()">✕</button>
+    </div>
+    <div id="reporte-body" style="max-height:70vh;overflow-y:auto;padding-right:4px"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarFormularioReporte()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/js/core.js?v=20260617a"></script>
-<script src="assets/js/tareas.js?v=20260617a"></script>
+<script src="assets/js/tareas.js?v=20260620a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260614b"></script>
-<script src="assets/js/app.js?v=20260614b"></script>
+<script src="assets/js/reportes.js?v=20260620a"></script>
+<script src="assets/js/app.js?v=20260620a"></script>
 </body>
 </html>

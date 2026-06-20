@@ -2,6 +2,7 @@
 # (deben crearse manualmente en el servidor)
 backend/config/config.php
 backend/config/config_alegra.php
+backend/config/config_correo.php
 
 # Herramienta de migración inicial - ya no se necesita
 migrar-datos.html

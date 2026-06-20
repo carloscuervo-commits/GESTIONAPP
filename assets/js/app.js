@@ -61,5 +61,6 @@ function migrarSeedLocal(){
   loadCartera();
   updateCarteraCount();
   migrarSeedLocal();
+  await cargarVisitasActivas();
   setView('dashboard');
 })();
