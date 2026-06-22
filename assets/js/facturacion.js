@@ -175,10 +175,17 @@ async function crearFacturaAlegra() {
 
   statusEl.innerHTML = '⏳ Creando factura en Alegra...';
   try {
+    const clienteNombreSel = document.getElementById('fact-cliente-id').selectedOptions
+      ? (document.getElementById('fact-cliente-id').selectedOptions[0]?.textContent || '')
+      : '';
     const res = await fetch(`${API_BASE}/alegra_crear_factura.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, dueDate, client: { id: Number(clienteId) || clienteId }, items }),
+      body: JSON.stringify({
+        date, dueDate, client: { id: Number(clienteId) || clienteId }, items,
+        clienteNombre: clienteNombreSel || f.cliente_nombre_cotizacion || '',
+        tareaId: f.tareaId || null,
+      }),
     });
     const data = await res.json();
     if (data.error) {

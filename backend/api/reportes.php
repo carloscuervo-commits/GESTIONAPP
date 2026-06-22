@@ -18,11 +18,23 @@ function reporteConFotos($pdo, $row) {
   return $row;
 }
 
+// Versión ligera (sin fotos) para listados masivos usados por el módulo de informes.
+function reporteSinFotos($row) {
+  $row['datos'] = $row['datos'] ? json_decode($row['datos'], true) : [];
+  return $row;
+}
+
 // --------------------------------------------------------------
 // GET /reportes.php?id=UUID            -> un reporte (con fotos)
 // GET /reportes.php?tareaId=UUID        -> reportes de una tarea (desc)
+// GET /reportes.php?todos=1            -> TODOS los reportes (con datos de la tarea), para informes/exportes
 // --------------------------------------------------------------
 if ($method === 'GET') {
+  if (!empty($_GET['todos'])) {
+    $stmt = $pdo->query("SELECT r.*, t.cliente, t.titulo, t.area FROM reportes r JOIN tareas t ON t.id = r.tarea_id ORDER BY r.creado_en DESC");
+    jsonOut(array_map('reporteSinFotos', $stmt->fetchAll()));
+  }
+
   if (!empty($_GET['activos'])) {
     $stmt = $pdo->query("SELECT * FROM reportes WHERE estado = 'en_visita'");
     jsonOut(array_map(fn($r) => reporteConFotos($pdo, $r), $stmt->fetchAll()));

@@ -23,6 +23,8 @@ $date = $body['date'] ?? null;
 $client = $body['client'] ?? null;
 $items = $body['items'] ?? null;
 $dueDate = $body['dueDate'] ?? null;
+$clienteNombre = $body['clienteNombre'] ?? null;
+$tareaId = $body['tareaId'] ?? null;
 
 if (!$date || empty($client['id']) || !is_array($items) || empty($items)) {
   jsonOut(['error' => 'Faltan datos: se requiere date, client.id e items[]'], 400);
@@ -88,5 +90,24 @@ if ($status < 200 || $status >= 300) {
   $msg = $data['message'] ?? $resp;
   jsonOut(['error' => 'Alegra respondió con error', 'status' => $status, 'detalle' => $msg], 502);
 }
+
+// Registrar la factura creada para el informe "Facturas generadas (módulo Facturación)".
+// No bloqueante: si falla el log, la factura ya quedó creada en Alegra de todas formas.
+try {
+  $pdo = getDB();
+  $numeroFactura = $data['numberTemplate']['fullNumber'] ?? ($data['id'] ?? '');
+  $totalFactura = isset($data['total']) ? (float) $data['total'] : null;
+  $pdo->prepare("INSERT INTO facturas_generadas (numero_factura, alegra_id, cliente_id, cliente_nombre, total, tarea_id, fecha_factura)
+    VALUES (?, ?, ?, ?, ?, ?, ?)")
+    ->execute([
+      (string) $numeroFactura,
+      isset($data['id']) ? (string) $data['id'] : null,
+      (string) $client['id'],
+      $clienteNombre,
+      $totalFactura,
+      $tareaId,
+      $date,
+    ]);
+} catch (Throwable $e) { /* no bloquear la respuesta si el log falla */ }
 
 jsonOut($data);

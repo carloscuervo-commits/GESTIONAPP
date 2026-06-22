@@ -436,11 +436,13 @@ function setArea(a) {
   document.querySelector(`.area-tab[data-area="${a}"]`).classList.add('active');
   const isCartera = a === 'cartera';
   const isFacturacion = a === 'facturacion';
-  const isOther = isCartera || isFacturacion;
+  const isInformes = a === 'informes';
+  const isOther = isCartera || isFacturacion || isInformes;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   document.getElementById('cartera-view').style.display  = isCartera ? 'block' : 'none';
   document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
+  document.getElementById('informes-view').style.display = isInformes ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -450,6 +452,7 @@ function setArea(a) {
   if (isOther) document.getElementById('dashboard-view').style.display = 'none';
   if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
   else if (isFacturacion) { /* nada que cargar al entrar */ }
+  else if (isInformes) { renderInformesView(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.
