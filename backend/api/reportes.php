@@ -140,9 +140,15 @@ if ($method === 'PUT') {
   $datosNuevos = array_key_exists('datos', $d) ? array_merge($datosPrev, $d['datos']) : $datosPrev;
   $pdfArchivo = array_key_exists('pdfArchivo', $d) ? $d['pdfArchivo'] : $prev['pdf_archivo'];
   $estado = $d['estado'] ?? $prev['estado'];
+  // Edición administrativa: permite corregir el técnico que atendió y los
+  // horarios de una visita ya registrada (la UI restringe esto a perfil admin).
+  $tecnicoCheckinId = array_key_exists('tecnicoCheckinId', $d) ? $d['tecnicoCheckinId'] : $prev['tecnico_checkin_id'];
+  $tecnicoCheckoutId = array_key_exists('tecnicoCheckoutId', $d) ? $d['tecnicoCheckoutId'] : $prev['tecnico_checkout_id'];
+  $checkIn = array_key_exists('checkIn', $d) ? $d['checkIn'] : $prev['check_in'];
+  $checkOut = array_key_exists('checkOut', $d) ? $d['checkOut'] : $prev['check_out'];
 
-  $pdo->prepare("UPDATE reportes SET plantilla=?, datos=?, pdf_archivo=?, estado=? WHERE id=?")
-    ->execute([$plantilla, json_encode($datosNuevos, JSON_UNESCAPED_UNICODE), $pdfArchivo, $estado, $id]);
+  $pdo->prepare("UPDATE reportes SET plantilla=?, datos=?, pdf_archivo=?, estado=?, tecnico_checkin_id=?, tecnico_checkout_id=?, check_in=?, check_out=? WHERE id=?")
+    ->execute([$plantilla, json_encode($datosNuevos, JSON_UNESCAPED_UNICODE), $pdfArchivo, $estado, $tecnicoCheckinId, $tecnicoCheckoutId, $checkIn, $checkOut, $id]);
 
   $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
   $stmt->execute([$id]);

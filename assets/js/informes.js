@@ -60,29 +60,52 @@ const ETIQUETAS_ESTADO_REPORTE = { en_visita: '🟢 En visita', borrador: '📝 
 
 // --------------------------------------------------------------
 // 1) Actividades de un técnico por rango de fechas
+// Combina dos fuentes para dar el panorama completo:
+//  - Tarjetas IT/IF asignadas a él (por fecha de programación, o de
+//    creación si aún no tiene fecha programada), aunque no tengan visita.
+//  - Visitas (check-in/check-out) que haya registrado en ese rango.
 // --------------------------------------------------------------
 function calcActividadesTecnico(filtros) {
   if (!filtros.tecnico) {
     return { columnas: [{ key: 'msg', label: 'Mensaje' }], filas: [{ msg: 'Selecciona un técnico arriba para ver sus actividades.' }] };
   }
-  const filas = informesReportesVisita
+
+  const filasTareas = tasks
+    .filter(t => ['it', 'if'].includes(t.area) && (t.team || []).includes(filtros.tecnico))
+    .map(t => ({ t, ref: t.fechaProg || (t.createdAt || '').slice(0, 10) || '' }))
+    .filter(x => dentroDeRango(x.ref, filtros.desde, filtros.hasta))
+    .map(x => ({
+      tipo: '📋 Tarjeta asignada',
+      fecha: x.ref,
+      cliente: x.t.cliente || '-',
+      tarea: x.t.titulo || '-',
+      area: (AREAS[x.t.area] || {}).label || x.t.area,
+      estado: (AREA_FLOWS[x.t.area] || []).find(e => e.id === x.t.estado)?.label || x.t.estado,
+      checkIn: '-', checkOut: '-', duracion: '-',
+    }));
+
+  const filasVisitas = informesReportesVisita
     .filter(r => (r.tecnico_checkin_id === filtros.tecnico || r.tecnico_checkout_id === filtros.tecnico)
       && dentroDeRango(r.check_in, filtros.desde, filtros.hasta))
     .map(r => ({
+      tipo: '🚐 Visita registrada',
       fecha: (r.check_in || '').slice(0, 10),
       cliente: r.cliente || '-',
       tarea: r.titulo || '-',
+      area: '-',
+      estado: ETIQUETAS_ESTADO_REPORTE[r.estado] || r.estado,
       checkIn: r.check_in ? r.check_in.slice(11, 16) : '-',
       checkOut: r.check_out ? r.check_out.slice(11, 16) : '-',
       duracion: formatDuracionMin(r.check_in, r.check_out),
-      estado: ETIQUETAS_ESTADO_REPORTE[r.estado] || r.estado,
-    }))
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    }));
+
+  const filas = [...filasTareas, ...filasVisitas].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
   return {
     columnas: [
-      { key: 'fecha', label: 'Fecha' }, { key: 'cliente', label: 'Cliente' }, { key: 'tarea', label: 'Tarea' },
-      { key: 'checkIn', label: 'Check-in' }, { key: 'checkOut', label: 'Check-out' },
-      { key: 'duracion', label: 'Duración' }, { key: 'estado', label: 'Estado del reporte' },
+      { key: 'tipo', label: 'Tipo' }, { key: 'fecha', label: 'Fecha' }, { key: 'cliente', label: 'Cliente' },
+      { key: 'tarea', label: 'Tarea' }, { key: 'area', label: 'Área' }, { key: 'estado', label: 'Estado' },
+      { key: 'checkIn', label: 'Check-in' }, { key: 'checkOut', label: 'Check-out' }, { key: 'duracion', label: 'Duración' },
     ],
     filas,
   };
@@ -195,7 +218,7 @@ function renderReportesBusquedaHTML(filtros) {
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(getMember(r.tecnico_checkin_id)?.name || r.tecnico_checkin_id || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${ETIQUETAS_ESTADO_REPORTE[r.estado] || esc(r.estado)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">
-        <button class="btn-cancel" style="padding:4px 8px;font-size:12px" onclick="continuarReporte('${r.id}')">✏️ Editar</button>
+        <button class="btn-cancel" style="padding:4px 8px;font-size:12px" onclick="continuarReporte('${r.id}', null, true)">✏️ Editar</button>
         ${r.pdf_archivo ? `<a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank" class="btn-save" style="padding:4px 8px;font-size:12px;text-decoration:none;display:inline-block;margin-left:6px">⬇️ PDF</a>` : ''}
       </td>
     </tr>`).join('')}</tbody>

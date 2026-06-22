@@ -440,6 +440,8 @@ function setArea(a) {
   const isOther = isCartera || isFacturacion || isInformes;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
+  const archSection = document.getElementById('arch-section');
+  if (archSection) archSection.style.display = (!isOther && currentView==='kanban') ? 'block' : 'none';
   document.getElementById('cartera-view').style.display  = isCartera ? 'block' : 'none';
   document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
   document.getElementById('informes-view').style.display = isInformes ? 'block' : 'none';

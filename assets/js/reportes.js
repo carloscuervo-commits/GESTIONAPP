@@ -138,6 +138,7 @@ async function finalizarVisita(tareaId, event) {
       delete visitasActivas[tareaId];
       borradoresActivos[tareaId] = data;
       render();
+      _reporteSoloEdicion = false; // flujo normal: al cerrar, sí se pregunta si la tarea terminó
       abrirFormularioReporte(data);
     } catch (e) { console.error(e); alert('No se pudo finalizar la visita. Revisa tu conexión.'); }
   };
@@ -146,17 +147,23 @@ async function finalizarVisita(tareaId, event) {
   else abrirSelectorTecnico(tareaId, '🏁 ¿Quién finaliza la visita?', ejecutar);
 }
 
-async function continuarReporte(reporteId, event) {
+// soloEdicion=true cuando se abre desde el informe "Reportes de tarjetas
+// operativas" para corregir datos: no debe preguntar si la tarea terminó
+// ni mover la tarjeta, solo permitir editar la info interna del reporte.
+async function continuarReporte(reporteId, event, soloEdicion = false) {
   if (event) event.stopPropagation();
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${reporteId}`);
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
+    _reporteSoloEdicion = !!soloEdicion;
     abrirFormularioReporte(data);
   } catch (e) { console.error(e); alert('No se pudo abrir el reporte.'); }
 }
 
 // ----------------- Formulario de reporte -----------------
+let _reporteSoloEdicion = false;
+
 function abrirFormularioReporte(reporte) {
   reporteActual = reporte;
   if (!reporteActual.plantilla) reporteActual.plantilla = 'evento'; // única disponible por ahora
@@ -166,11 +173,18 @@ function abrirFormularioReporte(reporte) {
 
 function cerrarFormularioReporte() {
   document.getElementById('reporte-modal').classList.remove('open');
-  if (!reporteActual) { cargarVisitasActivas(); return; }
-  // Al terminar de diligenciar el reporte, preguntamos si la tarea quedó
-  // completamente lista (se mueve a "Por facturar") o si falta continuar
-  // en otra visita (trabajo de varios días) — en ese caso no se cambia
-  // el estado y queda disponible para "Iniciar visita" otra vez.
+  if (!reporteActual || _reporteSoloEdicion) {
+    // Edición administrativa de un reporte existente: solo se corrige la
+    // info interna, sin tocar el estado/ubicación de la tarjeta.
+    _reporteSoloEdicion = false;
+    reporteActual = null;
+    cargarVisitasActivas();
+    return;
+  }
+  // Al terminar de diligenciar el reporte (flujo normal de visita), preguntamos
+  // si la tarea quedó completamente lista (se mueve a "Por facturar") o si
+  // falta continuar en otra visita (trabajo de varios días) — en ese caso no
+  // se cambia el estado y queda disponible para "Iniciar visita" otra vez.
   document.getElementById('popup-tarea-terminada').classList.add('open');
 }
 
@@ -236,12 +250,75 @@ function renderSeccion(sec, r) {
   return '';
 }
 
+function sqlToDatetimeLocal(sql) {
+  if (!sql) return '';
+  return sql.replace(' ', 'T').slice(0, 16);
+}
+function datetimeLocalToSql(val) {
+  if (!val) return null;
+  return val.replace('T', ' ') + ':00';
+}
+
+function renderCabeceraEditableAdmin(r) {
+  return `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;border-top:1px dashed var(--border);padding-top:10px">
+    <div style="flex:1;min-width:160px">
+      <label style="font-size:11px;color:var(--text-muted)">Técnico que inició</label>
+      <select id="edit-tecnico-checkin" style="width:100%">
+        ${TEAM.map(m => `<option value="${m.id}" ${m.id === r.tecnico_checkin_id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="flex:1;min-width:160px">
+      <label style="font-size:11px;color:var(--text-muted)">Técnico que finalizó</label>
+      <select id="edit-tecnico-checkout" style="width:100%">
+        <option value="">(sin definir)</option>
+        ${TEAM.map(m => `<option value="${m.id}" ${m.id === r.tecnico_checkout_id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="flex:1;min-width:170px">
+      <label style="font-size:11px;color:var(--text-muted)">Check-in</label>
+      <input type="datetime-local" id="edit-check-in" value="${sqlToDatetimeLocal(r.check_in)}" style="width:100%">
+    </div>
+    <div style="flex:1;min-width:170px">
+      <label style="font-size:11px;color:var(--text-muted)">Check-out</label>
+      <input type="datetime-local" id="edit-check-out" value="${sqlToDatetimeLocal(r.check_out)}" style="width:100%">
+    </div>
+    <div style="width:100%;display:flex;align-items:center;gap:10px">
+      <button class="btn-save" style="padding:6px 12px;font-size:12px" onclick="guardarCabeceraReporte()">💾 Guardar técnico/horarios</button>
+      <span id="cabecera-reporte-status" style="font-size:12px"></span>
+    </div>
+  </div>`;
+}
+
+async function guardarCabeceraReporte() {
+  const statusEl = document.getElementById('cabecera-reporte-status');
+  const tecnicoCheckinId = document.getElementById('edit-tecnico-checkin').value || null;
+  const tecnicoCheckoutId = document.getElementById('edit-tecnico-checkout').value || null;
+  const checkIn = datetimeLocalToSql(document.getElementById('edit-check-in').value);
+  const checkOut = datetimeLocalToSql(document.getElementById('edit-check-out').value);
+  statusEl.textContent = '⏳ Guardando...';
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${reporteActual.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tecnicoCheckinId, tecnicoCheckoutId, checkIn, checkOut }),
+    });
+    const data = await res.json();
+    if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
+    reporteActual = data;
+    statusEl.innerHTML = '✅ Guardado.';
+    renderFormularioReporte();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo guardar.</span>';
+  }
+}
+
 function renderFormularioReporte() {
   const r = reporteActual;
   const t = tasks.find(x => x.id === r.tarea_id) || {};
   const plantilla = PLANTILLAS_REPORTE[r.plantilla] || PLANTILLAS_REPORTE.evento;
   const tecnicoIn = getMember(r.tecnico_checkin_id)?.name || '-';
   const tecnicoOut = getMember(r.tecnico_checkout_id)?.name || '-';
+  const esAdmin = currentUser && currentUser.perfil === 'admin';
 
   const seccionesHtml = plantilla.secciones.map(sec => renderSeccion(sec, r)).join('');
   const yaGenerado = !!r.pdf_archivo;
@@ -256,6 +333,7 @@ function renderFormularioReporte() {
         <span>🕐 ${formatHora(r.check_in)} – ${formatHora(r.check_out)}</span>
         <span>⏱ ${calcularDuracion(r.check_in, r.check_out)}</span>
       </div>
+      ${esAdmin ? renderCabeceraEditableAdmin(r) : ''}
     </div>
     ${seccionesHtml}
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
