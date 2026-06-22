@@ -63,6 +63,7 @@ async function iniciarApp(){
   migrarSeedLocal();
   await cargarVisitasActivas();
   aplicarPermisosUI();
+  iniciarAlarmaChecker();
   setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
 }
 
