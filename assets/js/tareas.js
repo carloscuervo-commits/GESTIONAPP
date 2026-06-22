@@ -41,7 +41,7 @@ function getFiltered() {
   const est = document.getElementById('f-estado').value;
   const resp = document.getElementById('f-responsable').value;
   const showArchivado = document.getElementById('show-archivado').checked;
-  return tasks.filter(t => {
+  return tareasVisibles().filter(t => {
     if (currentArea !== 'all' && t.area !== currentArea) return false;
     if (t.estado === 'archivado' && !showArchivado && est !== 'archivado') return false;
     const teamNames = (t.team||[]).map(id=>getMember(id)?.name||'').join(' ').toLowerCase();
@@ -65,18 +65,18 @@ function updateTabCounts() {
   const active = t => t.estado !== 'archivado';
   Object.keys(AREAS).forEach(a => {
     const el = document.getElementById('cnt-'+a);
-    if (el) el.textContent = tasks.filter(t=>t.area===a&&active(t)).length;
+    if (el) el.textContent = tareasVisibles().filter(t=>t.area===a&&active(t)).length;
   });
 }
 
 function renderStats() {
-  const pool = currentArea==='all' ? tasks : tasks.filter(t=>t.area===currentArea);
+  const pool = currentArea==='all' ? tareasVisibles() : tareasVisibles().filter(t=>t.area===currentArea);
   const active = pool.filter(t=>t.estado!=='archivado');
   const total  = active.length;
   const prog   = active.filter(t=>t.estado==='en-progreso').length;
   const bloq   = active.filter(t=>t.estado==='bloqueada').length;
   const pfact  = active.filter(t=>t.estado==='por-facturar').length;
-  const arch   = tasks.filter(t=>t.estado==='archivado').length;
+  const arch   = tareasVisibles().filter(t=>t.estado==='archivado').length;
   const sinFact= pool.filter(t=>alertaFacturacion(t)!==null).length;
   const today  = new Date().toISOString().split('T')[0];
   const venc   = active.filter(t=>t.fecha&&t.fecha<today&&t.estado==='pendiente').length;
@@ -179,7 +179,7 @@ function renderKanban() {
   document.getElementById('kanban-view').innerHTML = html;
 
   // Archived section below the board
-  const archPool = currentArea==='all' ? tasks : tasks.filter(t=>t.area===currentArea);
+  const archPool = currentArea==='all' ? tareasVisibles() : tareasVisibles().filter(t=>t.area===currentArea);
   const arch = archPool.filter(t=>t.estado==='archivado');
   const archDiv = document.getElementById('arch-section');
   if (archDiv) {

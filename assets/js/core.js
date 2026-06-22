@@ -194,6 +194,15 @@ function alertaPorCotizar(t) {
 }
 function getMember(id) { return TEAM.find(m=>m.id===id); }
 
+// Tareas visibles para el usuario actual: un técnico solo ve las tarjetas
+// donde está asignado en el equipo (t.team incluye su id). Admin ve todas.
+function tareasVisibles() {
+  if (currentUser && currentUser.perfil === 'tecnico') {
+    return tasks.filter(t => (t.team||[]).includes(currentUser.id));
+  }
+  return tasks;
+}
+
 // ===================== PROGRAMACIÓN TÉCNICA =====================
 function nombreCorto(id) {
   const m = getMember(id);
