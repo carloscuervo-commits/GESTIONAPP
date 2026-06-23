@@ -45,8 +45,110 @@ function iniciarAlarmaChecker() {
   if (_alarmaIniciada) return; // evita duplicar el setInterval si iniciarApp() se llama más de una vez
   _alarmaIniciada = true;
   _chequearAlarma();
-  setInterval(_chequearAlarma, 20000); // revisa cada 20s
+  _chequearRetrasoTecnicos();
+  setInterval(_chequearAlarma, 20000);          // revisión de alarma diaria cada 20s
+  setInterval(_chequearRetrasoTecnicos, 60000); // revisión de retrasos cada 60s
 }
+
+// ===================== ALERTA DE RETRASO DE TÉCNICOS =====================
+// Detecta tarjetas IT/IF programadas para hoy donde la hora de inicio ya
+// pasó y el técnico no ha registrado check-in. Dispara sonido urgente,
+// muestra modal y envía correo a administrativo (una vez por tarea/sesión).
+
+let _retrasoAlertadas = new Set(); // IDs de tareas ya alertadas en esta sesión
+
+async function _chequearRetrasoTecnicos() {
+  if (!currentUser || currentUser.perfil !== 'admin') return;
+  if (typeof visitasActivas === 'undefined' || typeof tasks === 'undefined') return;
+
+  const { fecha: hoy, hora: horaActual } = _horaBogota();
+
+  const tardias = tasks.filter(t =>
+    ['it','if'].includes(t.area) &&
+    t.estado === 'programado' &&
+    t.fechaProg === hoy &&
+    t.horaProg &&
+    horaActual >= t.horaProg &&
+    !visitasActivas[t.id]
+  );
+
+  // Actualizar banner aunque no haya nuevas alertas
+  if (typeof renderAlertasRetraso === 'function') renderAlertasRetraso();
+
+  for (const t of tardias) {
+    if (_retrasoAlertadas.has(t.id)) continue; // ya alertada esta sesión
+    _retrasoAlertadas.add(t.id);
+
+    _reproducirBeepRetraso();
+    _mostrarModalRetraso(t);
+    _enviarAlertaRetraso(t.id);
+  }
+}
+
+function _reproducirBeepRetraso() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Patrón urgente: 5 beeps alternando frecuencia alta/baja
+    const tono = (inicio, freq) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + inicio);
+      gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + inicio + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + inicio);
+      osc.stop(ctx.currentTime + inicio + 0.25);
+    };
+    [0, 0.3, 0.6, 0.9, 1.2].forEach((t, i) => tono(t, i % 2 === 0 ? 1047 : 698));
+    setTimeout(() => ctx.close(), 2500);
+  } catch (e) { console.error('No se pudo reproducir alarma de retraso', e); }
+}
+
+function _mostrarModalRetraso(t) {
+  const overlay = document.getElementById('retraso-modal');
+  const content = document.getElementById('retraso-modal-content');
+  if (!overlay || !content) return;
+
+  const team = (t.team||[]).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar';
+  const item = document.createElement('div');
+  item.style.cssText = 'padding:10px 12px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:13px';
+  item.innerHTML = `<strong>${esc(t.titulo)}</strong><br>
+    <span style="color:#64748b">👤 ${esc(team)} · 🕗 Programado ${t.horaProg} · 📍 ${t.fechaProg}</span>`;
+  content.appendChild(item);
+  overlay.classList.add('open');
+
+  // Repetir beep cada 30s mientras el modal esté abierto
+  const beepInterval = setInterval(() => {
+    if (overlay.classList.contains('open')) _reproducirBeepRetraso();
+    else clearInterval(beepInterval);
+  }, 30000);
+}
+
+async function _enviarAlertaRetraso(tareaId) {
+  if (!API_BASE) return;
+  try {
+    await fetch(`${API_BASE}/alertas.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tareaId }),
+    });
+  } catch (e) {
+    console.error('Error enviando alerta de retraso:', e);
+  }
+}
+
+function cerrarRetrasoModal() {
+  const overlay = document.getElementById('retraso-modal');
+  if (overlay) {
+    overlay.classList.remove('open');
+    // Limpiar contenido para la siguiente vez
+    const content = document.getElementById('retraso-modal-content');
+    if (content) content.innerHTML = '';
+  }
+}
+// ===================== FIN ALERTA DE RETRASO =====================
 
 // --------------- Sonido (beep generado con Web Audio API, sin archivos externos) ---------------
 function _reproducirBeep() {

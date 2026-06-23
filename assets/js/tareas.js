@@ -162,7 +162,11 @@ function taskCard(t) {
       ${currentArea==='all'&&t.area?`<span class="badge" style="background:${ac}20;color:${ac}">${esc((AREAS[t.area]||{}).label||t.area)}</span>`:''}
     </div>
     ${team.length ? `<div class="task-assignee">${teamAvatars(team)}<span>${team.map(id=>getMember(id)?.initials||id).join(', ')}</span></div>` : ''}
-    ${t.fechaProg ? (() => { const fin = (t.diasProg||1)>1 ? fechaProgFin(t) : null; return `<div class="task-date">🗓 Prog: ${t.fechaProg}${fin ? ` → ${fin}` : ''}</div>`; })() : ''}
+    ${t.fechaProg ? (() => {
+      const fin  = (t.diasProg||1) > 1 ? fechaProgFin(t) : null;
+      const hora = (t.horaProg && t.horaProg !== '08:00') ? ` 🕗 ${t.horaProg}` : (t.horaProg ? ` 🕗 ${t.horaProg}` : '');
+      return `<div class="task-date">🗓 Prog: ${t.fechaProg}${fin ? ` → ${fin}` : ''}${hora}</div>`;
+    })() : ''}
     ${t.fecha?`<div class="task-date${venc?' vencida':''}">${venc?'⚠️ ':'📅 '}Límite: ${t.fecha}${t.tiempo?` · ⏱ ${esc(t.tiempo)}`:''}</div>`:(t.tiempo?`<div class="task-date">⏱ ${esc(t.tiempo)}</div>`:'')}
     ${t.recursos?`<div class="task-date">🔧 ${esc(t.recursos.slice(0,45))}${t.recursos.length>45?'...':''}</div>`:''}
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
@@ -446,6 +450,39 @@ function renderDashboard() {
 
   html += '</div>';
   document.getElementById('dashboard-view').innerHTML = html;
+  renderAlertasRetraso();
+}
+
+// Banner persistente de técnicos tardíos (actualizado también por alarma.js cada 60s)
+function renderAlertasRetraso() {
+  const banner = document.getElementById('alertas-retraso-banner');
+  if (!banner || !currentUser || currentUser.perfil !== 'admin') return;
+  if (typeof _horaBogota !== 'function' || typeof visitasActivas === 'undefined') return;
+
+  const { fecha: hoy, hora: horaActual } = _horaBogota();
+  const tardias = tasks.filter(t =>
+    ['it','if'].includes(t.area) &&
+    t.estado === 'programado' &&
+    t.fechaProg === hoy &&
+    t.horaProg &&
+    horaActual >= t.horaProg &&
+    !visitasActivas[t.id]
+  );
+
+  if (!tardias.length) { banner.innerHTML = ''; return; }
+
+  banner.innerHTML = `
+    <div style="background:#dc2626;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:15px;font-weight:700">🚨 Técnico${tardias.length>1?'s':''} tardío${tardias.length>1?'s':''} (${tardias.length})</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">
+        ${tardias.map(t => {
+          const team = (t.team||[]).map(id=>getMember(id)?.name||id).join(', ') || 'Sin asignar';
+          return `<span onclick="openModal('${t.id}')" style="background:rgba(255,255,255,.2);padding:4px 10px;border-radius:99px;cursor:pointer;font-size:13px">
+            🕗 ${t.horaProg} · ${esc(t.titulo)} (${esc(team)})
+          </span>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
 
 function setArea(a) {
@@ -626,6 +663,8 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-fechaprog').value=t?.fechaProg||'';
   const elDiasProg = document.getElementById('f-dias-prog');
   if (elDiasProg) elDiasProg.value = t?.diasProg || 1;
+  const elHoraProg = document.getElementById('f-hora-prog');
+  if (elHoraProg) elHoraProg.value = t?.horaProg || '08:00';
   actualizarFechaFinProg();
   document.getElementById('f-fecha').value=t?.fecha||'';
   document.getElementById('f-tiempo').value=t?.tiempo||'';
@@ -835,6 +874,7 @@ async function saveTask() {
   const area    = document.getElementById('f-area').value;
   const fechaProg = document.getElementById('f-fechaprog').value;
   const diasProg  = parseInt(document.getElementById('f-dias-prog')?.value) || 1;
+  const horaProg  = document.getElementById('f-hora-prog')?.value || '08:00';
   const reporte = document.getElementById('f-reporte').value.trim();
   const factura = document.getElementById('f-factura').value.trim();
   if (!titulo) { alert('El título es obligatorio'); return; }
@@ -893,7 +933,7 @@ async function saveTask() {
     area: document.getElementById('f-area').value,
     estado,
     cliente: document.getElementById('f-cliente').value.trim(),
-    fechaProg, diasProg,
+    fechaProg, diasProg, horaProg,
     fecha: document.getElementById('f-fecha').value,
     tiempo: document.getElementById('f-tiempo').value.trim(),
     tiempoReal: document.getElementById('f-treal').value.trim(),

@@ -65,15 +65,15 @@ if ($method === 'POST') {
   $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
 
   $stmt = $pdo->prepare("INSERT INTO tareas
-    (id, titulo, descripcion, area, estado, cliente, fecha_programacion, dias_programacion, fecha_limite,
+    (id, titulo, descripcion, area, estado, cliente, fecha_programacion, hora_programacion, dias_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
      solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'], $d['cliente'] ?? null,
-    $d['fechaProg'] ?? null, isset($d['diasProg']) ? (int)$d['diasProg'] : 1, $d['fecha'] ?? null,
-    $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
+    $d['fechaProg'] ?? null, $d['horaProg'] ?? '08:00', isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
+    $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
     $d['creadoPor'] ?? null, $realizadoEn, $enviadaEn, $programadoEn,
     $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
@@ -98,7 +98,7 @@ if ($method === 'PUT') {
   $id = $_GET['id'] ?? null;
   if (!$id) jsonOut(['error' => 'id requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT estado, realizado_en, enviada_en, programado_en, cotizacion_docx FROM tareas WHERE id = ?");
+  $stmt = $pdo->prepare("SELECT estado, realizado_en, enviada_en, programado_en, cotizacion_docx, fecha_programacion, alerta_retraso_enviada FROM tareas WHERE id = ?");
   $stmt->execute([$id]);
   $prev = $stmt->fetch();
   if (!$prev) jsonOut(['error' => 'No encontrada'], 404);
@@ -118,21 +118,26 @@ if ($method === 'PUT') {
   $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
   $cotizacionDocx = array_key_exists('cotizacionDocx', $d) ? $d['cotizacionDocx'] : $prev['cotizacion_docx'];
 
+  // Resetear alerta de retraso si cambió la fecha de programación
+  $nuevaFechaProg = $d['fechaProg'] ?? null;
+  $alertaRetraso = ($nuevaFechaProg !== $prev['fecha_programacion']) ? 0 : (int)$prev['alerta_retraso_enviada'];
+
   $stmt = $pdo->prepare("UPDATE tareas SET
-    titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, dias_programacion=?, fecha_limite=?,
+    titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, hora_programacion=?, dias_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, factura=?,
     realizado_en=?, enviada_en=?, programado_en=?, seguimiento_fecha=?, seguimiento_historial=?,
-    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?
+    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?,
+    alerta_retraso_enviada=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado, $d['cliente'] ?? null,
-    $d['fechaProg'] ?? null, isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
+    $nuevaFechaProg, $d['horaProg'] ?? '08:00', isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
     $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
     $realizadoEn, $enviadaEn, $programadoEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx,
-    empty($d['incluyeProg']) ? 0 : 1, $id,
+    empty($d['incluyeProg']) ? 0 : 1, $alertaRetraso, $id,
   ]);
 
   // Reasignar equipo

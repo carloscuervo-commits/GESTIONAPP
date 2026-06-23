@@ -65,7 +65,7 @@
 <div class="stats" id="stats"></div>
 
 <div class="filters">
-  <input class="search-box" type="text" placeholder="🔍 Buscar..." id="search" oninput="render()">
+  <input class="search-box" type="text" placeholder="🔍 Buscar..." id="search" oninput="render()" autocomplete="off">
   <select class="filter-select" id="f-estado" onchange="render()">
     <option value="">Todos los estados</option>
     <optgroup label="Comercial"><option value="por-cotizar">Por cotizar</option><option value="enviada">Enviada</option><option value="aprobada">Aprobada</option><option value="rechazada">Rechazada</option></optgroup>
@@ -81,6 +81,7 @@
   </select>
 </div>
 
+<div id="alertas-retraso-banner"></div>
 <div id="dashboard-view" style="display:block;padding:16px 20px 30px"></div>
 <div id="kanban-view" class="kanban" style="display:none"></div>
 <div id="arch-section" class="arch-section" style="display:none"></div>
@@ -309,6 +310,11 @@
           <span style="color:var(--text-muted);font-size:13px">día(s)</span>
         </div>
         <div id="fechaprog-fin-label" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <span style="font-size:13px;color:var(--text-muted)">🕗 Hora de inicio:</span>
+          <input type="time" id="f-hora-prog" value="08:00"
+            style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;background:var(--card);color:var(--text)">
+        </div>
       </div>
       <div class="form-group full" id="grupo-reporte" style="display:none">
         <label>📝 Reporte del servicio *</label>
@@ -454,6 +460,18 @@
   </div>
 </div>
 
+<!-- MODAL: alerta de retraso de técnico (solo admin) -->
+<div class="modal-overlay" id="retraso-modal" style="z-index:401">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title" style="color:#dc2626">🚨 Técnico tardío</div>
+    <p style="margin:0 0 8px;color:var(--text-muted);font-size:14px">
+      Los siguientes técnicos no han registrado llegada a sitio:
+    </p>
+    <div id="retraso-modal-content" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <button class="btn-save" style="width:100%;background:#dc2626" onclick="cerrarRetrasoModal()">Entendido</button>
+  </div>
+</div>
+
 <!-- MODAL: alarma diaria de recordatorio (solo admin) -->
 <div class="modal-overlay" id="alarma-modal" style="z-index:400">
   <div class="modal" style="max-width:380px;text-align:center">
@@ -465,15 +483,15 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="assets/js/core.js?v=20260622d"></script>
+<script src="assets/js/core.js?v=20260622f"></script>
 <script src="assets/js/auth.js?v=20260622d"></script>
-<script src="assets/js/tareas.js?v=20260622d"></script>
+<script src="assets/js/tareas.js?v=20260622f"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260622b"></script>
 <script src="assets/js/informes.js?v=20260622a"></script>
-<script src="assets/js/alarma.js?v=20260622a"></script>
+<script src="assets/js/alarma.js?v=20260622f"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
-<script src="assets/js/app.js?v=20260622d"></script>
+<script src="assets/js/app.js?v=20260622e"></script>
 </body>
 </html>

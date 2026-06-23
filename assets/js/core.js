@@ -9,7 +9,7 @@ const API_BASE = 'https://grupoinnovate.com/gestion/backend/api';
 function taskToApi(t) {
   return {
     id: t.id, titulo: t.titulo, desc: t.desc, area: t.area, estado: t.estado,
-    cliente: t.cliente, fechaProg: t.fechaProg, diasProg: t.diasProg || 1, fecha: t.fecha, tiempo: t.tiempo,
+    cliente: t.cliente, fechaProg: t.fechaProg, horaProg: t.horaProg || '08:00', diasProg: t.diasProg || 1, fecha: t.fecha, tiempo: t.tiempo,
     tiempoReal: t.tiempoReal, recursos: t.recursos, notas: t.notas,
     reporte: t.reporte, factura: t.factura, team: t.team || [],
     seguimientoFecha: t.seguimientoFecha || null, seguimientoHistorial: t.seguimientoHistorial || [],
@@ -31,6 +31,7 @@ function apiToTask(r) {
     tiempo: r.tiempo_estimado, tiempoReal: r.tiempo_real, recursos: r.recursos,
     notas: r.notas, reporte: r.reporte, factura: r.factura, team: r.team || [],
     diasProg: parseInt(r.dias_programacion) || 1,
+    horaProg: r.hora_programacion || '08:00',
     createdAt: r.creado_en, updatedAt: r.actualizado_en,
     realizadoAt: r.realizado_en, enviadaAt: r.enviada_en, programadoAt: r.programado_en,
     seguimientoFecha: r.seguimiento_fecha, seguimientoHistorial,

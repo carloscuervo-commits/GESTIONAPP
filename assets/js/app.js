@@ -57,6 +57,14 @@ function migrarSeedLocal(){
 }
 
 async function iniciarApp(){
+  // Limpiar filtros que el navegador pudo haber restaurado (bfcache / session restore)
+  const searchEl = document.getElementById('search');
+  if (searchEl) searchEl.value = '';
+  const estadoEl = document.getElementById('f-estado');
+  if (estadoEl) estadoEl.value = '';
+  const respEl = document.getElementById('f-responsable');
+  if (respEl) respEl.value = '';
+
   await loadTeam(); // carga equipo desde BD antes de renderizar tareas
   await load();
   loadCartera();
