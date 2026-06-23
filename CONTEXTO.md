@@ -57,10 +57,32 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 - Pendiente conocido: tarea #14, recordatorio diario de seguimientos comerciales (ver sección "Pendientes conocidos"), aplazada por el usuario.
 - Nota de seguridad resuelta en código (pendiente de deploy + acción manual en servidor): `backend/config_alegra.php` ya no se sube a git ni se copia por deploy (ver punto 2 arriba y "Notas de seguridad pendientes").
 - Instrucción permanente: mantener este archivo (`CONTEXTO.md`) actualizado con cada cambio (arquitectura, convenciones, estructura, pendientes).
+- **Instrucción permanente de sesión**: al final de cada conversación en este proyecto, actualizar `CONTEXTO.md` (y otros `.md` relevantes) con todo lo necesario para continuar en el otro equipo. La carpeta se sincroniza por OneDrive, así que los `.md` son el puente entre sesiones.
+
+## Archivos modificados pendientes de deploy (resumen para .cpanel.yml)
+
+Todos los cambios de las sesiones 2ª, 3ª y 4ª están sin deployar. Archivos a incluir:
+
+**Sesión 2 (multi-día):** `assets/js/core.js`, `assets/js/tareas.js`, `backend/api/tareas.php`, `tareas-equipo.html`. Migración previa: `backend/migracion_dias_programacion.sql`.
+
+**Sesión 3 (módulo usuarios):** `assets/js/usuarios.js` (nuevo — verificar que `.cpanel.yml` lo cubra), `assets/js/core.js`, `assets/js/auth.js`, `assets/js/tareas.js`, `assets/js/app.js`, `backend/api/usuarios.php`, `tareas-equipo.html`.
+
+**Sesión 4 (alerta retraso + fixes):** `assets/js/alarma.js`, `assets/js/tareas.js`, `assets/js/core.js`, `assets/js/app.js`, `tareas-equipo.html`, `backend/api/tareas.php`, `backend/api/alertas.php` (nuevo — verificar `.cpanel.yml`), `backend/migracion_hora_prog.sql` (ejecutar en BD antes de deploy).
+
+**Versiones actuales de cache-busting en `tareas-equipo.html`:**
+- `core.js?v=20260622f`, `auth.js?v=20260622d`, `tareas.js?v=20260622f`
+- `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260622e`
+
+## Pendientes de seguridad (backlog)
+
+Decisión tomada: mejorar seguridad a nivel API se deja para después. Análisis hecho en sesión 4:
+- Hoy el filtrado de vistas es solo UI (JS oculta tabs); un técnico podría llamar `GET /tareas.php` directamente y ver todas las tareas.
+- Plan acordado cuando se retome: `requireAuth($pdo)` en todos los endpoints + filtrado server-side en `tareas.php GET` (técnico solo recibe sus tareas) + wrapper `apiFetch()` en JS que inyecta `Authorization: Bearer TOKEN` en todos los fetch. No implementar autorización granular por ahora (técnico puede PUT solo en sus tareas) hasta que haya un caso concreto.
 
 ## Pendientes conocidos / Próximas tareas
 
 - **Tarea #14**: recordatorio diario de seguimientos comerciales. Aplazada por el usuario.
+- **Seguridad API-level**: ver sección "Pendientes de seguridad" arriba. Aplazada.
 - ✅ **Programación multi-día para tarjetas operativas (2026-06-22 → implementado 2026-06-22)**: campo `diasProg` (frontend) / `dias_programacion` (BD, `TINYINT UNSIGNED DEFAULT 1`). El formulario muestra "por N día(s)" junto a la fecha de inicio, y una etiqueta "Hasta: YYYY-MM-DD" cuando N > 1. `generarProgramacion()` usa `enRangoProg(t, fechaISO)` en lugar de igualdad exacta. Las tarjetas IT/IF en "En ejecución" con `diasProg > 1` muestran "🔧 Día X de N · Y días restantes". **Acción pendiente en deploy**: ejecutar `backend/migracion_dias_programacion.sql` antes de publicar.
 - ✅ **Bug técnico asignado en tarjetas multi-día (resuelto preventivamente)**: el flujo `openModal → buildTeamPicker(t?.team||[])` ya carga el equipo desde la tarea guardada. `closeModal` resetea `selectedTeam=[]` pero el siguiente `openModal` lo recarga correctamente. No se agregó ningún atajo que evite ese flujo, por lo que el bug no aplica en la implementación actual.
 

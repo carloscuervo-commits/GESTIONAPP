@@ -178,13 +178,34 @@ function taskCard(t) {
 }
 
 
+// ---- Ordenamiento automático de tarjetas operativas (IT/IF) ----
+// 1º sin fechaProg, por createdAt ascendente (orden de entrada)
+// 2º con fechaProg, por fechaProg descendente (más reciente primero)
+function sortTarjetasOperativas(arr) {
+  return [...arr].sort((a, b) => {
+    const aP = !!a.fechaProg, bP = !!b.fechaProg;
+    if (!aP && bP) return -1;
+    if (aP && !bP) return  1;
+    if (!aP && !bP) {
+      // mismo grupo sin programar: orden de entrada (createdAt asc)
+      return (a.createdAt||'') < (b.createdAt||'') ? -1
+           : (a.createdAt||'') > (b.createdAt||'') ?  1 : 0;
+    }
+    // mismo grupo con programar: fecha más reciente primero (desc)
+    return b.fechaProg < a.fechaProg ? -1
+         : b.fechaProg > a.fechaProg ?  1 : 0;
+  });
+}
+
 function renderKanban() {
   const filtered = getFiltered();
   const cols = getColsForArea(currentArea);
   const colArea = currentArea==='all' ? null : currentArea;
+  const esOpArea = ['it','if'].includes(currentArea);
 
   let html = cols.map(col => {
-    const ct = filtered.filter(t=>t.estado===col.id);
+    const rawCt = filtered.filter(t=>t.estado===col.id);
+    const ct = esOpArea ? sortTarjetasOperativas(rawCt) : rawCt;
     const addArea = colArea || 'it';
     return `<div class="kanban-col col-${col.id}">
       <div class="col-header">${col.label} <span class="count">${ct.length}</span></div>
