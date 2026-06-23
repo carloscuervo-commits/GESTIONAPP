@@ -434,6 +434,31 @@
   </div>
 </div>
 
+<!-- MODAL: check-in manual del admin (seleccionar técnico + hora) -->
+<div class="modal-overlay" id="admin-checkin-modal" style="z-index:310">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">📋 Registrar check-in</div>
+    <p style="margin:0 0 16px;font-size:13px;color:var(--text-muted)">
+      El técnico ya está en sitio pero no pudo registrarlo. Selecciona quién llegó y a qué hora.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Técnico</label>
+        <select id="admin-checkin-tecnico" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;background:var(--card);color:var(--text)"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Hora de ingreso</label>
+        <input type="time" id="admin-checkin-hora"
+          style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;background:var(--card);color:var(--text)">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-cancel" style="flex:1" onclick="cerrarAdminCheckinModal()">Cancelar</button>
+      <button class="btn-save" style="flex:2;background:#16a34a" onclick="confirmarAdminCheckin()">✅ Registrar check-in</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: formulario de reporte de visita (mobile-first) -->
 <div class="modal-overlay" id="reporte-modal" style="z-index:350">
   <div class="modal" style="max-width:560px">
@@ -488,7 +513,7 @@
 <script src="assets/js/tareas.js?v=20260623a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260622b"></script>
+<script src="assets/js/reportes.js?v=20260623a"></script>
 <script src="assets/js/informes.js?v=20260622a"></script>
 <script src="assets/js/alarma.js?v=20260622f"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>

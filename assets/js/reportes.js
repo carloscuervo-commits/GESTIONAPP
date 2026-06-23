@@ -103,11 +103,20 @@ async function iniciarVisita(tareaId, event) {
   if (event) event.stopPropagation();
   if (!API_BASE) { alert('Esta función requiere conexión al servidor (no disponible en modo local).'); return; }
 
-  const ejecutar = async (tecnicoId) => {
+  // Admin: abre modal para elegir técnico y hora manual.
+  // Técnico / sin sesión: flujo normal con hora actual del servidor.
+  if (currentUser && currentUser.perfil === 'admin') {
+    abrirAdminCheckinModal(tareaId);
+    return;
+  }
+
+  const ejecutarCheckin = async (tecnicoId, checkIn) => {
     try {
+      const body = { tareaId, tecnicoCheckinId: tecnicoId };
+      if (checkIn) body.checkIn = checkIn; // "HH:MM" solo en flujo admin
       const res = await fetch(`${API_BASE}/reportes.php`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tareaId, tecnicoCheckinId: tecnicoId }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
@@ -116,10 +125,61 @@ async function iniciarVisita(tareaId, event) {
     } catch (e) { console.error(e); alert('No se pudo iniciar la visita. Revisa tu conexión.'); }
   };
 
-  // Con login activo, el usuario que inicia la visita ya se conoce (currentUser).
-  // Si por algún motivo no hay sesión, se pregunta como respaldo.
-  if (currentUser && currentUser.id) ejecutar(currentUser.id);
-  else abrirSelectorTecnico(tareaId, '🚀 ¿Quién inicia la visita?', ejecutar);
+  if (currentUser && currentUser.id) ejecutarCheckin(currentUser.id);
+  else abrirSelectorTecnico(tareaId, '🚀 ¿Quién inicia la visita?', (id) => ejecutarCheckin(id));
+}
+
+// ----------------- Check-in manual del admin -----------------
+let _adminCheckinTareaId = null;
+let _adminCheckinEjecutar = null;
+
+function abrirAdminCheckinModal(tareaId) {
+  _adminCheckinTareaId = tareaId;
+
+  // Poblar selector de técnicos con el equipo de la tarea
+  const t = tasks.find(x => x.id === tareaId);
+  const candidatos = (t?.team && t.team.length) ? t.team.map(id => getMember(id)).filter(Boolean) : TEAM;
+  const sel = document.getElementById('admin-checkin-tecnico');
+  if (sel) {
+    sel.innerHTML = candidatos.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  }
+
+  // Hora por defecto: hora actual en Bogotá
+  const horaInput = document.getElementById('admin-checkin-hora');
+  if (horaInput) {
+    const { hora } = _horaBogota();
+    horaInput.value = hora; // "HH:MM"
+  }
+
+  document.getElementById('admin-checkin-modal').classList.add('open');
+}
+
+function cerrarAdminCheckinModal() {
+  document.getElementById('admin-checkin-modal').classList.remove('open');
+  _adminCheckinTareaId = null;
+}
+
+async function confirmarAdminCheckin() {
+  const tareaId = _adminCheckinTareaId;
+  if (!tareaId) return;
+
+  const tecnicoId = document.getElementById('admin-checkin-tecnico').value;
+  const hora      = document.getElementById('admin-checkin-hora').value; // "HH:MM"
+
+  if (!hora) { alert('Ingresa la hora de llegada.'); return; }
+
+  cerrarAdminCheckinModal();
+
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tareaId, tecnicoCheckinId: tecnicoId, checkIn: hora }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    visitasActivas[tareaId] = data;
+    render();
+  } catch (e) { console.error(e); alert('No se pudo registrar el check-in. Revisa tu conexión.'); }
 }
 
 async function finalizarVisita(tareaId, event) {

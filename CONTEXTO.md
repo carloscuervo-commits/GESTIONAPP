@@ -4,11 +4,13 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-23 — sesión deploys #15-#19)
+## Estado actual (última actualización: 2026-06-23 — sesión #20)
 
-- **Sin cambios pendientes de deploy.** Todo está en producción.
+- **⚠️ Cambios pendientes de deploy (2026-06-23, sesión #20)**:
+  - Check-in manual del admin: admin puede registrar llegada de un técnico eligiendo técnico y hora de ingreso (en lugar de usar la hora actual). `reportes.js` bifurca `iniciarVisita()` por perfil; admin abre nuevo modal `#admin-checkin-modal` con selector de técnico y time input. `backend/api/reportes.php` acepta campo `checkIn` ("HH:MM") en el POST; si llega, construye el `check_in` con fecha hoy Bogotá + hora manual en lugar de `NOW()`. Correo de notificación indica "(registrada manualmente)" cuando aplica. Sin migración SQL. Cache-busting: `reportes.js?v=20260623a`.
+  - Ordenamiento automático IT/IF: `sortTarjetasOperativas()` en `tareas.js` — sin `fechaProg` primero (por `createdAt` asc), luego con `fechaProg` (por fecha desc). Cache-busting: `tareas.js?v=20260623a`.
 - **⚠️ Migración SQL pendiente de verificar**: `backend/migracion_hora_prog.sql` — agrega `hora_programacion VARCHAR(5) DEFAULT '08:00'` y `alerta_retraso_enviada TINYINT(1) DEFAULT 0` a tabla `tareas`. Ejecutar en phpMyAdmin si aún no se ha corrido (la alerta de técnico tardío la requiere).
-- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260622f`, `auth.js?v=20260622d`, `tareas.js?v=20260623a`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260622f`.
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260622f`, `auth.js?v=20260622d`, `tareas.js?v=20260623a`, `reportes.js?v=20260623a`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260622f`.
 - **Últimos deploys desplegados y verificados**:
   - **Deploy #19 (2026-06-23)**: ordenamiento automático de tarjetas kanban IT/IF — sin fecha por `createdAt` asc, con fecha por `fechaProg` desc (`sortTarjetasOperativas()` en `tareas.js`).
   - **Deploy #18 (2026-06-22)**: alerta de técnico tardío (`#retraso-modal`, `#alertas-retraso-banner`, `backend/api/alertas.php`) + campo hora de inicio en programación (`#f-hora-prog`, `hora_programacion` en BD) + fix bfcache (limpiar filtros en `iniciarApp()`).

@@ -66,7 +66,9 @@ if ($method === 'GET') {
 
 // --------------------------------------------------------------
 // POST /reportes.php  -> Iniciar visita (check-in)
-// body: { tareaId, tecnicoCheckinId }
+// body: { tareaId, tecnicoCheckinId, checkIn? }
+//   checkIn (opcional): "HH:MM" — hora manual ingresada por admin (hora Bogotá).
+//   Si se omite, se usa NOW() (flujo normal del técnico).
 // Crea el reporte en estado 'en_visita' y notifica a administrativo.
 // --------------------------------------------------------------
 if ($method === 'POST') {
@@ -85,19 +87,40 @@ if ($method === 'POST') {
   $enCurso = $stmt->fetch();
   if ($enCurso) jsonOut(reporteConFotos($pdo, $enCurso));
 
+  // Construir timestamp de check-in
+  // Si el admin envió una hora manual (HH:MM), combinarla con la fecha de hoy en Bogotá.
+  // Si no, usar NOW() (técnico usa hora actual del servidor, que ya está en Bogotá por config.php).
+  $checkInSQL = 'NOW()';
+  $checkInParam = null;
+  if (!empty($d['checkIn']) && preg_match('/^\d{2}:\d{2}$/', $d['checkIn'])) {
+    $tz = new DateTimeZone('America/Bogota');
+    $fechaHoy = (new DateTime('now', $tz))->format('Y-m-d');
+    $checkInParam = $fechaHoy . ' ' . $d['checkIn'] . ':00';
+    $checkInSQL = '?';
+  }
+
   $id = bin2hex(random_bytes(16));
   $tecnicoId = $d['tecnicoCheckinId'] ?? null;
-  $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in)
-    VALUES (?, ?, 'en_visita', ?, NOW())")->execute([$id, $tareaId, $tecnicoId]);
+
+  if ($checkInParam !== null) {
+    $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in)
+      VALUES (?, ?, 'en_visita', ?, ?)")->execute([$id, $tareaId, $tecnicoId, $checkInParam]);
+  } else {
+    $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in)
+      VALUES (?, ?, 'en_visita', ?, NOW())")->execute([$id, $tareaId, $tecnicoId]);
+  }
 
   // Notificación a administrativo (no bloqueante si falla)
   try {
     $tecnicoNombre = _nombreTecnico($pdo, $tecnicoId);
+    $horaDisplay = $checkInParam
+      ? (new DateTime($checkInParam))->format('d/m/Y H:i') . ' (registrada manualmente)'
+      : date('d/m/Y H:i');
     $asunto = "🟢 Visita iniciada — " . ($tarea['cliente'] ?: 'Sin cliente');
     $cuerpo = "<p><b>{$tecnicoNombre}</b> inició una visita técnica.</p>"
       . "<p><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
       . "<b>Tarea:</b> " . htmlspecialchars($tarea['titulo']) . "<br>"
-      . "<b>Hora de inicio:</b> " . date('d/m/Y H:i') . "</p>";
+      . "<b>Hora de inicio:</b> " . $horaDisplay . "</p>";
     enviarCorreoConAdjunto([CORREO_ADMIN_FIJO], $asunto, $cuerpo);
   } catch (Throwable $e) { /* no bloquear el check-in si el correo falla */ }
 
