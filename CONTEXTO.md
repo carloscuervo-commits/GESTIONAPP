@@ -4,11 +4,12 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-23 — deploy #22 pendiente)
+## Estado actual (última actualización: 2026-06-23 — deploy #23)
 
-- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623d`, `reportes.js?v=20260623d`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260623a`.
-- **Migraciones SQL pendientes de deploy #22**: ninguna nueva. Solo archivos PHP y JS.
-- **Deploy #22 (2026-06-23, pendiente)**:
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623c`, `reportes.js?v=20260623d`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
+- **Deploy #23 (2026-06-23) — desplegado y verificado**:
+  - **Input búsqueda cambiado a `type="search"`**: en `tareas-equipo.html`, el `<input id="search">` pasó de `type="text"` a `type="search"`, lo que habilita el botón nativo "×" del browser para limpiar el campo de búsqueda sin JS adicional.
+- **Deploy #22 (2026-06-23) — desplegado y verificado**:
   - **Fix "carcuervo" definitivo**: `setArea()` en `tareas.js` ahora limpia `#search`, `#f-estado`, `#f-responsable` al cambiar de área. Esto cubre el caso de navegar entre tabs (el `pageshow` cubre el reload/bfcache).
   - **Fix archivar sin factura**: `confirmarMotivoNoFactura()` capturaba `_archivarPendienteId` DESPUÉS de llamar `cerrarMotivoNoFactura()` que lo ponía en null. Fix: capturar el id ANTES de cerrar el modal.
   - **Admin check-in multi-técnico mejorado**: `abrirAdminCheckinModal()` ahora filtra del selector los técnicos que ya tienen check-in activo (sin check_out), y muestra un aviso verde "🟢 Ya en sitio: Jorge Guerrero" encima del select para que el admin sepa quién ya está registrado. Nuevo `<div id="admin-checkin-ya-en-sitio">` en el HTML del modal.
@@ -21,6 +22,8 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 - **Fix PDF nombre de archivo + overflow cliente (2026-06-23)**: `reportes.js` ahora usa `splitTextToSize` para todas las filas del encabezado del PDF (Cliente, Tarea, etc.) — el nombre largo ya no se sale de la página, se parte en segundas líneas. Nombre de archivo cambiado de `reporte-{uuid}.pdf` a `Innovate-YYYYMMDD-Pal1-Pal2-Pal3-Pal4.pdf` (primeras 4 palabras del cliente, caracteres especiales removidos). `reporte_pdf.php` POST acepta campo `nombre` sanitizado y lo usa para guardar; GET lo sirve en `Content-Disposition`.
 - **Fix bfcache filtro "carcuervo" (2026-06-23)**: el intento anterior de limpiar en `iniciarApp()` no era suficiente porque Chrome restaura los valores del formulario DESPUÉS de que JS corre. Solución: `window.addEventListener('pageshow', ...)` en `app.js` que limpia `#search`, `#f-estado`, `#f-responsable` — `pageshow` dispara justo después de que el browser termina el restore del bfcache.
 - **Últimos deploys desplegados y verificados**:
+  - **Deploy #23 (2026-06-23)**: input búsqueda `type="search"` (botón nativo "×").
+  - **Deploy #22 (2026-06-23)**: modal check-in admin muestra técnicos ya en sitio y excluye del selector los con check-in activo; notificación de checkout al admin; fix `confirmarMotivoNoFactura` (capturaba id después de cerrar el modal); cliente en uppercase en tarjetas; `setArea()` limpia filtros al cambiar área.
   - **Deploy #21 (2026-06-23)**: multi-técnico por visita (`visita_participantes`), motivo de archivado sin factura (`motivo_no_factura`), PDF nombre descriptivo, bfcache fix via `pageshow`. Migraciones ejecutadas: `migracion_motivo_no_factura.sql`, `migracion_visita_participantes.sql`, `migracion_hora_prog.sql`.
   - **Deploy #20 (2026-06-23)**: check-in manual por admin — `iniciarVisita()` en `reportes.js` bifurca por perfil: admin abre `#admin-checkin-modal` (selector de técnico + time input `#admin-checkin-hora`); técnico usa flujo normal. `backend/api/reportes.php` acepta `checkIn` ("HH:MM") en POST; construye el timestamp como fecha Bogotá + hora manual o `NOW()`. Correo indica "(registrada manualmente)" cuando aplica. Sin migración SQL. `reportes.js?v=20260623a`.
   - **Deploy #19 (2026-06-23)**: ordenamiento automático de tarjetas kanban IT/IF — sin fecha por `createdAt` asc, con fecha por `fechaProg` desc (`sortTarjetasOperativas()` en `tareas.js`).
@@ -77,23 +80,6 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 - Nota de seguridad resuelta en código (pendiente de deploy + acción manual en servidor): `backend/config_alegra.php` ya no se sube a git ni se copia por deploy (ver punto 2 arriba y "Notas de seguridad pendientes").
 - Instrucción permanente: mantener este archivo (`CONTEXTO.md`) actualizado con cada cambio (arquitectura, convenciones, estructura, pendientes).
 - **Instrucción permanente de sesión**: al final de cada conversación en este proyecto, actualizar `CONTEXTO.md` (y otros `.md` relevantes) con todo lo necesario para continuar en el otro equipo. La carpeta se sincroniza por OneDrive, así que los `.md` son el puente entre sesiones.
-
-## Archivos modificados pendientes de deploy
-
-### Deploy #21 (pendiente — motivo no factura + multi-técnico)
-
-**Antes del deploy**, ejecutar en phpMyAdmin:
-1. `backend/migracion_visita_participantes.sql` (si no se ha corrido aún)
-2. `backend/migracion_motivo_no_factura.sql`
-
-**Archivos a deployar:**
-- `tareas-equipo.html` (modal motivo + bumps versiones + modal admin-checkin)
-- `assets/js/core.js` (`motivoNoFactura` en taskToApi/apiToTask)
-- `assets/js/tareas.js` (archivarTask con modal + badge + sortTarjetasOperativas)
-- `assets/js/reportes.js` (multi-tech renderVisitaBoton, PDF participantes, admin checkin)
-- `assets/js/app.js` (fix bfcache pageshow)
-- `backend/api/tareas.php` (`motivo_no_factura` en INSERT/UPDATE)
-- `backend/api/reportes.php` (multi-tech + admin checkIn manual)
 
 ## Pendientes de seguridad (backlog)
 
