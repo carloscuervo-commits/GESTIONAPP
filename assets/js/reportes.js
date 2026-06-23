@@ -40,13 +40,51 @@ async function cargarVisitasActivas() {
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
 
-// ----------------- Botón en la tarjeta -----------------
+// ----------------- Botón en la tarjeta (multi-técnico) -----------------
 function renderVisitaBoton(t) {
   const visita = visitasActivas[t.id];
   if (visita) {
-    return `<div class="task-date" style="color:#16a34a;font-weight:700">🟢 En sitio desde ${formatHora(visita.check_in)}</div>
-      <button class="btn-archivar" style="background:#f59e0b;color:#fff" onclick="finalizarVisita('${t.id}',event)">🏁 Finalizar visita</button>`;
+    const partes = visita.participantes || [];
+    let html = '';
+
+    // Mostrar estado de cada participante
+    partes.forEach(p => {
+      const nombre = getMember(p.tecnico_id)?.name || p.tecnico_id || 'Técnico';
+      if (!p.check_out) {
+        html += `<div class="task-date" style="color:#16a34a;font-weight:600">🟢 ${esc(nombre)} · desde ${formatHora(p.check_in)}</div>`;
+      } else {
+        html += `<div class="task-date" style="color:#94a3b8;font-size:12px">✅ ${esc(nombre)}: ${formatHora(p.check_in)} – ${formatHora(p.check_out)}</div>`;
+      }
+    });
+
+    const esAdmin = currentUser?.perfil === 'admin';
+
+    if (esAdmin) {
+      // Admin: botón de finalizar por cada participante activo + botón para agregar otro técnico
+      partes.filter(p => !p.check_out).forEach(p => {
+        const nombre = getMember(p.tecnico_id)?.name || 'Técnico';
+        html += `<button class="btn-archivar" style="background:#f59e0b;color:#fff;margin-top:4px"
+          onclick="finalizarVisitaParticipante('${t.id}','${p.id}',event)">🏁 Finalizar: ${esc(nombre)}</button>`;
+      });
+      html += `<button class="btn-archivar" style="background:#16a34a;color:#fff;margin-top:4px"
+        onclick="iniciarVisita('${t.id}',event)">➕ Agregar técnico</button>`;
+    } else {
+      // Técnico: solo su propio participante
+      const miPart = currentUser
+        ? partes.find(p => p.tecnico_id === currentUser.id && !p.check_out)
+        : null;
+      if (miPart) {
+        html += `<button class="btn-archivar" style="background:#f59e0b;color:#fff"
+          onclick="finalizarVisitaParticipante('${t.id}','${miPart.id}',event)">🏁 Finalizar mi visita</button>`;
+      } else if (currentUser && !partes.find(p => p.tecnico_id === currentUser.id)) {
+        // No ha registrado llegada todavía
+        html += `<button class="btn-archivar" style="background:#16a34a;color:#fff"
+          onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar mi visita</button>`;
+      }
+    }
+    return html;
   }
+
   const borrador = borradoresActivos[t.id];
   if (borrador) {
     return `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${borrador.id}',event)">📝 Continuar reporte</button>`;
@@ -182,7 +220,7 @@ async function confirmarAdminCheckin() {
   } catch (e) { console.error(e); alert('No se pudo registrar el check-in. Revisa tu conexión.'); }
 }
 
-async function finalizarVisita(tareaId, event) {
+async function finalizarVisitaParticipante(tareaId, participanteId, event) {
   if (event) event.stopPropagation();
   const visita = visitasActivas[tareaId];
   if (!visita) { alert('No hay una visita en curso para esta tarea.'); return; }
@@ -191,20 +229,39 @@ async function finalizarVisita(tareaId, event) {
     try {
       const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'checkout', tecnicoCheckoutId: tecnicoId }),
+        body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId }),
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
-      delete visitasActivas[tareaId];
-      borradoresActivos[tareaId] = data;
-      render();
-      _reporteSoloEdicion = false; // flujo normal: al cerrar, sí se pregunta si la tarea terminó
-      abrirFormularioReporte(data);
+
+      const todosTerminaron = (data.participantes || []).every(p => p.check_out);
+      if (todosTerminaron) {
+        delete visitasActivas[tareaId];
+        borradoresActivos[tareaId] = data;
+        _reporteSoloEdicion = false;
+        render();
+        abrirFormularioReporte(data);
+      } else {
+        // Aún hay otros técnicos en sitio — actualizar estado sin abrir formulario
+        visitasActivas[tareaId] = data;
+        render();
+      }
     } catch (e) { console.error(e); alert('No se pudo finalizar la visita. Revisa tu conexión.'); }
   };
 
   if (currentUser && currentUser.id) ejecutar(currentUser.id);
   else abrirSelectorTecnico(tareaId, '🏁 ¿Quién finaliza la visita?', ejecutar);
+}
+
+// Alias legacy por si queda alguna referencia directa
+async function finalizarVisita(tareaId, event) {
+  const visita = visitasActivas[tareaId];
+  if (!visita) { alert('No hay una visita en curso para esta tarea.'); return; }
+  const miPart = currentUser
+    ? (visita.participantes || []).find(p => p.tecnico_id === currentUser.id && !p.check_out)
+    : null;
+  const partId = miPart?.id || (visita.participantes || [])[0]?.id || null;
+  finalizarVisitaParticipante(tareaId, partId, event);
 }
 
 // soloEdicion=true cuando se abre desde el informe "Reportes de tarjetas
@@ -556,19 +613,35 @@ async function generarPDFReporte(btn) {
     const tecnicoIn = getMember(r.tecnico_checkin_id)?.name || '-';
     const tecnicoOut = getMember(r.tecnico_checkout_id)?.name || '-';
 
+    const partes = r.participantes || [];
     const filas = [
       ['Cliente', t.cliente || '-'],
-      ['Tarea', t.titulo || '-'],
-      ['Técnico', tecnicoIn === tecnicoOut ? tecnicoIn : `${tecnicoIn} / ${tecnicoOut}`],
-      ['Check-in', formatFechaHoraCorta(r.check_in)],
-      ['Check-out', formatFechaHoraCorta(r.check_out)],
-      ['Duración', calcularDuracion(r.check_in, r.check_out)],
+      ['Tarea',   t.titulo  || '-'],
     ];
+    if (partes.length > 0) {
+      partes.forEach((p, i) => {
+        const nombre   = getMember(p.tecnico_id)?.name || p.tecnico_id || '-';
+        const horaIn   = formatHora(p.check_in);
+        const horaOut  = p.check_out ? formatHora(p.check_out) : '-';
+        const dur      = p.check_out ? calcularDuracion(p.check_in, p.check_out) : 'En curso';
+        const etiqueta = partes.length > 1 ? `Técnico ${i + 1}` : 'Técnico';
+        filas.push([etiqueta, `${nombre}   ${horaIn} → ${horaOut}   (${dur})`]);
+      });
+    } else {
+      // Fallback para reportes creados antes de la migración multi-técnico
+      filas.push(['Técnico',   tecnicoIn === tecnicoOut ? tecnicoIn : `${tecnicoIn} / ${tecnicoOut}`]);
+      filas.push(['Check-in',  formatFechaHoraCorta(r.check_in)]);
+      filas.push(['Check-out', formatFechaHoraCorta(r.check_out)]);
+      filas.push(['Duración',  calcularDuracion(r.check_in, r.check_out)]);
+    }
+    const labelColW = 32; // mm que ocupa la columna de etiquetas
+    const valMaxW = pageW - marginX - labelColW - marginX; // ancho disponible para el valor (~148mm)
     doc.setFontSize(10);
     filas.forEach(([label, val]) => {
+      const lineas = doc.splitTextToSize(String(val), valMaxW);
       doc.setFont(undefined, 'bold'); doc.text(label + ':', marginX, y);
-      doc.setFont(undefined, 'normal'); doc.text(String(val), marginX + 32, y);
-      y += 6;
+      doc.setFont(undefined, 'normal'); doc.text(lineas, marginX + labelColW, y);
+      y += lineas.length * 6;
     });
     y += 4;
 
@@ -630,10 +703,21 @@ async function generarPDFReporte(btn) {
       doc.text(`Página ${p} de ${totalPaginas}`, pageW - marginX - 25, 292);
     }
 
+    // Nombre de archivo: Innovate-YYYYMMDD-PrimerasPalabrasCliente.pdf
+    const _fechaPDF = r.check_in
+      ? r.check_in.substring(0, 10).replace(/-/g, '')   // "YYYYMMDD"
+      : new Date().toISOString().substring(0, 10).replace(/-/g, '');
+    const _clienteSlug = (t.cliente || '')
+      .trim().split(/\s+/).slice(0, 4)
+      .map(w => w.replace(/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ]/g, ''))
+      .filter(Boolean).join('-') || 'SinCliente';
+    const nombreArchivo = `Innovate-${_fechaPDF}-${_clienteSlug}.pdf`;
+
     const blobPdf = doc.output('blob');
     const fd = new FormData();
     fd.append('reporteId', r.id);
-    fd.append('file', blobPdf, `reporte-${r.id}.pdf`);
+    fd.append('nombre', nombreArchivo);
+    fd.append('file', blobPdf, nombreArchivo);
     const res = await fetch(`${API_BASE}/reporte_pdf.php`, { method: 'POST', body: fd });
     const data = await res.json();
     if (data.error) {

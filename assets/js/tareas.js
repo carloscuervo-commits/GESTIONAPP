@@ -171,6 +171,7 @@ function taskCard(t) {
     ${t.recursos?`<div class="task-date">🔧 ${esc(t.recursos.slice(0,45))}${t.recursos.length>45?'...':''}</div>`:''}
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
+    ${(!t.factura && t.motivoNoFactura)?`<div class="task-date" style="color:#0D3B40;font-size:12px;font-weight:600">📋 Sin factura: ${esc(t.motivoNoFactura)}</div>`:''}
     ${(['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) ? `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>` : ''}
     ${(['it','if'].includes(t.area) && !['realizado','facturado','archivado'].includes(t.estado)) ? renderVisitaBoton(t) : ''}
     ${showArchivar ? `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>` : ''}
@@ -576,12 +577,40 @@ function alertaConfirmacion(t) {
   return null;
 }
 
+let _archivarPendienteId = null;
+
 function archivarTask(id, e) {
   if (e) { e.stopPropagation(); }
+  const t = tasks.find(x => x.id === id);
+  // IT/IF en estado 'realizado' (= columna "Por facturar") sin factura → pedir motivo
+  if (t && ['it','if'].includes(t.area) && t.estado === 'realizado' && !t.factura) {
+    _archivarPendienteId = id;
+    document.getElementById('modal-motivo-no-factura').classList.add('open');
+    return;
+  }
   if (!confirm('¿Archivar esta tarea? Ya no aparecerá en el tablero activo.')) return;
-  tasks = tasks.map(t => t.id===id ? {...t, estado:'archivado', updatedAt:new Date().toISOString()} : t);
+  _ejecutarArchivar(id, null);
+}
+
+function _ejecutarArchivar(id, motivo) {
+  tasks = tasks.map(t => t.id===id
+    ? {...t, estado:'archivado', motivoNoFactura: motivo || t.motivoNoFactura || null, updatedAt:new Date().toISOString()}
+    : t);
   save(); render();
   syncEstado(id);
+}
+
+function confirmarMotivoNoFactura(motivo) {
+  cerrarMotivoNoFactura();
+  const id = _archivarPendienteId;
+  _archivarPendienteId = null;
+  if (!id) return;
+  _ejecutarArchivar(id, motivo);
+}
+
+function cerrarMotivoNoFactura() {
+  document.getElementById('modal-motivo-no-factura').classList.remove('open');
+  _archivarPendienteId = null;
 }
 
 // ---- Drag & Drop ----

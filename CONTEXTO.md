@@ -4,14 +4,19 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-23 — sesión #20)
+## Estado actual (última actualización: 2026-06-23 — deploy #21 pendiente)
 
-- **⚠️ Cambios pendientes de deploy (2026-06-23, sesión #20)**:
-  - Check-in manual del admin: admin puede registrar llegada de un técnico eligiendo técnico y hora de ingreso (en lugar de usar la hora actual). `reportes.js` bifurca `iniciarVisita()` por perfil; admin abre nuevo modal `#admin-checkin-modal` con selector de técnico y time input. `backend/api/reportes.php` acepta campo `checkIn` ("HH:MM") en el POST; si llega, construye el `check_in` con fecha hoy Bogotá + hora manual en lugar de `NOW()`. Correo de notificación indica "(registrada manualmente)" cuando aplica. Sin migración SQL. Cache-busting: `reportes.js?v=20260623a`.
-  - Ordenamiento automático IT/IF: `sortTarjetasOperativas()` en `tareas.js` — sin `fechaProg` primero (por `createdAt` asc), luego con `fechaProg` (por fecha desc). Cache-busting: `tareas.js?v=20260623a`.
-- **⚠️ Migración SQL pendiente de verificar**: `backend/migracion_hora_prog.sql` — agrega `hora_programacion VARCHAR(5) DEFAULT '08:00'` y `alerta_retraso_enviada TINYINT(1) DEFAULT 0` a tabla `tareas`. Ejecutar en phpMyAdmin si aún no se ha corrido (la alerta de técnico tardío la requiere).
-- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260622f`, `auth.js?v=20260622d`, `tareas.js?v=20260623a`, `reportes.js?v=20260623a`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260622f`.
+- **⚠️ Migraciones SQL pendientes de ejecutar antes del próximo deploy**:
+  - `backend/migracion_motivo_no_factura.sql` — `ALTER TABLE tareas ADD COLUMN motivo_no_factura VARCHAR(30) NULL AFTER factura` (nuevo, sesión actual).
+  - `backend/migracion_visita_participantes.sql` — tabla `visita_participantes` + migración de datos legacy (sesión anterior, aún pendiente si no se ha corrido).
+  - `backend/migracion_hora_prog.sql` — `hora_programacion` + `alerta_retraso_enviada` (verificar si ya se ejecutó).
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623b`, `reportes.js?v=20260623c`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260623a`.
+- **Motivo de archivado sin factura (2026-06-23, pendiente de deploy)**: cuando se archiva una tarjeta IT/IF desde la columna "Por facturar" (`estado='realizado'`) sin tener factura asignada, `archivarTask()` ya no hace `confirm` directo sino que abre el modal `#modal-motivo-no-factura` con 4 opciones: Garantía, Levantamiento, Contrato, Otros. El motivo elegido se guarda en `motivoNoFactura` (campo nuevo en el modelo frontend) → `motivo_no_factura VARCHAR(30)` en BD → se muestra en la tarjeta como `📋 Sin factura: Garantía` (color violeta). Si la tarjeta ya tiene `factura`, el archivado es directo sin preguntar. Archivos modificados: `backend/migracion_motivo_no_factura.sql` (NEW), `backend/api/tareas.php` (POST INSERT + PUT UPDATE), `assets/js/core.js` (`taskToApi`/`apiToTask`), `assets/js/tareas.js` (`archivarTask()` refactorizado + `_ejecutarArchivar()` + `confirmarMotivoNoFactura()` + `cerrarMotivoNoFactura()` + badge en tarjeta), `tareas-equipo.html` (modal `#modal-motivo-no-factura`).
+- **Multi-técnico por visita (2026-06-23)**: nueva tabla `visita_participantes (id, reporte_id, tecnico_id, check_in, check_out)`. Migración: `backend/migracion_visita_participantes.sql` (ejecutar ANTES del deploy). `reportes.php` POST ya no bloquea check-in si hay reporte en curso — agrega un participante adicional. PUT checkout usa `participanteId`; el reporte solo pasa a `borrador` cuando TODOS los participantes hacen checkout. `reporteConFotos()` incluye `participantes[]`. Frontend `renderVisitaBoton()` muestra estado individual por técnico: el técnico ve su propio botón, el admin ve botón de finalizar por cada participante activo + "Agregar técnico". PDF muestra una fila por participante con sus horarios. Fallback para reportes pre-migración (sin participantes) usa los campos legacy `tecnico_checkin_id`/`check_in`/`check_out`.
+- **Fix PDF nombre de archivo + overflow cliente (2026-06-23)**: `reportes.js` ahora usa `splitTextToSize` para todas las filas del encabezado del PDF (Cliente, Tarea, etc.) — el nombre largo ya no se sale de la página, se parte en segundas líneas. Nombre de archivo cambiado de `reporte-{uuid}.pdf` a `Innovate-YYYYMMDD-Pal1-Pal2-Pal3-Pal4.pdf` (primeras 4 palabras del cliente, caracteres especiales removidos). `reporte_pdf.php` POST acepta campo `nombre` sanitizado y lo usa para guardar; GET lo sirve en `Content-Disposition`.
+- **Fix bfcache filtro "carcuervo" (2026-06-23)**: el intento anterior de limpiar en `iniciarApp()` no era suficiente porque Chrome restaura los valores del formulario DESPUÉS de que JS corre. Solución: `window.addEventListener('pageshow', ...)` en `app.js` que limpia `#search`, `#f-estado`, `#f-responsable` — `pageshow` dispara justo después de que el browser termina el restore del bfcache.
 - **Últimos deploys desplegados y verificados**:
+  - **Deploy #20 (2026-06-23)**: check-in manual por admin — `iniciarVisita()` en `reportes.js` bifurca por perfil: admin abre `#admin-checkin-modal` (selector de técnico + time input `#admin-checkin-hora`); técnico usa flujo normal. `backend/api/reportes.php` acepta `checkIn` ("HH:MM") en POST; construye el timestamp como fecha Bogotá + hora manual o `NOW()`. Correo indica "(registrada manualmente)" cuando aplica. Sin migración SQL. `reportes.js?v=20260623a`.
   - **Deploy #19 (2026-06-23)**: ordenamiento automático de tarjetas kanban IT/IF — sin fecha por `createdAt` asc, con fecha por `fechaProg` desc (`sortTarjetasOperativas()` en `tareas.js`).
   - **Deploy #18 (2026-06-22)**: alerta de técnico tardío (`#retraso-modal`, `#alertas-retraso-banner`, `backend/api/alertas.php`) + campo hora de inicio en programación (`#f-hora-prog`, `hora_programacion` en BD) + fix bfcache (limpiar filtros en `iniciarApp()`).
   - **Deploy #17 (2026-06-22)**: módulo gestión de usuarios admin (nuevo `assets/js/usuarios.js`, tab "👤 Usuarios" solo admin, CRUD completo en `backend/api/usuarios.php`) + `loadTeam()` carga `TEAM` dinámicamente desde la BD.
@@ -69,7 +74,20 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
 ## Archivos modificados pendientes de deploy
 
-Ninguno. Todo está desplegado en producción.
+### Deploy #21 (pendiente — motivo no factura + multi-técnico)
+
+**Antes del deploy**, ejecutar en phpMyAdmin:
+1. `backend/migracion_visita_participantes.sql` (si no se ha corrido aún)
+2. `backend/migracion_motivo_no_factura.sql`
+
+**Archivos a deployar:**
+- `tareas-equipo.html` (modal motivo + bumps versiones + modal admin-checkin)
+- `assets/js/core.js` (`motivoNoFactura` en taskToApi/apiToTask)
+- `assets/js/tareas.js` (archivarTask con modal + badge + sortTarjetasOperativas)
+- `assets/js/reportes.js` (multi-tech renderVisitaBoton, PDF participantes, admin checkin)
+- `assets/js/app.js` (fix bfcache pageshow)
+- `backend/api/tareas.php` (`motivo_no_factura` en INSERT/UPDATE)
+- `backend/api/reportes.php` (multi-tech + admin checkIn manual)
 
 ## Pendientes de seguridad (backlog)
 

@@ -425,6 +425,36 @@
   </div>
 </div>
 
+<!-- MODAL: motivo de archivado sin factura -->
+<div class="modal-overlay" id="modal-motivo-no-factura" style="z-index:320">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div class="modal-title" style="justify-content:center;color:#0D3B40">📦 Archivar sin factura</div>
+    <p style="color:#0D3B40;margin:0 0 16px;font-size:14px;opacity:0.7">¿Cuál es el motivo para archivar sin facturar?</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="confirmarMotivoNoFactura('Garantía')"
+        style="background:#D6F3F4;color:#0D3B40;border:1.5px solid #169BBC;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+        🔧 Garantía
+      </button>
+      <button onclick="confirmarMotivoNoFactura('Levantamiento')"
+        style="background:#D6F3F4;color:#0D3B40;border:1.5px solid #169BBC;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+        📋 Levantamiento
+      </button>
+      <button onclick="confirmarMotivoNoFactura('Contrato')"
+        style="background:#D6F3F4;color:#0D3B40;border:1.5px solid #169BBC;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+        📄 Contrato
+      </button>
+      <button onclick="confirmarMotivoNoFactura('Otros')"
+        style="background:#D6F3F4;color:#0D3B40;border:1.5px solid #39B7BC;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left">
+        💬 Otros
+      </button>
+    </div>
+    <button onclick="cerrarMotivoNoFactura()"
+      style="margin-top:14px;width:100%;background:transparent;color:#169BBC;border:1.5px solid #169BBC;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer">
+      Cancelar
+    </button>
+  </div>
+</div>
+
 <!-- MODAL: selector rápido de técnico (check-in / check-out de visita) -->
 <div class="modal-overlay" id="visita-tecnico-modal" style="z-index:300">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -508,15 +538,15 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="assets/js/core.js?v=20260622f"></script>
+<script src="assets/js/core.js?v=20260623b"></script>
 <script src="assets/js/auth.js?v=20260622d"></script>
-<script src="assets/js/tareas.js?v=20260623a"></script>
+<script src="assets/js/tareas.js?v=20260623b"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260623a"></script>
+<script src="assets/js/reportes.js?v=20260623c"></script>
 <script src="assets/js/informes.js?v=20260622a"></script>
 <script src="assets/js/alarma.js?v=20260622f"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
-<script src="assets/js/app.js?v=20260622e"></script>
+<script src="assets/js/app.js?v=20260623a"></script>
 </body>
 </html>

@@ -76,6 +76,15 @@ async function iniciarApp(){
   setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
 }
 
+// pageshow dispara tanto en carga normal como al restaurar desde bfcache.
+// Chrome rellena los inputs DESPUÉS de DOMContentLoaded, así que hay que
+// limpiarlos aquí (no solo en iniciarApp) para evitar que "carcuervo" u
+// otro valor guardado en la sesión anterior reaparezca en el filtro.
+window.addEventListener('pageshow', () => {
+  const ids = ['search', 'f-estado', 'f-responsable'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+});
+
 (async function init(){
   // Si no hay sesión válida, cargarSesion() muestra la pantalla de login
   // y devuelve false; iniciarApp() se llama desde auth.js al loguearse.

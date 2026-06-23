@@ -25,7 +25,13 @@ if ($method === 'POST') {
   $stmt->execute([$reporteId]);
   if (!$stmt->fetch()) jsonOut(['error' => 'Reporte no encontrado'], 404);
 
-  $nombreArchivo = 'reporte-' . $reporteId . '.pdf';
+  // Nombre personalizado (ej. Innovate-20260623-CONJUNTO-CIAN.pdf).
+  // Sanitizar: solo alfanumérico, guion, guion bajo, punto y letras con tilde.
+  $nombreRaw = $_POST['nombre'] ?? '';
+  $nombreSanitizado = preg_replace('/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\-_\.]/u', '', $nombreRaw);
+  $nombreArchivo = ($nombreSanitizado && strlen($nombreSanitizado) <= 120)
+    ? $nombreSanitizado
+    : 'reporte-' . $reporteId . '.pdf';
   $destino = $dir . '/' . $nombreArchivo;
   if (!move_uploaded_file($_FILES['file']['tmp_name'], $destino)) {
     jsonOut(['error' => 'No se pudo guardar el PDF'], 500);

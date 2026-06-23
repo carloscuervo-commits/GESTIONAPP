@@ -12,9 +12,16 @@ function fotosDeReporte($pdo, $reporteId) {
   return $stmt->fetchAll();
 }
 
+function participantesDeReporte($pdo, $reporteId) {
+  $stmt = $pdo->prepare("SELECT * FROM visita_participantes WHERE reporte_id = ? ORDER BY check_in ASC");
+  $stmt->execute([$reporteId]);
+  return $stmt->fetchAll();
+}
+
 function reporteConFotos($pdo, $row) {
-  $row['fotos'] = fotosDeReporte($pdo, $row['id']);
-  $row['datos'] = $row['datos'] ? json_decode($row['datos'], true) : [];
+  $row['fotos']         = fotosDeReporte($pdo, $row['id']);
+  $row['participantes'] = participantesDeReporte($pdo, $row['id']);
+  $row['datos']         = $row['datos'] ? json_decode($row['datos'], true) : [];
   return $row;
 }
 
@@ -65,11 +72,15 @@ if ($method === 'GET') {
 }
 
 // --------------------------------------------------------------
-// POST /reportes.php  -> Iniciar visita (check-in)
+// POST /reportes.php  -> Iniciar visita / agregar técnico (check-in)
 // body: { tareaId, tecnicoCheckinId, checkIn? }
 //   checkIn (opcional): "HH:MM" — hora manual ingresada por admin (hora Bogotá).
 //   Si se omite, se usa NOW() (flujo normal del técnico).
-// Crea el reporte en estado 'en_visita' y notifica a administrativo.
+//
+// Multi-técnico: si ya hay un reporte 'en_visita' para la tarea se agrega
+// un nuevo participante en lugar de crear un segundo reporte. Si el técnico
+// ya tiene un participante activo (sin check_out) se devuelve el reporte tal
+// cual (idempotente). Crea un reporte nuevo solo si no hay ninguno en curso.
 // --------------------------------------------------------------
 if ($method === 'POST') {
   $d = jsonInput();
@@ -81,51 +92,73 @@ if ($method === 'POST') {
   $tarea = $stmt->fetch();
   if (!$tarea) jsonOut(['error' => 'Tarea no encontrada'], 404);
 
-  // No permitir doble check-in: si ya hay una visita en curso, devolverla.
-  $stmt = $pdo->prepare("SELECT * FROM reportes WHERE tarea_id = ? AND estado = 'en_visita' ORDER BY creado_en DESC LIMIT 1");
-  $stmt->execute([$tareaId]);
-  $enCurso = $stmt->fetch();
-  if ($enCurso) jsonOut(reporteConFotos($pdo, $enCurso));
+  $tecnicoId = $d['tecnicoCheckinId'] ?? null;
 
   // Construir timestamp de check-in
-  // Si el admin envió una hora manual (HH:MM), combinarla con la fecha de hoy en Bogotá.
-  // Si no, usar NOW() (técnico usa hora actual del servidor, que ya está en Bogotá por config.php).
-  $checkInSQL = 'NOW()';
   $checkInParam = null;
   if (!empty($d['checkIn']) && preg_match('/^\d{2}:\d{2}$/', $d['checkIn'])) {
     $tz = new DateTimeZone('America/Bogota');
-    $fechaHoy = (new DateTime('now', $tz))->format('Y-m-d');
-    $checkInParam = $fechaHoy . ' ' . $d['checkIn'] . ':00';
-    $checkInSQL = '?';
+    $checkInParam = (new DateTime('now', $tz))->format('Y-m-d') . ' ' . $d['checkIn'] . ':00';
+  }
+  $checkInVal = $checkInParam ?: date('Y-m-d H:i:s');
+
+  // ¿Existe un reporte en_visita para esta tarea?
+  $stmt = $pdo->prepare("SELECT * FROM reportes WHERE tarea_id = ? AND estado = 'en_visita' ORDER BY creado_en DESC LIMIT 1");
+  $stmt->execute([$tareaId]);
+  $enCurso = $stmt->fetch();
+
+  if ($enCurso) {
+    // Reporte en curso → revisar si este técnico ya está registrado sin checkout
+    $stmt = $pdo->prepare("SELECT id FROM visita_participantes WHERE reporte_id = ? AND tecnico_id = ? AND check_out IS NULL");
+    $stmt->execute([$enCurso['id'], $tecnicoId]);
+    if ($stmt->fetch()) {
+      // Ya registrado: idempotente
+      jsonOut(reporteConFotos($pdo, $enCurso));
+    }
+    // Agregar como participante adicional
+    $partId = bin2hex(random_bytes(16));
+    $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in) VALUES (?, ?, ?, ?)")
+      ->execute([$partId, $enCurso['id'], $tecnicoId, $checkInVal]);
+    // Notificar llegada adicional
+    try {
+      $tecnicoNombre = _nombreTecnico($pdo, $tecnicoId);
+      $horaDisplay = $checkInParam ? date('d/m/Y H:i', strtotime($checkInParam)) . ' (manual)' : date('d/m/Y H:i');
+      enviarCorreoConAdjunto([CORREO_ADMIN_FIJO],
+        "🟢 Técnico adicional en sitio — " . ($tarea['cliente'] ?: 'Sin cliente'),
+        "<p><b>{$tecnicoNombre}</b> llegó a sitio (visita en curso).</p>"
+        . "<p><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
+        . "<b>Tarea:</b> " . htmlspecialchars($tarea['titulo']) . "<br>"
+        . "<b>Hora:</b> {$horaDisplay}</p>"
+      );
+    } catch (Throwable $e) {}
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$enCurso['id']]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()), 201);
   }
 
-  $id = bin2hex(random_bytes(16));
-  $tecnicoId = $d['tecnicoCheckinId'] ?? null;
-
-  if ($checkInParam !== null) {
-    $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in)
-      VALUES (?, ?, 'en_visita', ?, ?)")->execute([$id, $tareaId, $tecnicoId, $checkInParam]);
-  } else {
-    $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in)
-      VALUES (?, ?, 'en_visita', ?, NOW())")->execute([$id, $tareaId, $tecnicoId]);
-  }
+  // No hay reporte en curso → crear reporte + primer participante
+  $reporteId = bin2hex(random_bytes(16));
+  $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'en_visita', ?, ?)")
+    ->execute([$reporteId, $tareaId, $tecnicoId, $checkInVal]);
+  $partId = bin2hex(random_bytes(16));
+  $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in) VALUES (?, ?, ?, ?)")
+    ->execute([$partId, $reporteId, $tecnicoId, $checkInVal]);
 
   // Notificación a administrativo (no bloqueante si falla)
   try {
     $tecnicoNombre = _nombreTecnico($pdo, $tecnicoId);
-    $horaDisplay = $checkInParam
-      ? (new DateTime($checkInParam))->format('d/m/Y H:i') . ' (registrada manualmente)'
-      : date('d/m/Y H:i');
-    $asunto = "🟢 Visita iniciada — " . ($tarea['cliente'] ?: 'Sin cliente');
-    $cuerpo = "<p><b>{$tecnicoNombre}</b> inició una visita técnica.</p>"
+    $horaDisplay = $checkInParam ? date('d/m/Y H:i', strtotime($checkInParam)) . ' (manual)' : date('d/m/Y H:i');
+    enviarCorreoConAdjunto([CORREO_ADMIN_FIJO],
+      "🟢 Visita iniciada — " . ($tarea['cliente'] ?: 'Sin cliente'),
+      "<p><b>{$tecnicoNombre}</b> inició una visita técnica.</p>"
       . "<p><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
       . "<b>Tarea:</b> " . htmlspecialchars($tarea['titulo']) . "<br>"
-      . "<b>Hora de inicio:</b> " . $horaDisplay . "</p>";
-    enviarCorreoConAdjunto([CORREO_ADMIN_FIJO], $asunto, $cuerpo);
-  } catch (Throwable $e) { /* no bloquear el check-in si el correo falla */ }
+      . "<b>Hora de inicio:</b> {$horaDisplay}</p>"
+    );
+  } catch (Throwable $e) {}
 
   $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
-  $stmt->execute([$id]);
+  $stmt->execute([$reporteId]);
   jsonOut(reporteConFotos($pdo, $stmt->fetch()), 201);
 }
 
@@ -151,8 +184,33 @@ if ($method === 'PUT') {
 
   if (($d['accion'] ?? '') === 'checkout') {
     $tecnicoOut = $d['tecnicoCheckoutId'] ?? null;
-    $pdo->prepare("UPDATE reportes SET check_out = NOW(), tecnico_checkout_id = ?, estado = 'borrador' WHERE id = ?")
-      ->execute([$tecnicoOut, $id]);
+    $partId     = $d['participanteId']    ?? null;
+
+    if ($partId) {
+      // ── Multi-tech: actualizar participante específico ──────────
+      $pdo->prepare("UPDATE visita_participantes SET check_out = NOW() WHERE id = ?")
+        ->execute([$partId]);
+      // ¿Quedan participantes sin checkout?
+      $stmt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
+      $stmt->execute([$id]);
+      $pendientes = (int)$stmt->fetchColumn();
+      if ($pendientes === 0) {
+        // Todos terminaron → pasar a borrador
+        $stmt2 = $pdo->prepare("SELECT MAX(check_out) FROM visita_participantes WHERE reporte_id = ?");
+        $stmt2->execute([$id]);
+        $ultimoCheckout = $stmt2->fetchColumn();
+        $pdo->prepare("UPDATE reportes SET estado='borrador', check_out=?, tecnico_checkout_id=? WHERE id=?")
+          ->execute([$ultimoCheckout, $tecnicoOut, $id]);
+      }
+    } else {
+      // ── Legacy: checkout único (registros sin visita_participantes) ──
+      $pdo->prepare("UPDATE reportes SET check_out=NOW(), tecnico_checkout_id=?, estado='borrador' WHERE id=?")
+        ->execute([$tecnicoOut, $id]);
+      // Intentar actualizar participante coincidente si existe
+      $pdo->prepare("UPDATE visita_participantes SET check_out=NOW() WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
+        ->execute([$id, $tecnicoOut]);
+    }
+
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
     $stmt->execute([$id]);
     jsonOut(reporteConFotos($pdo, $stmt->fetch()));
