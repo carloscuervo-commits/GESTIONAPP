@@ -173,6 +173,10 @@ function aplicarPermisosUI() {
 
   if (esTecnico && !['it', 'if'].includes(currentArea)) currentArea = 'it';
 
+  // Tab Usuarios: solo visible para administradores
+  const tabUsuarios = document.getElementById('tab-usuarios');
+  if (tabUsuarios) tabUsuarios.style.display = esTecnico ? 'none' : '';
+
   const badge = document.getElementById('user-badge');
   if (badge) badge.textContent = `${currentUser.nombre.split(' ')[0]} · ${esTecnico ? 'Técnico' : 'Admin'}`;
 }

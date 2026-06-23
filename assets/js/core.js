@@ -62,14 +62,39 @@ async function syncEstado(id) {
 }
 // ===================== FIN CONEXIÓN A BACKEND =====================
 
-const TEAM = [
-  { id: 'CAC', name: 'Carlos Andrés Cuervo', initials: 'CAC', color: '#7c3aed', role: 'Gerente' },
+// TEAM se carga dinámicamente desde la BD vía loadTeam() al iniciar la app.
+// Este arreglo estático sirve como fallback cuando API_BASE está vacío (modo local/dev).
+let TEAM = [
+  { id: 'CAC', name: 'Carlos Andrés Cuervo', initials: 'CAC', color: '#7c3aed' },
   { id: 'AZ',  name: 'Alejandro Zuñiga',     initials: 'AZ',  color: '#0891b2' },
   { id: 'JG',  name: 'Jorge Guerrero',        initials: 'JG',  color: '#059669' },
   { id: 'SG',  name: 'Sebastian Gamboa',      initials: 'SG',  color: '#d97706' },
   { id: 'BN',  name: 'Brandon Naranjo',       initials: 'BN',  color: '#dc2626' },
   { id: 'RB',  name: 'Robert Benitez',        initials: 'RB',  color: '#db2777' },
 ];
+
+// Carga el equipo desde la API y actualiza el arreglo global TEAM.
+// Se llama en iniciarApp() antes de cargar tareas para que los avatares
+// y pickers reflejen los usuarios reales de la BD (incluye nuevos/editados).
+async function loadTeam() {
+  if (!API_BASE) return; // modo local: se usa el fallback estático de arriba
+  try {
+    const res  = await fetch(`${API_BASE}/usuarios.php`);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    TEAM = rows
+      .filter(u => u.activo == 1)
+      .map(u => ({
+        id:       u.id,
+        name:     u.nombre,
+        initials: u.iniciales,
+        color:    u.color || '#94a3b8',
+        perfil:   u.perfil,
+      }));
+  } catch (e) {
+    console.error('Error cargando equipo desde API, usando fallback estático:', e);
+  }
+}
 
 const AREAS = {
   it:       { label: 'IT',            color: '#6366f1' },

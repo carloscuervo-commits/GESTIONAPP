@@ -57,6 +57,7 @@ function migrarSeedLocal(){
 }
 
 async function iniciarApp(){
+  await loadTeam(); // carga equipo desde BD antes de renderizar tareas
   await load();
   loadCartera();
   updateCarteraCount();

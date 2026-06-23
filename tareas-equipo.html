@@ -59,6 +59,7 @@
   <button class="area-tab" data-area="cartera" onclick="setArea('cartera')">💰 Cartera <span class="tab-count" id="cnt-cartera">0</span></button>
   <button class="area-tab" data-area="facturacion" onclick="setArea('facturacion')">🧾 Facturación</button>
   <button class="area-tab" data-area="informes" onclick="setArea('informes')">📊 Informes</button>
+  <button class="area-tab" data-area="usuarios" id="tab-usuarios" onclick="setArea('usuarios')" style="display:none">👥 Usuarios</button>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -119,6 +120,9 @@
 <!-- INFORMES VIEW -->
 <div id="informes-view" style="display:none;padding:16px 20px 30px"></div>
 
+<!-- USUARIOS VIEW -->
+<div id="usuarios-view" style="display:none;padding:16px 20px 30px"></div>
+
 <!-- CARTERA MODAL -->
 <div class="cartera-modal-overlay" id="cartera-modal">
   <div class="cartera-modal">
@@ -162,6 +166,89 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeCarteraModal()">Cancelar</button>
       <button class="btn-save" onclick="saveCarteraItem()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL USUARIOS (solo admin) -->
+<div class="modal-overlay" id="usuarios-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">
+      <span id="um-titulo">Usuario</span>
+      <button class="modal-close" onclick="cerrarModalUsuario()">✕</button>
+    </div>
+    <div class="form-grid">
+      <!-- Avatar preview + color picker -->
+      <div class="form-group full" style="display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap">
+        <div id="um-avatar-preview" oninput="void(0)"
+          style="width:56px;height:56px;border-radius:99px;background:#7c3aed;color:#fff;
+                 display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;
+                 flex-shrink:0;letter-spacing:.5px">??</div>
+        <div style="flex:1">
+          <label>Color del avatar</label>
+          <div id="um-color-picker" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"></div>
+          <input type="hidden" id="um-color-val" value="#7c3aed">
+        </div>
+      </div>
+      <!-- ID -->
+      <div class="form-group">
+        <label>ID (iniciales únicas) *</label>
+        <input type="text" id="um-id" maxlength="10" placeholder="ej: CAC, AZ, JG"
+          oninput="this.value=this.value.toUpperCase();_actualizarAvatarPreview()">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Máx 10 caracteres. No se puede cambiar después.</div>
+      </div>
+      <!-- Iniciales -->
+      <div class="form-group">
+        <label>Iniciales (en avatar) *</label>
+        <input type="text" id="um-iniciales" maxlength="5" placeholder="ej: CAC, AZ"
+          oninput="this.value=this.value.toUpperCase();_actualizarAvatarPreview()">
+      </div>
+      <!-- Nombre -->
+      <div class="form-group full">
+        <label>Nombre completo *</label>
+        <input type="text" id="um-nombre" placeholder="ej: Carlos Andrés Cuervo">
+      </div>
+      <!-- Email -->
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="um-email" placeholder="usuario@innovate.com.co">
+      </div>
+      <!-- Rol descriptivo -->
+      <div class="form-group">
+        <label>Cargo / rol descriptivo</label>
+        <input type="text" id="um-rol" placeholder="ej: Técnico de campo, Gerente...">
+      </div>
+      <!-- Perfil -->
+      <div class="form-group">
+        <label>Perfil de acceso</label>
+        <select id="um-perfil">
+          <option value="tecnico">Técnico (ve solo sus tarjetas)</option>
+          <option value="admin">Administrador (acceso completo)</option>
+        </select>
+      </div>
+      <!-- Activo -->
+      <div class="form-group" id="um-grp-activo" style="display:none">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
+          <input type="checkbox" id="um-activo" style="width:16px;height:16px;cursor:pointer" checked>
+          Usuario activo
+        </label>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px">Desmarcar para inhabilitar el acceso sin eliminar el usuario.</div>
+      </div>
+      <!-- PIN -->
+      <div class="form-group full">
+        <div id="um-pin-status" style="font-size:12px;margin-bottom:8px;padding:8px 10px;background:#f0fdf4;border-radius:8px;color:#059669"></div>
+        <label>PIN de acceso (4 dígitos)</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input type="password" id="um-pin" maxlength="4" inputmode="numeric" pattern="\d{4}"
+            placeholder="Nuevo PIN (4 dígitos)" style="flex:1;min-width:140px;letter-spacing:4px;font-size:16px">
+          <input type="password" id="um-pin-confirm" maxlength="4" inputmode="numeric" pattern="\d{4}"
+            placeholder="Confirmar PIN" style="flex:1;min-width:140px;letter-spacing:4px;font-size:16px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModalUsuario()">Cancelar</button>
+      <button class="btn-save" onclick="guardarUsuario()">Guardar usuario</button>
     </div>
   </div>
 </div>
@@ -378,14 +465,15 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="assets/js/core.js?v=20260622c"></script>
-<script src="assets/js/auth.js?v=20260620a"></script>
-<script src="assets/js/tareas.js?v=20260622c"></script>
+<script src="assets/js/core.js?v=20260622d"></script>
+<script src="assets/js/auth.js?v=20260622d"></script>
+<script src="assets/js/tareas.js?v=20260622d"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260622b"></script>
 <script src="assets/js/informes.js?v=20260622a"></script>
 <script src="assets/js/alarma.js?v=20260622a"></script>
-<script src="assets/js/app.js?v=20260622a"></script>
+<script src="assets/js/usuarios.js?v=20260622a"></script>
+<script src="assets/js/app.js?v=20260622d"></script>
 </body>
 </html>
