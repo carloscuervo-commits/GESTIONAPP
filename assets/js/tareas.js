@@ -156,9 +156,9 @@ function taskCard(t) {
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${diasEstadoBadge}
     ${segBadge}
+    ${t.cliente?`<div style="font-size:11px;font-weight:700;color:#169BBC;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.03em">${esc(t.cliente)}</div>`:''}
     <div class="task-title">${esc(t.titulo)}</div>
     <div class="task-meta">
-      ${t.cliente?`<span class="badge" style="background:#f0fdf4;color:#166534">👤 ${esc(t.cliente)}</span>`:''}
       ${currentArea==='all'&&t.area?`<span class="badge" style="background:${ac}20;color:${ac}">${esc((AREAS[t.area]||{}).label||t.area)}</span>`:''}
     </div>
     ${team.length ? `<div class="task-assignee">${teamAvatars(team)}<span>${team.map(id=>getMember(id)?.initials||id).join(', ')}</span></div>` : ''}
@@ -510,6 +510,8 @@ function renderAlertasRetraso() {
 function setArea(a) {
   if (currentUser && currentUser.perfil === 'tecnico' && !['it','if'].includes(a)) return; // técnicos solo ven IT/IF
   currentArea=a;
+  // Limpiar filtros al cambiar de área
+  ['search','f-estado','f-responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.querySelectorAll('.area-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.area-tab[data-area="${a}"]`).classList.add('active');
   const isCartera    = a === 'cartera';
@@ -601,9 +603,8 @@ function _ejecutarArchivar(id, motivo) {
 }
 
 function confirmarMotivoNoFactura(motivo) {
+  const id = _archivarPendienteId; // capturar ANTES de cerrar (cerrar pone null)
   cerrarMotivoNoFactura();
-  const id = _archivarPendienteId;
-  _archivarPendienteId = null;
   if (!id) return;
   _ejecutarArchivar(id, motivo);
 }

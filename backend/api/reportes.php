@@ -211,6 +211,65 @@ if ($method === 'PUT') {
         ->execute([$id, $tecnicoOut]);
     }
 
+    // ── Notificación de checkout a administrativo ──────────────────
+    try {
+      // Datos del participante que acaba de hacer checkout
+      $stmtPart = $partId
+        ? $pdo->prepare("SELECT * FROM visita_participantes WHERE id = ?")
+        : $pdo->prepare("SELECT * FROM visita_participantes WHERE reporte_id = ? AND tecnico_id = ? ORDER BY check_out DESC LIMIT 1");
+      if ($partId) { $stmtPart->execute([$partId]); }
+      else         { $stmtPart->execute([$id, $tecnicoOut]); }
+      $part = $stmtPart->fetch();
+
+      // Estado actualizado del reporte
+      $stmtRep = $pdo->prepare("SELECT r.*, t.titulo, t.cliente FROM reportes r JOIN tareas t ON t.id = r.tarea_id WHERE r.id = ?");
+      $stmtRep->execute([$id]);
+      $rep = $stmtRep->fetch();
+
+      $tecnicoNombre  = _nombreTecnico($pdo, $tecnicoOut ?: ($part['tecnico_id'] ?? null));
+      $horaIn         = $part ? date('H:i', strtotime($part['check_in']))  : '-';
+      $horaOut        = $part && $part['check_out'] ? date('H:i', strtotime($part['check_out'])) : date('H:i');
+      $fechaVisita    = $part ? date('d/m/Y', strtotime($part['check_in'])) : date('d/m/Y');
+
+      // ¿Ya generó el reporte?
+      $reporteHecho   = !empty($rep['pdf_archivo']) || !in_array($rep['estado'] ?? '', ['en_visita', 'borrador']);
+      $reporteLabel   = $reporteHecho ? '✅ Sí' : '⏳ Pendiente';
+
+      // ¿Ya se envió al cliente?
+      $enviado        = ($rep['estado'] ?? '') === 'enviado';
+      $enviadoLabel   = $enviado
+        ? '✅ Sí — <b>' . htmlspecialchars($rep['enviado_a'] ?? '') . '</b>'
+        : '⏳ No enviado aún';
+
+      // ¿Quedan otros técnicos en visita?
+      $stmtActivos = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
+      $stmtActivos->execute([$id]);
+      $activosRestantes = (int)$stmtActivos->fetchColumn();
+      $otrosLabel = $activosRestantes > 0
+        ? "⚠️ Quedan <b>{$activosRestantes}</b> técnico(s) aún en sitio"
+        : "✅ Todos los técnicos han salido";
+
+      $titulo  = htmlspecialchars($rep['titulo'] ?? '');
+      $cliente = htmlspecialchars($rep['cliente'] ?? '-');
+
+      enviarCorreoConAdjunto(
+        [CORREO_ADMIN_FIJO],
+        "🔴 Visita finalizada — {$cliente}",
+        "<p><b>{$tecnicoNombre}</b> finalizó su visita técnica.</p>"
+        . "<table style='border-collapse:collapse;font-size:14px'>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📅 Fecha</td><td><b>{$fechaVisita}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>🕐 Check-in</td><td><b>{$horaIn}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>🕐 Check-out</td><td><b>{$horaOut}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>👤 Cliente</td><td><b>{$cliente}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📋 Tarea</td><td><b>{$titulo}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📝 Reporte</td><td>{$reporteLabel}</td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📧 Enviado</td><td>{$enviadoLabel}</td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>👥 En sitio</td><td>{$otrosLabel}</td></tr>"
+        . "</table>"
+      );
+    } catch (Throwable $e) {}
+    // ────────────────────────────────────────────────────────────────
+
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
     $stmt->execute([$id]);
     jsonOut(reporteConFotos($pdo, $stmt->fetch()));

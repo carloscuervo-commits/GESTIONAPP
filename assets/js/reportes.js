@@ -174,19 +174,39 @@ let _adminCheckinEjecutar = null;
 function abrirAdminCheckinModal(tareaId) {
   _adminCheckinTareaId = tareaId;
 
-  // Poblar selector de técnicos con el equipo de la tarea
   const t = tasks.find(x => x.id === tareaId);
   const candidatos = (t?.team && t.team.length) ? t.team.map(id => getMember(id)).filter(Boolean) : TEAM;
-  const sel = document.getElementById('admin-checkin-tecnico');
-  if (sel) {
-    sel.innerHTML = candidatos.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+
+  // Participantes ya registrados sin checkout
+  const visita = visitasActivas[tareaId];
+  const yaEnSitio = visita ? (visita.participantes || []).filter(p => !p.check_out).map(p => p.tecnico_id) : [];
+  const disponibles = candidatos.filter(m => !yaEnSitio.includes(m.id));
+
+  // Mostrar quiénes ya están en sitio
+  const infoDiv = document.getElementById('admin-checkin-ya-en-sitio');
+  if (infoDiv) {
+    if (yaEnSitio.length > 0) {
+      const nombres = yaEnSitio.map(id => getMember(id)?.name || id).join(', ');
+      infoDiv.innerHTML = `<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:6px;padding:8px 10px;font-size:13px;color:#065f46;margin-bottom:10px">🟢 Ya en sitio: <b>${esc(nombres)}</b></div>`;
+      infoDiv.style.display = 'block';
+    } else {
+      infoDiv.style.display = 'none';
+    }
   }
 
-  // Hora por defecto: hora actual en Bogotá
+  const sel = document.getElementById('admin-checkin-tecnico');
+  if (sel) {
+    if (disponibles.length === 0) {
+      sel.innerHTML = `<option value="">— Todos los técnicos ya registraron llegada —</option>`;
+    } else {
+      sel.innerHTML = disponibles.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+    }
+  }
+
   const horaInput = document.getElementById('admin-checkin-hora');
   if (horaInput) {
     const { hora } = _horaBogota();
-    horaInput.value = hora; // "HH:MM"
+    horaInput.value = hora;
   }
 
   document.getElementById('admin-checkin-modal').classList.add('open');
