@@ -1,3 +1,14 @@
+// Actualiza la etiqueta de fecha fin en el formulario según fechaProg + diasProg
+function actualizarFechaFinProg() {
+  const fecha = document.getElementById('f-fechaprog')?.value;
+  const dias  = parseInt(document.getElementById('f-dias-prog')?.value) || 1;
+  const label = document.getElementById('fechaprog-fin-label');
+  if (!label) return;
+  if (!fecha || dias <= 1) { label.textContent = ''; return; }
+  const fin = fechaProgFin({ fechaProg: fecha, diasProg: dias });
+  label.textContent = fin && fin !== fecha ? `Hasta: ${fin}` : '';
+}
+
 function avatarEl(id, size=22) {
   const m = getMember(id);
   if (!m) return '';
@@ -123,8 +134,15 @@ function taskCard(t) {
       const dias = diasHabilesDesde(t.createdAt);
       diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">⏳ ${dias} día${dias===1?'':'s'} en pendientes</div>`;
     } else if (t.estado === 'programado') {
-      const dias = diasHabilesDesde(t.programadoAt);
-      diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">🔧 ${dias} día${dias===1?'':'s'} en ejecución</div>`;
+      if ((t.diasProg || 1) > 1) {
+        const diaActual  = diaActualEnProg(t);
+        const restantes  = t.diasProg - diaActual;
+        const restTxt    = restantes > 0 ? `${restantes} día${restantes===1?'':'s'} restante${restantes===1?'':'s'}` : 'último día';
+        diasEstadoBadge  = `<div style="font-size:11px;font-weight:600;color:#6366f1;margin-bottom:4px">🔧 Día ${diaActual} de ${t.diasProg} · ${restTxt}</div>`;
+      } else {
+        const dias = diasHabilesDesde(t.programadoAt);
+        diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">🔧 ${dias} día${dias===1?'':'s'} en ejecución</div>`;
+      }
     }
   } else if (porCotizar) {
     diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:${porCotizar.vencido?'#ef4444':'#64748b'};margin-bottom:4px">⏳ ${porCotizar.dias} día${porCotizar.dias===1?'':'s'} sin cotizar</div>`;
@@ -144,7 +162,7 @@ function taskCard(t) {
       ${currentArea==='all'&&t.area?`<span class="badge" style="background:${ac}20;color:${ac}">${esc((AREAS[t.area]||{}).label||t.area)}</span>`:''}
     </div>
     ${team.length ? `<div class="task-assignee">${teamAvatars(team)}<span>${team.map(id=>getMember(id)?.initials||id).join(', ')}</span></div>` : ''}
-    ${t.fechaProg?`<div class="task-date">🗓 Prog: ${t.fechaProg}</div>`:''}
+    ${t.fechaProg ? (() => { const fin = (t.diasProg||1)>1 ? fechaProgFin(t) : null; return `<div class="task-date">🗓 Prog: ${t.fechaProg}${fin ? ` → ${fin}` : ''}</div>`; })() : ''}
     ${t.fecha?`<div class="task-date${venc?' vencida':''}">${venc?'⚠️ ':'📅 '}Límite: ${t.fecha}${t.tiempo?` · ⏱ ${esc(t.tiempo)}`:''}</div>`:(t.tiempo?`<div class="task-date">⏱ ${esc(t.tiempo)}</div>`:'')}
     ${t.recursos?`<div class="task-date">🔧 ${esc(t.recursos.slice(0,45))}${t.recursos.length>45?'...':''}</div>`:''}
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
@@ -602,6 +620,9 @@ function openModal(id, preArea, preEstado) {
   clienteUltimaBusqueda = [];
   clienteValidadoAlegra = t?.cliente ? true : null;
   document.getElementById('f-fechaprog').value=t?.fechaProg||'';
+  const elDiasProg = document.getElementById('f-dias-prog');
+  if (elDiasProg) elDiasProg.value = t?.diasProg || 1;
+  actualizarFechaFinProg();
   document.getElementById('f-fecha').value=t?.fecha||'';
   document.getElementById('f-tiempo').value=t?.tiempo||'';
   document.getElementById('f-treal').value=t?.tiempoReal||'';
@@ -809,6 +830,7 @@ async function saveTask() {
   let estado    = document.getElementById('f-est').value;
   const area    = document.getElementById('f-area').value;
   const fechaProg = document.getElementById('f-fechaprog').value;
+  const diasProg  = parseInt(document.getElementById('f-dias-prog')?.value) || 1;
   const reporte = document.getElementById('f-reporte').value.trim();
   const factura = document.getElementById('f-factura').value.trim();
   if (!titulo) { alert('El título es obligatorio'); return; }
@@ -867,7 +889,7 @@ async function saveTask() {
     area: document.getElementById('f-area').value,
     estado,
     cliente: document.getElementById('f-cliente').value.trim(),
-    fechaProg,
+    fechaProg, diasProg,
     fecha: document.getElementById('f-fecha').value,
     tiempo: document.getElementById('f-tiempo').value.trim(),
     tiempoReal: document.getElementById('f-treal').value.trim(),

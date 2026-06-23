@@ -9,7 +9,7 @@ const API_BASE = 'https://grupoinnovate.com/gestion/backend/api';
 function taskToApi(t) {
   return {
     id: t.id, titulo: t.titulo, desc: t.desc, area: t.area, estado: t.estado,
-    cliente: t.cliente, fechaProg: t.fechaProg, fecha: t.fecha, tiempo: t.tiempo,
+    cliente: t.cliente, fechaProg: t.fechaProg, diasProg: t.diasProg || 1, fecha: t.fecha, tiempo: t.tiempo,
     tiempoReal: t.tiempoReal, recursos: t.recursos, notas: t.notas,
     reporte: t.reporte, factura: t.factura, team: t.team || [],
     seguimientoFecha: t.seguimientoFecha || null, seguimientoHistorial: t.seguimientoHistorial || [],
@@ -30,6 +30,7 @@ function apiToTask(r) {
     cliente: r.cliente, fechaProg: (r.fecha_programacion && r.fecha_programacion !== '0000-00-00') ? r.fecha_programacion : '', fecha: (r.fecha_limite && r.fecha_limite !== '0000-00-00') ? r.fecha_limite : '',
     tiempo: r.tiempo_estimado, tiempoReal: r.tiempo_real, recursos: r.recursos,
     notas: r.notas, reporte: r.reporte, factura: r.factura, team: r.team || [],
+    diasProg: parseInt(r.dias_programacion) || 1,
     createdAt: r.creado_en, updatedAt: r.actualizado_en,
     realizadoAt: r.realizado_en, enviadaAt: r.enviada_en, programadoAt: r.programado_en,
     seguimientoFecha: r.seguimiento_fecha, seguimientoHistorial,
@@ -204,6 +205,48 @@ function tareasVisibles() {
 }
 
 // ===================== PROGRAMACIÓN TÉCNICA =====================
+
+// Calcula la fecha de fin de la programación de una tarea (días hábiles desde fechaProg).
+// diasProg=1 → mismo día; diasProg=2 → un día hábil después, etc.
+function fechaProgFin(t) {
+  if (!t.fechaProg) return null;
+  const dias = (t.diasProg || 1) - 1;
+  if (dias <= 0) return t.fechaProg;
+  const d = new Date(t.fechaProg + 'T00:00:00');
+  let agregados = 0;
+  while (agregados < dias) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) agregados++;
+  }
+  return d.toISOString().split('T')[0];
+}
+
+// Devuelve true si fechaISO cae dentro del rango de programación de t.
+function enRangoProg(t, fechaISO) {
+  if (!t.fechaProg || t.fechaProg > fechaISO) return false;
+  const fin = fechaProgFin(t) || t.fechaProg;
+  return fechaISO <= fin;
+}
+
+// Para tareas multi-día, devuelve el día actual dentro del rango programado (1-based).
+// Retorna null si diasProg <= 1 o si no hay fechaProg.
+function diaActualEnProg(t) {
+  if (!t.fechaProg || (t.diasProg || 1) <= 1) return null;
+  const inicio = new Date(t.fechaProg + 'T00:00:00');
+  const hoy    = new Date();
+  hoy.setHours(0,0,0,0);
+  inicio.setHours(0,0,0,0);
+  let dia = 1; // día 1 = fecha de inicio
+  const cur = new Date(inicio);
+  while (cur < hoy) {
+    cur.setDate(cur.getDate() + 1);
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) dia++;
+  }
+  return Math.min(dia, t.diasProg); // nunca supera el total
+}
+
 function nombreCorto(id) {
   const m = getMember(id);
   return m ? m.name.split(' ')[0] : id;
@@ -224,9 +267,9 @@ function tomorrowISO() {
 
 function generarProgramacion(fechaISO) {
   const fechaTxt = formatFechaLarga(fechaISO);
-  const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && t.fechaProg === fechaISO);
-  const adminItems = tasks.filter(t => ['it','if'].includes(t.area) && t.fechaProg === fechaISO && (t.laborAdmin||'').trim());
-  const adminProgItems = tasks.filter(t => t.area === 'admin' && t.incluyeProg && t.fechaProg === fechaISO);
+  const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && enRangoProg(t, fechaISO));
+  const adminItems = tasks.filter(t => ['it','if'].includes(t.area) && enRangoProg(t, fechaISO) && (t.laborAdmin||'').trim());
+  const adminProgItems = tasks.filter(t => t.area === 'admin' && t.incluyeProg && enRangoProg(t, fechaISO));
   if (!items.length && !adminItems.length && !adminProgItems.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
 
   // Agrupar IT/IF por equipo asignado

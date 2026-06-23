@@ -4,9 +4,11 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-22)
+## Estado actual (última actualización: 2026-06-22 — segunda sesión)
 
-- **Deploy 2026-06-22**: nueva función `tareasVisibles()` en `assets/js/core.js` — filtra las tareas que ve cada usuario según su perfil: un técnico solo ve las tarjetas del equipo al que está asignado (`t.team.includes(currentUser.id)`), un admin ve todas. Se usa desde `assets/js/tareas.js`. El cambio se hizo en el otro equipo (oficina), se sincronizó por OneDrive y apareció como cambio sin commitear al instalar GitHub Desktop en este equipo por primera vez; el usuario confirmó que era intencional antes de commitear/pushear/desplegar. Deploy verificado en producción (`tareas-equipo.html` carga sin errores).
+- **Cambios pendientes de deploy (2026-06-22, segunda sesión)**: programación multi-día (`diasProg`). Ver detalle en "Pendientes conocidos". Migración: `backend/migracion_dias_programacion.sql`. Cache-busting: `core.js?v=20260622c`, `tareas.js?v=20260622c`.
+- **Deploy 2026-06-22 (2)**: nuevo `assets/js/alarma.js` — alarma diaria de recordatorio solo para admin (`currentUser.perfil === 'admin'`), lunes a viernes a las 16:00 hora Bogotá (`ALARMA_HORA` en el archivo), revisa la hora cada 20s vía `Intl.DateTimeFormat`. Suena un beep (Web Audio API, sin archivo de audio) repetido cada 8s y muestra el modal `#alarma-modal` con el mensaje "Programar técnicos para mañana" y botón "Entendido" que lo detiene. Arranque vía `iniciarAlarmaChecker()` en `app.js`; modal agregado a `tareas-equipo.html`; cache-busting de `app.js` y `alarma.js` subido a `?v=20260622a`. Hecho en el otro equipo (oficina), detectado sin commitear al abrir GitHub Desktop, confirmado por el usuario (verificado cruzando con la conversación "GESTION - 1" donde se pidió la función) antes de desplegar. Deploy verificado en producción.
+- **Deploy 2026-06-22 (1)**: nueva función `tareasVisibles()` en `assets/js/core.js` — filtra las tareas que ve cada usuario según su perfil: un técnico solo ve las tarjetas del equipo al que está asignado (`t.team.includes(currentUser.id)`), un admin ve todas. Se usa desde `assets/js/tareas.js`. El cambio se hizo en el otro equipo (oficina), se sincronizó por OneDrive y apareció como cambio sin commitear al instalar GitHub Desktop en este equipo por primera vez; el usuario confirmó que era intencional antes de commitear/pushear/desplegar. Deploy verificado en producción (`tareas-equipo.html` carga sin errores).
 - Último cambio desplegado antes de ese: cache-busting (`?v=20260614`) en los 5 `<script src="assets/js/...">` de `tareas-equipo.html`, para evitar que el navegador sirva JS desactualizado (`assets/js/*.js` se cachea 7 días). Ver nota en `DEPLOY.md` — cualquier deploy futuro que modifique `assets/js/` debe subir este `?v=`. Migración `programado_en` ya ejecutada manualmente en la BD de producción.
 - Cambio desplegado anterior: rediseño de la tarjeta de tarea para IT/IF (orden Cliente → Título → Descripción → Equipo asignado; equipo asignado con `<select>` "+ Agregar técnico..." + chips removibles; ocultos fecha límite, tiempo estimado, tiempo real, recursos y notas para IT/IF). Ver decisión #10 más abajo.
 - **Cambios pendientes de deploy**:
@@ -53,6 +55,12 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 - Pendiente conocido: tarea #14, recordatorio diario de seguimientos comerciales (ver sección "Pendientes conocidos"), aplazada por el usuario.
 - Nota de seguridad resuelta en código (pendiente de deploy + acción manual en servidor): `backend/config_alegra.php` ya no se sube a git ni se copia por deploy (ver punto 2 arriba y "Notas de seguridad pendientes").
 - Instrucción permanente: mantener este archivo (`CONTEXTO.md`) actualizado con cada cambio (arquitectura, convenciones, estructura, pendientes).
+
+## Pendientes conocidos / Próximas tareas
+
+- **Tarea #14**: recordatorio diario de seguimientos comerciales. Aplazada por el usuario.
+- ✅ **Programación multi-día para tarjetas operativas (2026-06-22 → implementado 2026-06-22)**: campo `diasProg` (frontend) / `dias_programacion` (BD, `TINYINT UNSIGNED DEFAULT 1`). El formulario muestra "por N día(s)" junto a la fecha de inicio, y una etiqueta "Hasta: YYYY-MM-DD" cuando N > 1. `generarProgramacion()` usa `enRangoProg(t, fechaISO)` en lugar de igualdad exacta. Las tarjetas IT/IF en "En ejecución" con `diasProg > 1` muestran "🔧 Día X de N · Y días restantes". **Acción pendiente en deploy**: ejecutar `backend/migracion_dias_programacion.sql` antes de publicar.
+- ✅ **Bug técnico asignado en tarjetas multi-día (resuelto preventivamente)**: el flujo `openModal → buildTeamPicker(t?.team||[])` ya carga el equipo desde la tarea guardada. `closeModal` resetea `selectedTeam=[]` pero el siguiente `openModal` lo recarga correctamente. No se agregó ningún atajo que evite ese flujo, por lo que el bug no aplica en la implementación actual.
 
 ## Roadmap / arquitectura objetivo
 
