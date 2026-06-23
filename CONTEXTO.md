@@ -4,11 +4,17 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-22 — cuarta sesión)
+## Estado actual (última actualización: 2026-06-23 — sesión deploys #15-#19)
 
-- **Cambios pendientes de deploy (2026-06-22, cuarta sesión)**: alerta de retraso de técnicos. Nuevo campo `horaProg`/`hora_programacion` (VARCHAR 5, default '08:00') + `alerta_retraso_enviada` (TINYINT 0/1) en tabla `tareas`. Migración: `backend/migracion_hora_prog.sql`. Nuevo endpoint `backend/api/alertas.php` (POST `{tareaId}` → envía correo a `administrativo@innovate.com.co` y marca flag). `alarma.js` ahora corre `_chequearRetrasoTecnicos()` cada 60s (solo admin): busca tarjetas IT/IF `estado=programado` de hoy donde la hora Bogotá >= `horaProg` y no hay check-in (`visitasActivas[id]` vacío); dispara beep urgente + modal `#retraso-modal` (nuevo en HTML) + llama `alertas.php`. El banner `#alertas-retraso-banner` (nuevo div sobre el dashboard) se actualiza en tiempo real via `renderAlertasRetraso()` en `tareas.js`. Modal de tarea ahora muestra input `#f-hora-prog` (type=time, default 08:00) dentro de `grp-fechaprog`. Bug fix: `#search` ahora tiene `autocomplete="off"` y se limpia explícitamente en `iniciarApp()` para evitar que Chrome restaure filtros entre sesiones. Cache-busting: `core.js?v=20260622f`, `tareas.js?v=20260622f`, `alarma.js?v=20260622f`, `app.js?v=20260622e`.
-- **Cambios pendientes de deploy (2026-06-22, tercera sesión)**: módulo de usuarios admin (nuevo `assets/js/usuarios.js`, tab "👥 Usuarios" solo admin, modal con CRUD completo). `TEAM` ahora se carga dinámicamente desde `usuarios.php` en `loadTeam()` (llamado al inicio en `iniciarApp()`); fallback estático si `API_BASE` vacío. `core.js`, `auth.js`, `tareas.js`, `app.js` modificados. Cache-busting: `core.js?v=20260622d`, `auth.js?v=20260622d`, `tareas.js?v=20260622d`, `app.js?v=20260622d`, `usuarios.js?v=20260622a` (nuevo). Sin migración SQL adicional (tabla `usuarios` ya tiene todos los campos necesarios).
-- **Cambios pendientes de deploy (2026-06-22, segunda sesión)**: programación multi-día (`diasProg`). Migración: `backend/migracion_dias_programacion.sql`. Cache-busting: `core.js?v=20260622c`, `tareas.js?v=20260622c` (reemplazados por 20260622d arriba).
+- **Sin cambios pendientes de deploy.** Todo está en producción.
+- **⚠️ Migración SQL pendiente de verificar**: `backend/migracion_hora_prog.sql` — agrega `hora_programacion VARCHAR(5) DEFAULT '08:00'` y `alerta_retraso_enviada TINYINT(1) DEFAULT 0` a tabla `tareas`. Ejecutar en phpMyAdmin si aún no se ha corrido (la alerta de técnico tardío la requiere).
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260622f`, `auth.js?v=20260622d`, `tareas.js?v=20260623a`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260622f`.
+- **Últimos deploys desplegados y verificados**:
+  - **Deploy #19 (2026-06-23)**: ordenamiento automático de tarjetas kanban IT/IF — sin fecha por `createdAt` asc, con fecha por `fechaProg` desc (`sortTarjetasOperativas()` en `tareas.js`).
+  - **Deploy #18 (2026-06-22)**: alerta de técnico tardío (`#retraso-modal`, `#alertas-retraso-banner`, `backend/api/alertas.php`) + campo hora de inicio en programación (`#f-hora-prog`, `hora_programacion` en BD) + fix bfcache (limpiar filtros en `iniciarApp()`).
+  - **Deploy #17 (2026-06-22)**: módulo gestión de usuarios admin (nuevo `assets/js/usuarios.js`, tab "👤 Usuarios" solo admin, CRUD completo en `backend/api/usuarios.php`) + `loadTeam()` carga `TEAM` dinámicamente desde la BD.
+  - **Deploy #16 (2026-06-22)**: programación multi-día (`diasProg`/`dias_programacion`). Migración `migracion_dias_programacion.sql` ya ejecutada.
+  - **Deploy #15 (2026-06-22)**: informe de actividades de técnico combina tarjetas + visitas; edición admin de check-in/out en Informes (`_reporteSoloEdicion` flag).
 - **Deploy 2026-06-22 (2)**: nuevo `assets/js/alarma.js` — alarma diaria de recordatorio solo para admin (`currentUser.perfil === 'admin'`), lunes a viernes a las 16:00 hora Bogotá (`ALARMA_HORA` en el archivo), revisa la hora cada 20s vía `Intl.DateTimeFormat`. Suena un beep (Web Audio API, sin archivo de audio) repetido cada 8s y muestra el modal `#alarma-modal` con el mensaje "Programar técnicos para mañana" y botón "Entendido" que lo detiene. Arranque vía `iniciarAlarmaChecker()` en `app.js`; modal agregado a `tareas-equipo.html`; cache-busting de `app.js` y `alarma.js` subido a `?v=20260622a`. Hecho en el otro equipo (oficina), detectado sin commitear al abrir GitHub Desktop, confirmado por el usuario (verificado cruzando con la conversación "GESTION - 1" donde se pidió la función) antes de desplegar. Deploy verificado en producción.
 - **Deploy 2026-06-22 (1)**: nueva función `tareasVisibles()` en `assets/js/core.js` — filtra las tareas que ve cada usuario según su perfil: un técnico solo ve las tarjetas del equipo al que está asignado (`t.team.includes(currentUser.id)`), un admin ve todas. Se usa desde `assets/js/tareas.js`. El cambio se hizo en el otro equipo (oficina), se sincronizó por OneDrive y apareció como cambio sin commitear al instalar GitHub Desktop en este equipo por primera vez; el usuario confirmó que era intencional antes de commitear/pushear/desplegar. Deploy verificado en producción (`tareas-equipo.html` carga sin errores).
 - Último cambio desplegado antes de ese: cache-busting (`?v=20260614`) en los 5 `<script src="assets/js/...">` de `tareas-equipo.html`, para evitar que el navegador sirva JS desactualizado (`assets/js/*.js` se cachea 7 días). Ver nota en `DEPLOY.md` — cualquier deploy futuro que modifique `assets/js/` debe subir este `?v=`. Migración `programado_en` ya ejecutada manualmente en la BD de producción.
@@ -59,19 +65,9 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 - Instrucción permanente: mantener este archivo (`CONTEXTO.md`) actualizado con cada cambio (arquitectura, convenciones, estructura, pendientes).
 - **Instrucción permanente de sesión**: al final de cada conversación en este proyecto, actualizar `CONTEXTO.md` (y otros `.md` relevantes) con todo lo necesario para continuar en el otro equipo. La carpeta se sincroniza por OneDrive, así que los `.md` son el puente entre sesiones.
 
-## Archivos modificados pendientes de deploy (resumen para .cpanel.yml)
+## Archivos modificados pendientes de deploy
 
-Todos los cambios de las sesiones 2ª, 3ª y 4ª están sin deployar. Archivos a incluir:
-
-**Sesión 2 (multi-día):** `assets/js/core.js`, `assets/js/tareas.js`, `backend/api/tareas.php`, `tareas-equipo.html`. Migración previa: `backend/migracion_dias_programacion.sql`.
-
-**Sesión 3 (módulo usuarios):** `assets/js/usuarios.js` (nuevo — verificar que `.cpanel.yml` lo cubra), `assets/js/core.js`, `assets/js/auth.js`, `assets/js/tareas.js`, `assets/js/app.js`, `backend/api/usuarios.php`, `tareas-equipo.html`.
-
-**Sesión 4 (alerta retraso + fixes):** `assets/js/alarma.js`, `assets/js/tareas.js`, `assets/js/core.js`, `assets/js/app.js`, `tareas-equipo.html`, `backend/api/tareas.php`, `backend/api/alertas.php` (nuevo — verificar `.cpanel.yml`), `backend/migracion_hora_prog.sql` (ejecutar en BD antes de deploy).
-
-**Versiones actuales de cache-busting en `tareas-equipo.html`:**
-- `core.js?v=20260622f`, `auth.js?v=20260622d`, `tareas.js?v=20260622f`
-- `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260622e`
+Ninguno. Todo está desplegado en producción.
 
 ## Pendientes de seguridad (backlog)
 
@@ -90,7 +86,7 @@ Decisión tomada: mejorar seguridad a nivel API se deja para después. Análisis
 
 La app va a crecer para cubrir gestión integral de la empresa: reportes de visitas técnicas con fotos, comunicación con clientes/técnicos por correo y WhatsApp, y manejo de usuarios con login por técnico. Decisiones para cuando se construya cada pieza (aún no implementadas):
 
-- **Frontend modular**: ✅ primer paso hecho (ver punto -1 arriba) — `assets/js/core.js`, `tareas.js`, `cartera.js`, `facturacion.js`, `app.js` (scripts clásicos, scope global compartido). Pendiente: si se agregan dominios nuevos (`auth.js`, `reportes.js`, `comunicaciones.js`, `usuarios.js`), seguir el mismo patrón; evaluar más adelante migrar a `type="module"` con imports/exports explícitos si el scope global compartido empieza a generar conflictos. (CSS ya se extrajo a `assets/css/app.css`.)
+- **Frontend modular**: ✅ implementado — `assets/js/core.js`, `tareas.js`, `cartera.js`, `facturacion.js`, `auth.js`, `reportes.js`, `informes.js`, `alarma.js`, `usuarios.js`, `app.js` (scripts clásicos, scope global compartido). Pendiente: evaluar más adelante migrar a `type="module"` con imports/exports explícitos si el scope global compartido empieza a generar conflictos. (CSS ya se extrajo a `assets/css/app.css`.)
 - **Backend por dominio dentro de `api/`**: `api/auth/` (login.php, logout.php, me.php), `api/reportes.php` (reportes de visita + fotos), `api/comunicaciones.php` (cola de envío email/WhatsApp), además de los existentes.
 - **`backend/lib/`**: además de `db.php`, irán `auth.php` (helper `requireAuth($roles)`), `MailService.php`, `WhatsAppService.php`, `AlegraService.php`, `PdfService.php`.
 - **`backend/config/`**: además de `config.php` y `config_alegra.php`, irán `config_mail.php` y `config_whatsapp.php` — todos gitignored, creados manualmente en el servidor.
