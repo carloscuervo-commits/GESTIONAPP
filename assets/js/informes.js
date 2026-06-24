@@ -323,10 +323,15 @@ async function renderFueraSitioHTML(filtros) {
   let filas = [];
   try {
     const res = await fetch(`${API_BASE}/fuera_sitio.php?${params}`);
-    filas = await res.json();
-    if (!Array.isArray(filas)) filas = [];
+    const data = await res.json();
+    if (data.error) {
+      console.error('[fuera_sitio]', data.error);
+      return `<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error: ${data.error}</div>`;
+    }
+    filas = Array.isArray(data) ? data : [];
   } catch(e) {
-    return '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error cargando datos.</div>';
+    console.error('[fuera_sitio] fetch error:', e);
+    return '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error cargando datos. Revisa la consola del navegador.</div>';
   }
 
   _informeColumnas = [

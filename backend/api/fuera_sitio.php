@@ -35,16 +35,20 @@ if ($method === 'GET') {
           WHERE " . implode(' AND ', $where) . "
           ORDER BY f.creado_en DESC";
 
-  $stmt = $pdo->prepare($sql);
-  $stmt->execute($params);
-  $rows = $stmt->fetchAll();
-  foreach ($rows as &$r) {
-    $r['distancia_metros'] = (int)$r['distancia_metros'];
-    $r['radio_metros']     = (int)$r['radio_metros'];
-    if ($r['lat'] !== null) $r['lat'] = (float)$r['lat'];
-    if ($r['lng'] !== null) $r['lng'] = (float)$r['lng'];
+  try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+    foreach ($rows as &$r) {
+      $r['distancia_metros'] = (int)$r['distancia_metros'];
+      $r['radio_metros']     = (int)$r['radio_metros'];
+      if ($r['lat'] !== null) $r['lat'] = (float)$r['lat'];
+      if ($r['lng'] !== null) $r['lng'] = (float)$r['lng'];
+    }
+    jsonOut($rows);
+  } catch (Exception $e) {
+    jsonOut(['error' => $e->getMessage()], 500);
   }
-  jsonOut($rows);
 }
 
 // --------------------------------------------------------------
