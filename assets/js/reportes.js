@@ -343,8 +343,13 @@ function cerrarFormularioReporte() {
   // si la tarea quedó completamente lista (se mueve a "Por facturar") o si
   // falta continuar en otra visita (trabajo de varios días) — en ese caso no
   // se cambia el estado y queda disponible para "Iniciar visita" otra vez.
-  // Mostrar título y cliente de la tarea en el popup
+  // Si la tarea ya está en "Por facturar" o más, no preguntar.
   const _tareaPopup = reporteActual ? tasks.find(t => t.id === reporteActual.tarea_id) : null;
+  if (_tareaPopup && ['realizado','facturado','archivado'].includes(_tareaPopup.estado)) {
+    reporteActual = null;
+    cargarVisitasActivas();
+    return;
+  }
   const _nombreDiv = document.getElementById('popup-tarea-terminada-nombre');
   if (_nombreDiv && _tareaPopup) {
     const _label = [_tareaPopup.cliente, _tareaPopup.titulo].filter(Boolean).join(' · ');
@@ -506,6 +511,7 @@ function renderFormularioReporte() {
     ${seccionesHtml}
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
       <button class="btn-save" id="btn-generar-pdf" onclick="generarPDFReporte(this)">📄 ${yaGenerado ? 'Regenerar PDF' : 'Generar PDF'}</button>
+      ${yaGenerado ? `<button class="btn-cancel" id="btn-whatsapp-pdf" onclick="compartirPDFWhatsApp(this)" style="background:#25D366;color:#fff;border-color:#25D366">📲 Enviar por WhatsApp</button>` : ''}
       <div id="reporte-pdf-status" style="font-size:13px">${yaGenerado ? `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank">Ver PDF</a>` : ''}</div>
       <div id="reporte-envio" style="${yaGenerado ? '' : 'display:none;'}border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
         <label style="font-size:12px;color:var(--text-muted)">Correo adicional del cliente (siempre se envía copia a administrativo@innovate.com.co)</label>
@@ -665,7 +671,7 @@ async function generarPDFReporte(btn) {
     doc.setFontSize(18); doc.setFont(undefined, 'bold');
     doc.text('Reporte de visita técnica', marginX, y); y += 8;
     doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.setTextColor(90);
-    doc.text('Grupo Innovate · Tel: 3176452811 · NIT: 900460263 · administrativo@innovate.com.co', marginX, y); y += 4;
+    doc.text('Grupo Innovate · Tel: 3176452811 · NIT: 900460263 · info@innovate.com.co', marginX, y); y += 4;
     doc.text('Cra. 30 # 6-06 Ofic 501, Cali Valle del Cauca, Colombia', marginX, y); y += 8;
     doc.setDrawColor(220); doc.line(marginX, y, pageW - marginX, y); y += 6;
     doc.setTextColor(20);
@@ -954,6 +960,27 @@ async function guardarParticipanteVisita(btn) {
   } catch(e) {
     alert('Error al guardar. Intenta de nuevo.');
     btn.disabled = false; btn.textContent = '💾';
+  }
+}
+async function compartirPDFWhatsApp(btn) {
+  if (!reporteActual?.pdf_archivo) { alert('Primero genera el PDF.'); return; }
+  if (!navigator.canShare) { alert('Tu dispositivo no soporta compartir archivos. Descarga el PDF y compártelo manualmente.'); return; }
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Preparando...';
+  try {
+    const res = await fetch(`${API_BASE}/reporte_pdf.php?id=${reporteActual.id}`);
+    if (!res.ok) throw new Error('No se pudo obtener el PDF');
+    const blob = await res.blob();
+    const fileName = reporteActual.pdf_archivo.split('/').pop() || 'reporte-innovate.pdf';
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if (!navigator.canShare({ files: [file] })) { alert('Tu dispositivo no soporta compartir PDF. Descárgalo y compártelo desde WhatsApp.'); return; }
+    await navigator.share({ files: [file], title: 'Reporte Innovate' });
+  } catch(e) {
+    if (e.name !== 'AbortError') alert('No se pudo compartir. Intenta descargar el PDF y enviarlo manualmente.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
   }
 }
 // ===================== FIN REPORTES DE VISITA =====================
