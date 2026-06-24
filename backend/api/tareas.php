@@ -166,6 +166,20 @@ if ($method === 'PUT') {
 if ($method === 'DELETE') {
   $id = $_GET['id'] ?? null;
   if (!$id) jsonOut(['error' => 'id requerido'], 400);
+
+  // Limpiar tablas sin FK antes del cascade de tareas
+  // 1. visita_participantes (no tiene FK → reporte_id huérfano si se borra el reporte)
+  $pdo->prepare(
+    "DELETE vp FROM visita_participantes vp
+     INNER JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
+     WHERE r.tarea_id = ?"
+  )->execute([$id]);
+
+  // 2. checkin_fuera_sitio (no tiene FK → tarea_id huérfano)
+  $pdo->prepare("DELETE FROM checkin_fuera_sitio WHERE tarea_id COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci")
+    ->execute([$id]);
+
+  // El resto (reportes, reporte_fotos, tarea_equipo, tarea_historial) tiene ON DELETE CASCADE
   $pdo->prepare("DELETE FROM tareas WHERE id = ?")->execute([$id]);
   jsonOut(['ok' => true]);
 }
