@@ -30,8 +30,8 @@ if ($method === 'GET') {
   $sql = "SELECT f.*, u.nombre AS tecnico_nombre,
             t.titulo AS tarea_titulo, t.cliente AS tarea_cliente
           FROM checkin_fuera_sitio f
-          LEFT JOIN usuarios u ON u.id = f.tecnico_id
-          LEFT JOIN tareas   t ON t.id = f.tarea_id
+          LEFT JOIN usuarios u ON u.id COLLATE utf8mb4_general_ci = f.tecnico_id COLLATE utf8mb4_general_ci
+          LEFT JOIN tareas   t ON t.id COLLATE utf8mb4_general_ci = f.tarea_id   COLLATE utf8mb4_general_ci
           WHERE " . implode(' AND ', $where) . "
           ORDER BY f.creado_en DESC";
 
