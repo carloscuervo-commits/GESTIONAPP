@@ -1,0 +1,36 @@
+Deploy manual — paso a paso
+1. Commit y push en GitHub Desktop
+
+Abre GitHub Desktop
+Verifica los archivos cambiados en el panel izquierdo
+Escribe el mensaje del commit abajo a la izquierda
+Clic en "Commit to main"
+Clic en "Push origin" (barra azul arriba)
+
+
+Si aparece error de index.lock: Win+R → pega powershell -Command "Remove-Item 'D:\OneDrive\INNOVATE\GESTIONAPP\.git\index.lock' -Force -ErrorAction SilentlyContinue" → Enter → reintenta el commit
+
+
+2. Update from Remote en cPanel
+
+Ve a https://grupoinnovate.com:2083/
+Inicia sesión
+Clic en "Git™ Version Control"
+En la fila de GESTIONAPP → clic en "Administrar"
+Pestaña "Pull or Deploy"
+Clic en "Update from Remote"
+Espera el mensaje verde: "The system successfully updated the GESTIONAPP repository"
+Confirma que el HEAD Commit cambió al SHA del commit que acabas de pushear
+
+
+3. Deploy HEAD Commit
+
+En la misma página → clic en "Deploy HEAD Commit"
+Espera el mensaje: "The deployment that you triggered on ... is complete"
+
+
+4. Verificar producción
+
+Abre https://grupoinnovate.com/gestion/tareas-equipo.html
+Abre DevTools → F12 → pestaña Network → recarga con Ctrl+Shift+R
+Filtra por core.js y confirma que la versión ?v= en la URL corresponde al cache-busting que pusiste

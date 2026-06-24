@@ -167,7 +167,10 @@ function taskCard(t) {
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${diasEstadoBadge}
     ${segBadge}
-    ${t.cliente?`<div style="font-size:11px;font-weight:700;color:#169BBC;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.03em">${esc(t.cliente)}</div>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
+      ${t.cliente?`<div style="font-size:11px;font-weight:700;color:#169BBC;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.03em">${esc(t.cliente)}</div>`:'<div></div>'}
+      <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.05em;white-space:nowrap;margin-top:1px">#${t.id.slice(0,4).toUpperCase()}</div>
+    </div>
     <div class="task-title">${esc(t.titulo)}</div>
     <div class="task-meta">
       ${currentArea==='all'&&t.area?`<span class="badge" style="background:${ac}20;color:${ac}">${esc((AREAS[t.area]||{}).label||t.area)}</span>`:''}
@@ -710,6 +713,8 @@ function openModal(id, preArea, preEstado) {
   editingId=id||null;
   const t=id?tasks.find(x=>x.id===id):null;
   document.getElementById('modal-title-text').textContent=t?'Editar Tarea':'Nueva Tarea';
+  const shortIdEl = document.getElementById('modal-short-id');
+  if (shortIdEl) { shortIdEl.textContent = t ? `#${t.id.slice(0,4).toUpperCase()}` : ''; shortIdEl.style.display = t ? 'inline' : 'none'; }
   document.getElementById('btn-delete').style.display=t?'inline-block':'none';
   document.getElementById('f-titulo').value=t?.titulo||'';
   document.getElementById('f-desc').value=t?.desc||'';

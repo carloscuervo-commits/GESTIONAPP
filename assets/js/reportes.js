@@ -21,7 +21,7 @@ const PLANTILLAS_REPORTE = {
 };
 
 let visitasActivas = {};   // tareaId -> reporte en estado 'en_visita'
-let borradoresActivos = {}; // tareaId -> reporte en estado 'borrador' (finalizado, sin enviar)
+let borradoresActivos = {}; // tareaId -> [array de reportes en estado 'borrador']
 let reporteActual = null;  // reporte abierto en el formulario
 
 // ----------------- Carga inicial -----------------
@@ -35,7 +35,10 @@ async function cargarVisitasActivas() {
     visitasActivas = {};
     (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
     borradoresActivos = {};
-    (Array.isArray(borradores) ? borradores : []).forEach(r => { borradoresActivos[r.tarea_id] = r; });
+    (Array.isArray(borradores) ? borradores : []).forEach(r => {
+      if (!borradoresActivos[r.tarea_id]) borradoresActivos[r.tarea_id] = [];
+      borradoresActivos[r.tarea_id].push(r);
+    });
     render();
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
@@ -85,9 +88,26 @@ function renderVisitaBoton(t) {
     return html;
   }
 
-  const borrador = borradoresActivos[t.id];
-  if (borrador) {
-    return `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${borrador.id}',event)">📝 Continuar reporte</button>`;
+  const borradoresList = borradoresActivos[t.id] || [];
+  if (borradoresList.length > 0) {
+    const hoyISO = new Date().toLocaleDateString('sv', { timeZone: 'America/Bogota' });
+    const deHoy      = borradoresList.filter(b => (b.check_in || b.creado_en || '').substring(0, 10) === hoyISO);
+    const anteriores = borradoresList.filter(b => (b.check_in || b.creado_en || '').substring(0, 10) !== hoyISO);
+    let html = '';
+    // Borradores de días anteriores — uno por día
+    anteriores.forEach(b => {
+      const fecha = (b.check_in || b.creado_en || '').substring(0, 10);
+      html += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${b.id}',event)">📝 Reporte pendiente ${fecha}</button>`;
+    });
+    // Borrador de hoy (si existe)
+    deHoy.forEach(b => {
+      html += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${b.id}',event)">📝 Continuar reporte</button>`;
+    });
+    // Tarea multi-día sin visita de hoy → permitir nuevo check-in
+    if (deHoy.length === 0 && (t.diasProg || 1) > 1) {
+      html += `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita hoy</button>`;
+    }
+    return html;
   }
   return `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita</button>`;
 }
@@ -257,7 +277,8 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       const todosTerminaron = (data.participantes || []).every(p => p.check_out);
       if (todosTerminaron) {
         delete visitasActivas[tareaId];
-        borradoresActivos[tareaId] = data;
+        if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
+        borradoresActivos[tareaId].push(data);
         _reporteSoloEdicion = false;
         render();
         abrirFormularioReporte(data);

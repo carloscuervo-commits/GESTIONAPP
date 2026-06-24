@@ -312,7 +312,7 @@ function generarProgramacion(fechaISO) {
     const tecnicos = g.team.map(nombreCorto).join(', ');
     out += `\n👷 ${tecnicos || 'Sin asignar'}\n`;
     g.tasks.forEach(t => {
-      out += `📍 ${t.cliente || 'Sin cliente'}\n`;
+      out += `📍 ${t.cliente || 'Sin cliente'}${t.horaProg ? `  🕗 ${t.horaProg}` : ''}\n`;
       if (t.desc) out += `📝 ${t.desc}\n`;
       out += `🔧 ${t.titulo}\n`;
       if (t.recursos) out += `   ${t.recursos}\n`;

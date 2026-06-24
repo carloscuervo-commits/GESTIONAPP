@@ -76,10 +76,11 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
   const tardias = tasks.filter(t =>
     ['it','if'].includes(t.area) &&
     t.estado === 'programado' &&
-    t.fechaProg === hoy &&
+    (typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy) &&
     t.horaProg &&
     horaActual >= t.horaProg &&
-    !visitasActivas[t.id]
+    !visitasActivas[t.id] &&
+    !(borradoresActivos[t.id] || []).some(b => (b.check_in || '').substring(0, 10) === hoy)
   );
 
   // Actualizar banner aunque no haya nuevas alertas
