@@ -784,21 +784,8 @@ function openModal(id, preArea, preEstado) {
       if (['it','if'].includes(t.area) && !['realizado','facturado','archivado'].includes(t.estado)) {
         if (typeof renderVisitaBoton === 'function') aHtml += renderVisitaBoton(t);
       }
-      // Botón "Ver reporte" si hay borrador(es) o visita activa
-      if (['it','if'].includes(t.area) && typeof borradoresActivos !== 'undefined') {
-        const bList = borradoresActivos[t.id] || [];
-        const visita = typeof visitasActivas !== 'undefined' ? visitasActivas[t.id] : null;
-        if (bList.length > 0) {
-          // Mostrar botón por cada borrador (puede haber varios en tarea multi-día)
-          bList.forEach(b => {
-            const fecha = (b.check_in || b.creado_en || '').substring(0, 10);
-            const label = bList.length > 1 ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte';
-            aHtml += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${b.id}',event)">${label}</button>`;
-          });
-        } else if (visita) {
-          aHtml += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${visita.id}',event)">📄 Ver reporte en curso</button>`;
-        }
-      }
+      // Los botones "Ver reporte" los inyecta renderHistorialVisitasModal() de forma asíncrona
+      // con datos reales del servidor (cubre estados borrador, completado y enviado).
       if (showArchivarM) {
         aHtml += `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>`;
       }

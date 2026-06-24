@@ -871,6 +871,29 @@ async function renderHistorialVisitasModal(tareaId) {
     const reportes = await res.json();
     const visitas = reportes.filter(r => r.estado !== 'en_visita' || (r.participantes||[]).length > 0);
     if (!visitas.length) { div.innerHTML = ''; div.style.display = 'none'; return; }
+
+    // Inyectar botones "Ver reporte" en acciones rápidas para cualquier estado de reporte
+    const accionesDiv = document.getElementById('modal-acciones-rapidas');
+    if (accionesDiv) {
+      const reportesAbribles = reportes.filter(r => ['borrador','completado','enviado'].includes(r.estado));
+      // Quitar botones "Ver reporte" previos para reemplazarlos con datos reales
+      accionesDiv.querySelectorAll('.btn-ver-reporte').forEach(b => b.remove());
+      if (reportesAbribles.length > 0) {
+        const ref = accionesDiv.querySelector('div'); // contenedor interior
+        reportesAbribles.forEach(r => {
+          const fecha = (r.check_in || r.creado_en || '').substring(0, 10);
+          const label = reportesAbribles.length > 1 ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte';
+          const btn = document.createElement('button');
+          btn.className = 'btn-archivar btn-ver-reporte';
+          btn.style.cssText = 'background:#6366f1;color:#fff';
+          btn.textContent = label;
+          btn.onclick = (e) => continuarReporte(r.id, e);
+          if (ref) ref.appendChild(btn);
+          else accionesDiv.appendChild(btn);
+        });
+        accionesDiv.style.display = 'block';
+      }
+    }
     const esAdmin = currentUser?.perfil === 'admin';
 
     // Para badge Tardía: obtener horaProg y fechaProg de la tarea
