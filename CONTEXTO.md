@@ -269,7 +269,8 @@ El historial de seguimientos (`seguimiento_historial`) se guarda como JSON (text
 - Colores de área/usuario definidos como hex en `AREAS`/`TEAM` y reutilizados para badges (`color + '20'` para fondo semi-transparente).
 
 - **Git / deploy**:
-- Commits descriptivos en español, en imperativo o sustantivo ("Agregar...", "Fix: ...", "Actualizar...").
+- Commits cortos y directos en español ("enviar reporte por wp", "archivadas colapsadas", "fix check-in multi-día"). Claude entrega el mensaje de commit listo al final de cada cambio.
+- Para deploys manuales desde GitHub Desktop, usar el summary entregado por Claude directamente.
 - Flujo de deploy: commit/push desde GitHub Desktop → cPanel "Git Version Control" → **Update from Remote** (verificar que aparezca el badge "New" con el commit correcto) → **Deploy HEAD Commit**.
 - cPanel cachea respuestas; al probar endpoints tras un deploy, usar un parámetro de cache-busting (`?cb=<numero único>`).
 - **⚠️ Rollback**: si se necesita hacer rollback al repo del servidor, usar cPanel Terminal → `cd /home/innovate/repos/gestionapp && git reset --hard <sha>` → Deploy HEAD Commit. El repo GitHub no se toca (sigue en el commit más reciente). Para volver a avanzar, crear un nuevo commit normal y hacer el flujo estándar.

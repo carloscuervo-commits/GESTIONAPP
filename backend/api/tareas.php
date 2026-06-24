@@ -88,6 +88,13 @@ if ($method === 'POST') {
     foreach ($d['team'] as $uid) $ins->execute([$id, $uid]);
   }
 
+  // Auto-crear cliente en tabla clientes si no existe
+  if (!empty($d['cliente'])) {
+    $cId = bin2hex(random_bytes(16));
+    $pdo->prepare("INSERT IGNORE INTO clientes (id, nombre) VALUES (?, ?)")
+      ->execute([$cId, $d['cliente']]);
+  }
+
   registrarHistorial($pdo, $id, null, $d['estado'], $d['creadoPor'] ?? null);
   jsonOut(['id' => $id], 201);
 }

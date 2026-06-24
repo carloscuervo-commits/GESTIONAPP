@@ -39,6 +39,48 @@ function reporteSinFotos($row) {
 if ($method === 'GET') {
   // GET ?tardias=1[&desde=YYYY-MM-DD][&hasta=YYYY-MM-DD][&tecnico_id=X]
   // Devuelve participantes cuyo check_in fue posterior a la hora_programacion de la tarea, en la misma fecha programada.
+  // GET ?geofence=1&tareaId=X&lat=Y&lng=Z
+  // Comprueba si el técnico (lat,lng) está dentro del radio del cliente de la tarea.
+  // No hace check-in — solo devuelve el resultado para que el frontend decida.
+  if (!empty($_GET['geofence'])) {
+    $tareaId = $_GET['tareaId'] ?? null;
+    $lat     = isset($_GET['lat']) ? (float)$_GET['lat'] : null;
+    $lng     = isset($_GET['lng']) ? (float)$_GET['lng'] : null;
+    if (!$tareaId || $lat === null || $lng === null) jsonOut(['error' => 'tareaId, lat y lng requeridos'], 400);
+
+    $stmt = $pdo->prepare(
+      "SELECT t.cliente, c.id AS cliente_id, c.nombre, c.lat, c.lng, c.radio_metros, c.direccion
+       FROM tareas t
+       LEFT JOIN clientes c ON c.nombre = t.cliente
+       WHERE t.id = ?"
+    );
+    $stmt->execute([$tareaId]);
+    $row = $stmt->fetch();
+    if (!$row) jsonOut(['error' => 'Tarea no encontrada'], 404);
+
+    if ($row['lat'] === null || $row['lng'] === null) {
+      jsonOut([
+        'sinUbicacion'  => true,
+        'cliente'       => $row['cliente'],
+        'clienteNombre' => $row['nombre'] ?? $row['cliente'],
+        'clienteId'     => $row['cliente_id'] ?? null,
+        'direccion'     => $row['direccion'] ?? null,
+      ]);
+    }
+
+    $distancia = haversineMetros($lat, $lng, (float)$row['lat'], (float)$row['lng']);
+    $radio     = (int)$row['radio_metros'];
+    jsonOut([
+      'dentroZona'      => $distancia <= $radio,
+      'distanciaMetros' => (int)round($distancia),
+      'radioMetros'     => $radio,
+      'clienteNombre'   => $row['nombre'] ?? $row['cliente'],
+      'clienteId'       => $row['cliente_id'] ?? null,
+      'clienteLat'      => (float)$row['lat'],
+      'clienteLng'      => (float)$row['lng'],
+    ]);
+  }
+
   if (!empty($_GET['tardias'])) {
     $where  = ["vp.check_in IS NOT NULL",
                "t.fecha_programacion IS NOT NULL",
@@ -145,6 +187,9 @@ if ($method === 'POST') {
   $stmt->execute([$tareaId]);
   $enCurso = $stmt->fetch();
 
+  $checkinLat = isset($d['lat']) ? (float)$d['lat'] : null;
+  $checkinLng = isset($d['lng']) ? (float)$d['lng'] : null;
+
   if ($enCurso) {
     // Reporte en curso → revisar si este técnico ya está registrado sin checkout
     $stmt = $pdo->prepare("SELECT id FROM visita_participantes WHERE reporte_id = ? AND tecnico_id = ? AND check_out IS NULL");
@@ -155,8 +200,8 @@ if ($method === 'POST') {
     }
     // Agregar como participante adicional
     $partId = bin2hex(random_bytes(16));
-    $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in) VALUES (?, ?, ?, ?)")
-      ->execute([$partId, $enCurso['id'], $tecnicoId, $checkInVal]);
+    $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng) VALUES (?, ?, ?, ?, ?, ?)")
+      ->execute([$partId, $enCurso['id'], $tecnicoId, $checkInVal, $checkinLat, $checkinLng]);
     // Notificar llegada adicional
     try {
       $tecnicoNombre = _nombreTecnico($pdo, $tecnicoId);
@@ -179,8 +224,8 @@ if ($method === 'POST') {
   $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'en_visita', ?, ?)")
     ->execute([$reporteId, $tareaId, $tecnicoId, $checkInVal]);
   $partId = bin2hex(random_bytes(16));
-  $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in) VALUES (?, ?, ?, ?)")
-    ->execute([$partId, $reporteId, $tecnicoId, $checkInVal]);
+  $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng) VALUES (?, ?, ?, ?, ?, ?)")
+    ->execute([$partId, $reporteId, $tecnicoId, $checkInVal, $checkinLat, $checkinLng]);
 
   // Notificación a administrativo (no bloqueante si falla)
   try {
@@ -253,13 +298,15 @@ if ($method === 'PUT') {
   }
 
   if (($d['accion'] ?? '') === 'checkout') {
-    $tecnicoOut = $d['tecnicoCheckoutId'] ?? null;
-    $partId     = $d['participanteId']    ?? null;
+    $tecnicoOut  = $d['tecnicoCheckoutId'] ?? null;
+    $partId      = $d['participanteId']    ?? null;
+    $checkoutLat = isset($d['lat']) ? (float)$d['lat'] : null;
+    $checkoutLng = isset($d['lng']) ? (float)$d['lng'] : null;
 
     if ($partId) {
       // ── Multi-tech: actualizar participante específico ──────────
-      $pdo->prepare("UPDATE visita_participantes SET check_out = NOW() WHERE id = ?")
-        ->execute([$partId]);
+      $pdo->prepare("UPDATE visita_participantes SET check_out = NOW(), checkout_lat = ?, checkout_lng = ? WHERE id = ?")
+        ->execute([$checkoutLat, $checkoutLng, $partId]);
       // ¿Quedan participantes sin checkout?
       $stmt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
       $stmt->execute([$id]);
@@ -277,8 +324,8 @@ if ($method === 'PUT') {
       $pdo->prepare("UPDATE reportes SET check_out=NOW(), tecnico_checkout_id=?, estado='borrador' WHERE id=?")
         ->execute([$tecnicoOut, $id]);
       // Intentar actualizar participante coincidente si existe
-      $pdo->prepare("UPDATE visita_participantes SET check_out=NOW() WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
-        ->execute([$id, $tecnicoOut]);
+      $pdo->prepare("UPDATE visita_participantes SET check_out=NOW(), checkout_lat=?, checkout_lng=? WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
+        ->execute([$checkoutLat, $checkoutLng, $id, $tecnicoOut]);
     }
 
     // ── Notificación de checkout a administrativo ──────────────────
@@ -383,4 +430,15 @@ function _nombreTecnico($pdo, $tecnicoId) {
   $stmt->execute([$tecnicoId]);
   $row = $stmt->fetch();
   return $row['nombre'] ?? $tecnicoId;
+}
+
+// Fórmula de Haversine — distancia en metros entre dos coordenadas GPS
+function haversineMetros($lat1, $lng1, $lat2, $lng2) {
+  $R   = 6371000; // radio Tierra en metros
+  $phi1 = deg2rad($lat1);
+  $phi2 = deg2rad($lat2);
+  $dphi = deg2rad($lat2 - $lat1);
+  $dlam = deg2rad($lng2 - $lng1);
+  $a = sin($dphi / 2) ** 2 + cos($phi1) * cos($phi2) * sin($dlam / 2) ** 2;
+  return 2 * $R * asin(sqrt($a));
 }
