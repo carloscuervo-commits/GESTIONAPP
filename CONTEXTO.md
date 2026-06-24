@@ -4,6 +4,12 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
+## Estado actual (última actualización: 2026-06-23 — deploy #25d ✅)
+
+- **Deploy #25d (2026-06-23 22:49) — desplegado y verificado**:
+  - **Fix crítico `tareas-equipo.html`**: el archivo estaba truncado en el repo GitHub (faltaban el modal de alarma diaria y todos los `<script>` tags). Causa: commit corrupto `4156b1c` generado por bug de "Find & Replace All" en editor web de GitHub (el string de búsqueda era prefijo del de reemplazo → loop infinito → 51358 bytes con scripts duplicados). Fix: script Python truncó en byte 44282 y añadió el contenido correcto → 45509 bytes. Commit `b22cc17` + merge con `dfcf8ed` (COLLATE fix). Deploy SHA `345e3dfa`.
+  - **app.js, alarma.js y 11 scripts más** se cargan correctamente en producción. App funcional.
+
 ## Estado actual (última actualización: 2026-06-23 — deploy #25b)
 
 - **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623f`, `reportes.js?v=20260623f`, `informes.js?v=20260623a`, `alarma.js?v=20260623a`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
