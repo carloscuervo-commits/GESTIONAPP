@@ -998,7 +998,14 @@ async function compartirPDFWhatsApp(btn) {
     const fileName = reporteActual.pdf_archivo.split('/').pop() || 'reporte-innovate.pdf';
     const file = new File([blob], fileName, { type: 'application/pdf' });
     if (!navigator.canShare({ files: [file] })) { alert('Tu dispositivo no soporta compartir PDF. Descárgalo y compártelo desde WhatsApp.'); return; }
-    await navigator.share({ files: [file], title: 'Reporte Innovate' });
+    const tarea = tasks.find(t => t.id === reporteActual.tarea_id);
+    const fechaVisita = reporteActual.check_in ? new Date(reporteActual.check_in.replace(' ','T')).toLocaleDateString('es-CO', { day:'numeric', month:'long', year:'numeric' }) : '';
+    const texto = `Buen día. Adjunto el reporte de visita técnica para *${tarea?.titulo || 'servicio técnico'}*${tarea?.cliente ? ` – ${tarea.cliente}` : ''}${fechaVisita ? `, realizada el ${fechaVisita}` : ''}.
+
+Agradecemos su confianza en Grupo Innovate. Estamos siempre disponibles para apoyarle en sus próximas necesidades de soporte técnico. ¡Será un gusto servirle de nuevo! 🔧
+
+_Grupo Innovate · 📞 317 645 2811 · info@innovate.com.co_`;
+    await navigator.share({ files: [file], title: 'Reporte de visita técnica – Grupo Innovate', text: texto });
   } catch(e) {
     if (e.name !== 'AbortError') alert('No se pudo compartir. Intenta descargar el PDF y enviarlo manualmente.');
   } finally {

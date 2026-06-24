@@ -242,17 +242,29 @@ function renderKanban() {
   const archDiv = document.getElementById('arch-section');
   if (archDiv) {
     if (arch.length) {
-      archDiv.innerHTML = `<button class="arch-toggle" onclick="toggleArchSection()">📦 Archivadas (${arch.length}) ▾</button>
-        <div id="arch-cards" style="display:none;display:flex;gap:12px;flex-wrap:wrap">${arch.map(taskCard).join('')}</div>`;
+      const areaKey = currentArea || 'all';
+      const expanded = localStorage.getItem(`arch-open-${areaKey}`) === '1';
+      archDiv.innerHTML = `
+        <button class="arch-toggle" onclick="toggleArchSection('${areaKey}')">
+          📦 Archivadas (${arch.length}) ${expanded ? '▴' : '▾'}
+        </button>
+        <div id="arch-cards" style="display:${expanded ? 'flex' : 'none'};gap:12px;flex-wrap:wrap;opacity:0.72">
+          ${arch.map(taskCard).join('')}
+        </div>`;
     } else {
       archDiv.innerHTML = '';
     }
   }
 }
 
-function toggleArchSection() {
+function toggleArchSection(areaKey) {
   const el = document.getElementById('arch-cards');
-  if (el) el.style.display = el.style.display==='none' ? 'flex' : 'none';
+  const btn = document.querySelector('.arch-toggle');
+  if (!el) return;
+  const opening = el.style.display === 'none';
+  el.style.display = opening ? 'flex' : 'none';
+  localStorage.setItem(`arch-open-${areaKey || currentArea || 'all'}`, opening ? '1' : '0');
+  if (btn) btn.innerHTML = `📦 Archivadas (${el.children.length}) ${opening ? '▴' : '▾'}`;
 }
 
 function renderLista() {
