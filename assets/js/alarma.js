@@ -125,7 +125,7 @@ function _mostrarModalRetraso(t) {
   const team = (t.team||[]).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar';
   const item = document.createElement('div');
   item.style.cssText = 'padding:10px 12px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:13px';
-  item.innerHTML = `<strong>${esc(t.titulo)}</strong><br>
+  item.innerHTML = `${t.cliente ? `<div style="font-size:11px;font-weight:700;color:#169BBC;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:2px">${esc(t.cliente)}</div>` : ''}<strong>${esc(t.titulo)}</strong><br>
     <span style="color:#64748b">👤 ${esc(team)} · 🕗 Programado ${t.horaProg} · 📍 ${t.fechaProg}</span>`;
   content.appendChild(item);
   overlay.classList.add('open');

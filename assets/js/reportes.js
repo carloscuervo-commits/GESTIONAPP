@@ -376,9 +376,9 @@ function resolverTareaTerminada(terminada) {
 function fotoUrl(archivo) { return `${API_BASE}/reporte_foto.php?archivo=${encodeURIComponent(archivo)}`; }
 
 function fotoThumbHtml(f) {
-  return `<div style="position:relative;width:84px;height:84px">
+  return `<div style="position:relative;width:84px;height:84px;overflow:visible">
     <img src="${fotoUrl(f.archivo)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
-    <button type="button" onclick="eliminarFoto(${f.id})" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border:none;border-radius:99px;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:1">✕</button>
+    <button type="button" onclick="eliminarFoto(${f.id})" style="position:absolute;top:-10px;right:-10px;background:#ef4444;color:#fff;border:none;border-radius:99px;width:28px;height:28px;font-size:14px;cursor:pointer;line-height:1;touch-action:manipulation;z-index:10">✕</button>
   </div>`;
 }
 

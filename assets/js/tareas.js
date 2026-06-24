@@ -499,10 +499,11 @@ function renderAlertasRetraso() {
   const tardias = tasks.filter(t =>
     ['it','if'].includes(t.area) &&
     t.estado === 'programado' &&
-    t.fechaProg === hoy &&
+    (typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy) &&
     t.horaProg &&
     horaActual >= t.horaProg &&
-    !visitasActivas[t.id]
+    !visitasActivas[t.id] &&
+    !(typeof borradoresActivos !== 'undefined' ? (borradoresActivos[t.id] || []) : []).some(b => (b.check_in || '').substring(0, 10) === hoy)
   );
 
   if (!tardias.length) { banner.innerHTML = ''; return; }
@@ -513,8 +514,9 @@ function renderAlertasRetraso() {
       <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">
         ${tardias.map(t => {
           const team = (t.team||[]).map(id=>getMember(id)?.name||id).join(', ') || 'Sin asignar';
+          const label = [t.cliente, t.titulo].filter(Boolean).join(' · ');
           return `<span onclick="openModal('${t.id}')" style="background:rgba(255,255,255,.2);padding:4px 10px;border-radius:99px;cursor:pointer;font-size:13px">
-            🕗 ${t.horaProg} · ${esc(t.titulo)} (${esc(team)})
+            🕗 ${t.horaProg} · ${esc(label)} (${esc(team)})
           </span>`;
         }).join('')}
       </div>
@@ -781,6 +783,21 @@ function openModal(id, preArea, preEstado) {
       }
       if (['it','if'].includes(t.area) && !['realizado','facturado','archivado'].includes(t.estado)) {
         if (typeof renderVisitaBoton === 'function') aHtml += renderVisitaBoton(t);
+      }
+      // Botón "Ver reporte" si hay borrador(es) o visita activa
+      if (['it','if'].includes(t.area) && typeof borradoresActivos !== 'undefined') {
+        const bList = borradoresActivos[t.id] || [];
+        const visita = typeof visitasActivas !== 'undefined' ? visitasActivas[t.id] : null;
+        if (bList.length > 0) {
+          // Mostrar botón por cada borrador (puede haber varios en tarea multi-día)
+          bList.forEach(b => {
+            const fecha = (b.check_in || b.creado_en || '').substring(0, 10);
+            const label = bList.length > 1 ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte';
+            aHtml += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${b.id}',event)">${label}</button>`;
+          });
+        } else if (visita) {
+          aHtml += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${visita.id}',event)">📄 Ver reporte en curso</button>`;
+        }
       }
       if (showArchivarM) {
         aHtml += `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>`;
