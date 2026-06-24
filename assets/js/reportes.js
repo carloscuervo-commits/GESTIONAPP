@@ -161,62 +161,55 @@ function closeVisitaTecnicoModal() {
 // Retorna { lat, lng } si se puede proceder, null si el técnico canceló.
 // tipo: 'checkin' | 'checkout'
 async function _geofenceCheck(tareaId, tipo) {
-  if (!navigator.geolocation || !API_BASE) {
-    alert('[GEO-DEBUG] navigator.geolocation no disponible');
-    return { lat: null, lng: null };
-  }
+  if (!navigator.geolocation || !API_BASE) return { lat: null, lng: null };
 
-  return new Promise(resolve => {
+  // Paso 1: obtener posición GPS como promesa (sin async dentro del callback — fix iOS Safari)
+  const pos = await new Promise(resolve => {
     navigator.geolocation.getCurrentPosition(
-      async pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        try {
-          const url = `${API_BASE}/reportes.php?geofence=1&tareaId=${encodeURIComponent(tareaId)}&lat=${lat}&lng=${lng}`;
-          const res = await fetch(url);
-          const geo = await res.json();
-          // Sin ubicación de cliente o cliente no encontrado → proceder sin bloqueo
-          if (geo.error || geo.sinUbicacion) {
-            alert(`[GEO-DEBUG] Sin ubicación del cliente. Respuesta: ${JSON.stringify(geo)}`);
-            resolve({ lat, lng }); return;
-          }
-          // Dentro del radio → proceder
-          if (geo.dentroZona) {
-            alert(`[GEO-DEBUG] Dentro de zona. Distancia: ${geo.distanciaMetros}m, radio: ${geo.radioMetros}m`);
-            resolve({ lat, lng }); return;
-          }
-          // Fuera del radio → mostrar alerta
-          const tipoLabel = tipo === 'checkin' ? 'check-in' : 'check-out';
-          const ok = confirm(
-            `📍 Estás a ${geo.distanciaMetros}m del cliente "${geo.clienteNombre}".\n` +
-            `Radio permitido: ${geo.radioMetros}m\n\n` +
-            `Se registrará que hiciste ${tipoLabel} fuera del sitio.\n` +
-            `¿Continuar de todas formas?`
-          );
-          // Registrar intento
-          fetch(`${API_BASE}/fuera_sitio.php`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tareaId, tecnicoId: currentUser?.id || null,
-              tipo, lat, lng,
-              distanciaMetros: geo.distanciaMetros,
-              radioMetros:     geo.radioMetros,
-              accion: ok ? 'aceptado' : 'cancelado',
-            }),
-          }).catch(() => {});
-          resolve(ok ? { lat, lng } : null);
-        } catch(e) {
-          alert(`[GEO-DEBUG] Error en fetch: ${e.message}`);
-          resolve({ lat, lng });
-        }
-      },
-      (err) => {
-        alert(`[GEO-DEBUG] GPS denegado o no disponible. Código: ${err.code} — ${err.message}`);
-        resolve({ lat: null, lng: null });
-      },
+      p  => resolve(p),
+      () => resolve(null),
       { timeout: 12000, maximumAge: 0 }
     );
   });
+
+  if (!pos) return { lat: null, lng: null }; // GPS denegado o no disponible
+
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+
+  // Paso 2: verificar geofence con el servidor
+  try {
+    const url = `${API_BASE}/reportes.php?geofence=1&tareaId=${encodeURIComponent(tareaId)}&lat=${lat}&lng=${lng}`;
+    const geo = await fetch(url).then(r => r.json());
+
+    if (geo.error || geo.sinUbicacion) return { lat, lng }; // sin ubicación → no bloquear
+
+    if (geo.dentroZona) return { lat, lng }; // dentro del radio → ok
+
+    // Fuera del radio → confirmar con el técnico
+    const tipoLabel = tipo === 'checkin' ? 'check-in' : 'check-out';
+    const ok = confirm(
+      `📍 Estás a ${geo.distanciaMetros}m del cliente "${geo.clienteNombre}".\n` +
+      `Radio permitido: ${geo.radioMetros}m\n\n` +
+      `Se registrará que hiciste ${tipoLabel} fuera del sitio.\n` +
+      `¿Continuar de todas formas?`
+    );
+    // Registrar intento (no bloquear si falla)
+    fetch(`${API_BASE}/fuera_sitio.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tareaId, tecnicoId: currentUser?.id || null,
+        tipo, lat, lng,
+        distanciaMetros: geo.distanciaMetros,
+        radioMetros:     geo.radioMetros,
+        accion: ok ? 'aceptado' : 'cancelado',
+      }),
+    }).catch(() => {});
+
+    return ok ? { lat, lng } : null;
+  } catch {
+    return { lat, lng }; // error de red → no bloquear
+  }
 }
 
 // ----------------- Iniciar / Finalizar visita -----------------
