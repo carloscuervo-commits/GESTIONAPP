@@ -167,12 +167,12 @@ async function _geofenceCheck(tareaId, tipo) {
   const pos = await new Promise(resolve => {
     navigator.geolocation.getCurrentPosition(
       p  => resolve(p),
-      () => resolve(null),
+      (err) => { alert(`[GEO] Sin GPS: ${err.code} ${err.message}`); resolve(null); },
       { timeout: 12000, maximumAge: 0 }
     );
   });
 
-  if (!pos) return { lat: null, lng: null }; // GPS denegado o no disponible
+  if (!pos) return { lat: null, lng: null };
 
   const lat = pos.coords.latitude;
   const lng = pos.coords.longitude;
@@ -182,9 +182,15 @@ async function _geofenceCheck(tareaId, tipo) {
     const url = `${API_BASE}/reportes.php?geofence=1&tareaId=${encodeURIComponent(tareaId)}&lat=${lat}&lng=${lng}`;
     const geo = await fetch(url).then(r => r.json());
 
-    if (geo.error || geo.sinUbicacion) return { lat, lng }; // sin ubicación → no bloquear
+    if (geo.error || geo.sinUbicacion) {
+      alert(`[GEO] Sin ubicación del cliente. cliente="${geo.cliente}" sinUbicacion=${geo.sinUbicacion} error=${geo.error}`);
+      return { lat, lng };
+    }
 
-    if (geo.dentroZona) return { lat, lng }; // dentro del radio → ok
+    if (geo.dentroZona) {
+      alert(`[GEO] Dentro de zona: ${geo.distanciaMetros}m (radio ${geo.radioMetros}m)`);
+      return { lat, lng };
+    }
 
     // Fuera del radio → confirmar con el técnico
     const tipoLabel = tipo === 'checkin' ? 'check-in' : 'check-out';

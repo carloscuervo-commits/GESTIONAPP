@@ -1055,10 +1055,16 @@ async function saveTask() {
   const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
   const incluyeProg = area === 'admin' ? !!(document.getElementById('f-incluye-prog')?.checked) : false;
 
+  // Si técnico crea una nueva tarea, asignarse automáticamente
+  let teamFinal = [...selectedTeam];
+  if (!editingId && currentUser && currentUser.perfil === 'tecnico' && !teamFinal.includes(currentUser.id)) {
+    teamFinal.push(currentUser.id);
+  }
+
   const task={
     id: editingId||uid(), titulo,
     desc: document.getElementById('f-desc').value.trim(),
-    team: [...selectedTeam],
+    team: teamFinal,
     area: document.getElementById('f-area').value,
     estado,
     cliente: document.getElementById('f-cliente').value.trim(),

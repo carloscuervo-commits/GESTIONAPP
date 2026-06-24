@@ -51,7 +51,7 @@ if ($method === 'GET') {
     $stmt = $pdo->prepare(
       "SELECT t.cliente, c.id AS cliente_id, c.nombre, c.lat, c.lng, c.radio_metros, c.direccion
        FROM tareas t
-       LEFT JOIN clientes c ON c.nombre = t.cliente
+       LEFT JOIN clientes c ON c.nombre COLLATE utf8mb4_general_ci = t.cliente COLLATE utf8mb4_general_ci
        WHERE t.id = ?"
     );
     $stmt->execute([$tareaId]);
