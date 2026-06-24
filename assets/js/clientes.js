@@ -4,6 +4,51 @@
 
 let _clientes = []; // caché local
 
+// ----------------- Autocomplete Alegra en modal -----------------
+let _cmSuggestTimer = null;
+let _cmSuggestions  = [];
+
+function _cmNombreInput() {
+  const q = document.getElementById('cm-nombre').value.trim();
+  clearTimeout(_cmSuggestTimer);
+  _ocultarCmSuggestions();
+  if (q.length < 2) return;
+  _cmSuggestTimer = setTimeout(() => _buscarCmAlegra(q), 300);
+}
+
+async function _buscarCmAlegra(q) {
+  if (!API_BASE) return;
+  try {
+    const res  = await fetch(`${API_BASE}/alegra_contactos.php?q=${encodeURIComponent(q)}`);
+    _cmSuggestions = await res.json();
+    if (!Array.isArray(_cmSuggestions) || !_cmSuggestions.length) { _ocultarCmSuggestions(); return; }
+    const box = document.getElementById('cm-nombre-suggestions');
+    if (!box) return;
+    box.innerHTML = _cmSuggestions.map((c, i) =>
+      `<div onmousedown="_seleccionarCmIdx(${i})" style="padding:8px 12px;cursor:pointer;font-size:13px;
+        border-bottom:1px solid var(--border,#e5e7eb)"
+        onmouseover="this.style.background='var(--bg,#f8fafc)'"
+        onmouseout="this.style.background=''">${esc(c.name)}</div>`
+    ).join('');
+    box.style.display = 'block';
+  } catch { _ocultarCmSuggestions(); }
+}
+
+function _seleccionarCmIdx(i) {
+  const c = _cmSuggestions[i];
+  if (!c) return;
+  document.getElementById('cm-nombre').value    = c.name;
+  document.getElementById('cm-alegra-id').value = c.id || '';
+  if (c.address) document.getElementById('cm-direccion').value = c.address;
+  _actualizarLinkMaps();
+  _ocultarCmSuggestions();
+}
+
+function _ocultarCmSuggestions() {
+  const box = document.getElementById('cm-nombre-suggestions');
+  if (box) box.style.display = 'none';
+}
+
 // ----------------- Carga y render -----------------
 async function cargarClientes() {
   if (!API_BASE) return;

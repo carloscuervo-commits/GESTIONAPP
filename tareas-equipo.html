@@ -550,9 +550,14 @@
     </div>
 
     <div style="display:grid;gap:12px;margin-bottom:16px">
-      <div>
+      <div style="position:relative">
         <label class="form-label">Nombre *</label>
-        <input class="form-input" id="cm-nombre" type="text" placeholder="Nombre del cliente">
+        <input class="form-input" id="cm-nombre" type="text" placeholder="Buscar en Alegra..."
+          oninput="_cmNombreInput()" autocomplete="off"
+          onblur="setTimeout(_ocultarCmSuggestions,200)">
+        <div id="cm-nombre-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;
+          background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:0 0 8px 8px;
+          box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:600;max-height:200px;overflow-y:auto"></div>
       </div>
       <div>
         <label class="form-label">Dirección</label>
@@ -627,7 +632,7 @@
 <script src="assets/js/informes.js?v=20260624a"></script>
 <script src="assets/js/alarma.js?v=20260624b"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
-<script src="assets/js/clientes.js?v=20260624a"></script>
+<script src="assets/js/clientes.js?v=20260624b"></script>
 <script src="assets/js/app.js?v=20260623c"></script>
 </body>
 </html>
