@@ -497,6 +497,7 @@ function renderDashboard() {
   }
 
   html += '</div>';
+  html += '<div id="alertas-fuera-sitio"></div>';
   document.getElementById('dashboard-view').innerHTML = html;
   renderAlertasRetraso();
   actualizarBadgeFueraSitio();
@@ -558,7 +559,7 @@ function renderAlertasFueraSitio() {
   if (!_fueraSitioPendientes) { el.innerHTML = ''; return; }
   const n = _fueraSitioPendientes;
   el.innerHTML = `
-    <div style="background:#f59e0b;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;border-radius:var(--radius)">
+    <div style="background:#f59e0b;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:var(--radius)">
       <span style="font-size:14px;font-weight:700">📍 ${n} check${n>1?'s':''} fuera de sitio por gestionar</span>
       <button onclick="setArea('informes');seleccionarInforme('fuera_sitio')"
         style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:5px 14px;border-radius:99px;cursor:pointer;font-size:13px;font-weight:600">
