@@ -85,11 +85,12 @@ if ($method === 'GET') {
     $where  = ["vp.check_in IS NOT NULL",
                "t.fecha_programacion IS NOT NULL",
                "t.hora_programacion IS NOT NULL",
-               "DATE(vp.check_in) = t.fecha_programacion",
+               // Tareas multi-día: check-in puede ser en cualquier día del rango programado
+               "DATE(vp.check_in) BETWEEN t.fecha_programacion AND DATE_ADD(t.fecha_programacion, INTERVAL (COALESCE(t.dias_programacion, 1) - 1) DAY)",
                "TIME(vp.check_in) > t.hora_programacion"];
     $params = [];
-    if (!empty($_GET['desde'])) { $where[] = "t.fecha_programacion >= ?"; $params[] = $_GET['desde']; }
-    if (!empty($_GET['hasta'])) { $where[] = "t.fecha_programacion <= ?"; $params[] = $_GET['hasta']; }
+    if (!empty($_GET['desde'])) { $where[] = "DATE(vp.check_in) >= ?"; $params[] = $_GET['desde']; }
+    if (!empty($_GET['hasta'])) { $where[] = "DATE(vp.check_in) <= ?"; $params[] = $_GET['hasta']; }
     if (!empty($_GET['tecnico_id'])) { $where[] = "vp.tecnico_id = ?"; $params[] = $_GET['tecnico_id']; }
     $sql = "SELECT
               vp.id          AS participante_id,

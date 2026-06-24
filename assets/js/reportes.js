@@ -107,6 +107,20 @@ function renderVisitaBoton(t) {
     if (deHoy.length === 0 && (t.diasProg || 1) > 1) {
       html += `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita hoy</button>`;
     }
+    // Admin: si hay miembros del equipo que no han llegado hoy, mostrar botón de registro
+    if (currentUser?.perfil === 'admin' && deHoy.length > 0) {
+      const participantesHoyIds = new Set(
+        deHoy.flatMap(b => (b.participantes || [])
+          .filter(p => (p.check_in || '').substring(0, 10) === hoyISO)
+          .map(p => p.tecnico_id))
+      );
+      const sinLlegar = (t.team || []).filter(uid => !participantesHoyIds.has(uid));
+      if (sinLlegar.length > 0) {
+        const nombres = sinLlegar.map(uid => getMember(uid)?.name || uid).join(', ');
+        html += `<button class="btn-archivar" style="background:#16a34a;color:#fff;margin-top:4px"
+          onclick="iniciarVisita('${t.id}',event)">➕ Registrar llegada: ${esc(nombres)}</button>`;
+      }
+    }
     return html;
   }
   return `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita</button>`;
