@@ -62,7 +62,7 @@ if ($method === 'GET') {
               t.fecha_programacion,
               t.hora_programacion
             FROM visita_participantes vp
-            JOIN reportes r ON r.id = vp.reporte_id
+            JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
             JOIN tareas t   ON t.id = r.tarea_id
             WHERE " . implode(' AND ', $where) . "
             ORDER BY vp.check_in DESC";
