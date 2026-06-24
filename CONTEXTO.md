@@ -4,20 +4,20 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-24 — Deploy #27 pendiente de pruebas ✅)
+## Estado actual (última actualización: 2026-06-24 — Deploy #27 desplegado y verificado ✅)
 
 - **Versiones de caché en `tareas-equipo.html`**: `core.js?v=20260624a`, `tareas.js?v=20260624a`, `reportes.js?v=20260624a`, `informes.js?v=20260624a`, `alarma.js?v=20260624a`, `app.js?v=20260623c`.
-- **Estado del repo (local y GitHub `main`)**: commit `5f8492a` ("Perf #26") + bump de versiones a `20260624a` sin commitear aún.
-- **Estado de producción**: rollback a `cac254b` ("Input búsqueda type=search", 23/06 13:32). **No desplegar hasta verificar en staging/pruebas.**
+- **Estado del repo (local y GitHub `main`)**: commit `92e9b69` ("Deploy #27: consolidación post-rollback + cache-busting 20260624a").
+- **Estado de producción**: Deploy #27 en producción desde 24/06/2026 09:00:56. SHA desplegado: `92e9b69`.
 
-- **Deploy #27 — Consolidación y fix post-rollback (2026-06-24) — PENDIENTE DE PRUEBAS**:
+- **Deploy #27 — Consolidación y fix post-rollback (2026-06-24) — DESPLEGADO Y VERIFICADO**:
   - Acumula todos los cambios del 23/06 desde las 13:32 hasta el commit `5f8492a`.
   - Errores que causaron los deploys fallidos del día anterior, ya corregidos en esta versión:
     1. Script tags truncados en `tareas-equipo.html` (Fix #25c/d).
     2. COLLATE faltante en JOIN `visita_participantes` → `reportes` (Fix #25b).
     3. Double fetch de `visitasActivas` al arrancar la alarma (Fix #26).
   - Cache bumpeado a `20260624a` para forzar recarga completa en browser.
-  - **Para desplegar**: flujo estándar cPanel (Update from Remote → Deploy HEAD Commit). El repo GitHub ya tiene el commit `5f8492a`; este nuevo bump de versiones requiere un commit adicional antes del deploy.
+  - **Desplegado**: cPanel Update from Remote + Deploy HEAD Commit el 24/06/2026 09:00:56. SHA: `92e9b69`.
 
 - **Rollback previo (2026-06-24 07:52)**:
   - Producción fue revertida al commit `cac254b` por problemas en Deploy #25/#26.

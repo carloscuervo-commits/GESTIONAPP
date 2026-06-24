@@ -370,7 +370,7 @@ function renderSeccion(sec, r) {
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0">
         ${fotos.map(fotoThumbHtml).join('')}
       </div>
-      <input type="file" id="foto-input-${sec.id}" accept="image/*" capture="environment" multiple style="display:none" onchange="subirFotos('${sec.id}', this.files)">
+      <input type="file" id="foto-input-${sec.id}" accept="image/*" multiple style="display:none" onchange="subirFotos('${sec.id}', this.files)">
       <button type="button" class="btn-cancel" onclick="document.getElementById('foto-input-${sec.id}').click()">📷 Agregar fotos</button>
     </div>`;
   }
