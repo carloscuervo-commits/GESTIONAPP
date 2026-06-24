@@ -58,13 +58,32 @@ function iniciarAlarmaChecker() {
 // pasó y el técnico no ha registrado check-in. Dispara sonido urgente,
 // muestra modal y envía correo a administrativo (una vez por tarea/sesión).
 
-let _retrasoAlertadas = new Set(); // IDs de tareas ya alertadas en esta sesión
+let _retrasoAlertadas = new Set(); // "tareaId|tecnicoId" ya alertados en esta sesión
+
+// participantesHoy: tareaId → Set de tecnicoIds que hicieron check-in HOY
+// Se reconstruye en cada ciclo de 60s y al arrancar.
+let participantesHoy = {};
+
+function _reconstruirParticipantesHoy(enVisita, borradores, hoy) {
+  participantesHoy = {};
+  [...(Array.isArray(enVisita) ? enVisita : []),
+   ...(Array.isArray(borradores) ? borradores : [])].forEach(r => {
+    (r.participantes || []).forEach(p => {
+      if (p.tecnico_id && (p.check_in || '').substring(0, 10) === hoy) {
+        if (!participantesHoy[r.tarea_id]) participantesHoy[r.tarea_id] = new Set();
+        participantesHoy[r.tarea_id].add(p.tecnico_id);
+      }
+    });
+  });
+}
 
 async function _chequearRetrasoTecnicos(skipFetch = false) {
   if (!currentUser || currentUser.perfil !== 'admin') return;
   if (typeof visitasActivas === 'undefined' || typeof tasks === 'undefined') return;
 
-  // Refrescar visitasActivas desde el backend para captar check-ins de otros dispositivos.
+  const { fecha: hoy, hora: horaActual } = _horaBogota();
+
+  // Refrescar desde el backend para captar check-ins de otros dispositivos.
   // skipFetch=true en la llamada inicial (evita fetch duplicado al arrancar).
   if (!skipFetch && typeof API_BASE !== 'undefined' && API_BASE) {
     try {
@@ -74,36 +93,45 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
       ]);
       visitasActivas = {};
       (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
-      // Refrescar borradores para captar checkouts de otros dispositivos
       borradoresActivos = {};
       (Array.isArray(borradores) ? borradores : []).forEach(r => {
         if (!borradoresActivos[r.tarea_id]) borradoresActivos[r.tarea_id] = [];
         borradoresActivos[r.tarea_id].push(r);
       });
+      _reconstruirParticipantesHoy(enVisita, borradores, hoy);
     } catch(e) { /* silencioso: usa estado anterior */ }
+  } else if (skipFetch) {
+    // Primera llamada: construir participantesHoy con los datos ya cargados
+    const enVisita = Object.values(visitasActivas);
+    const borradores = Object.values(borradoresActivos).flat();
+    _reconstruirParticipantesHoy(enVisita, borradores, hoy);
   }
 
-  const { fecha: hoy, hora: horaActual } = _horaBogota();
-
-  const tardias = tasks.filter(t =>
-    ['it','if'].includes(t.area) &&
-    t.estado === 'programado' &&
-    (typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy) &&
-    t.horaProg &&
-    horaActual >= t.horaProg &&
-    !visitasActivas[t.id] &&
-    !(borradoresActivos[t.id] || []).some(b => (b.check_in || '').substring(0, 10) === hoy)
-  );
+  // Técnicos tardíos: por cada tarea programada hoy, buscar los miembros del
+  // equipo que AÚN no han registrado check-in hoy (independientemente de si
+  // otros compañeros ya lo hicieron — tarjetas multi-técnico).
+  const tardios = []; // { tarea, tecnicoId }
+  tasks.forEach(t => {
+    if (!['it','if'].includes(t.area)) return;
+    if (t.estado !== 'programado') return;
+    if (!(typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy)) return;
+    if (!t.horaProg || horaActual < t.horaProg) return;
+    const checkinHoy = participantesHoy[t.id] || new Set();
+    (t.team || []).forEach(uid => {
+      if (!checkinHoy.has(uid)) tardios.push({ tarea: t, tecnicoId: uid });
+    });
+  });
 
   // Actualizar banner aunque no haya nuevas alertas
   if (typeof renderAlertasRetraso === 'function') renderAlertasRetraso();
 
-  for (const t of tardias) {
-    if (_retrasoAlertadas.has(t.id)) continue; // ya alertada esta sesión
-    _retrasoAlertadas.add(t.id);
+  for (const { tarea: t, tecnicoId } of tardios) {
+    const clave = `${t.id}|${tecnicoId}`;
+    if (_retrasoAlertadas.has(clave)) continue;
+    _retrasoAlertadas.add(clave);
 
     _reproducirBeepRetraso();
-    _mostrarModalRetraso(t);
+    _mostrarModalRetraso(t, tecnicoId);
     _enviarAlertaRetraso(t.id);
   }
 }
@@ -129,16 +157,17 @@ function _reproducirBeepRetraso() {
   } catch (e) { console.error('No se pudo reproducir alarma de retraso', e); }
 }
 
-function _mostrarModalRetraso(t) {
+function _mostrarModalRetraso(t, tecnicoId) {
   const overlay = document.getElementById('retraso-modal');
   const content = document.getElementById('retraso-modal-content');
   if (!overlay || !content) return;
 
-  const team = (t.team||[]).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar';
+  // Mostrar el técnico específico tardío, no todo el equipo
+  const tecnico = tecnicoId ? (getMember(tecnicoId)?.name || tecnicoId) : ((t.team||[]).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar');
   const item = document.createElement('div');
   item.style.cssText = 'padding:10px 12px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:13px';
   item.innerHTML = `${t.cliente ? `<div style="font-size:11px;font-weight:700;color:#169BBC;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:2px">${esc(t.cliente)}</div>` : ''}<strong>${esc(t.titulo)}</strong><br>
-    <span style="color:#64748b">👤 ${esc(team)} · 🕗 Programado ${t.horaProg} · 📍 ${t.fechaProg}</span>`;
+    <span style="color:#64748b">👤 ${esc(tecnico)} · 🕗 Programado ${t.horaProg} · 📍 ${t.fechaProg}</span>`;
   content.appendChild(item);
   overlay.classList.add('open');
 

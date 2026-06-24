@@ -510,27 +510,33 @@ function renderAlertasRetraso() {
   if (typeof _horaBogota !== 'function' || typeof visitasActivas === 'undefined') return;
 
   const { fecha: hoy, hora: horaActual } = _horaBogota();
-  const tardias = tasks.filter(t =>
-    ['it','if'].includes(t.area) &&
-    t.estado === 'programado' &&
-    (typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy) &&
-    t.horaProg &&
-    horaActual >= t.horaProg &&
-    !visitasActivas[t.id] &&
-    !(typeof borradoresActivos !== 'undefined' ? (borradoresActivos[t.id] || []) : []).some(b => (b.check_in || '').substring(0, 10) === hoy)
-  );
+  const phoy = (typeof participantesHoy !== 'undefined') ? participantesHoy : {};
 
-  if (!tardias.length) { banner.innerHTML = ''; return; }
+  // Recopilar técnicos tardíos: por cada tarea programada, cada técnico del equipo
+  // que NO haya hecho check-in hoy (independiente de si otros compañeros ya lo hicieron)
+  const tardios = []; // { tarea, tecnicoId }
+  tasks.forEach(t => {
+    if (!['it','if'].includes(t.area)) return;
+    if (t.estado !== 'programado') return;
+    if (!(typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy)) return;
+    if (!t.horaProg || horaActual < t.horaProg) return;
+    const checkinHoy = phoy[t.id] || new Set();
+    (t.team || []).forEach(uid => {
+      if (!checkinHoy.has(uid)) tardios.push({ tarea: t, tecnicoId: uid });
+    });
+  });
+
+  if (!tardios.length) { banner.innerHTML = ''; return; }
 
   banner.innerHTML = `
     <div style="background:#dc2626;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:15px;font-weight:700">🚨 Técnico${tardias.length>1?'s':''} tardío${tardias.length>1?'s':''} (${tardias.length})</span>
+      <span style="font-size:15px;font-weight:700">🚨 Técnico${tardios.length>1?'s':''} tardío${tardios.length>1?'s':''} (${tardios.length})</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">
-        ${tardias.map(t => {
-          const team = (t.team||[]).map(id=>getMember(id)?.name||id).join(', ') || 'Sin asignar';
-          const label = [t.cliente, t.titulo].filter(Boolean).join(' · ');
+        ${tardios.map(({ tarea: t, tecnicoId }) => {
+          const nombre = getMember(tecnicoId)?.name || tecnicoId;
+          const label  = [t.cliente, t.titulo].filter(Boolean).join(' · ');
           return `<span onclick="openModal('${t.id}')" style="background:rgba(255,255,255,.2);padding:4px 10px;border-radius:99px;cursor:pointer;font-size:13px">
-            🕗 ${t.horaProg} · ${esc(label)} (${esc(team)})
+            🕗 ${t.horaProg} · ${esc(label)} (${esc(nombre)})
           </span>`;
         }).join('')}
       </div>
