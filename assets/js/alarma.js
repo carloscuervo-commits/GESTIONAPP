@@ -48,6 +48,9 @@ function iniciarAlarmaChecker() {
   _chequearRetrasoTecnicos(true); // skipFetch=true: usa visitasActivas ya cargado por iniciarApp()
   setInterval(_chequearAlarma, 20000);          // revisión de alarma diaria cada 20s
   setInterval(_chequearRetrasoTecnicos, 60000); // revisión de retrasos cada 60s
+  setInterval(() => {                           // refresco de alertas de gestión cada 60s
+    if (typeof actualizarBadgeFueraSitio === 'function') actualizarBadgeFueraSitio();
+  }, 60000);
 }
 
 // ===================== ALERTA DE RETRASO DE TÉCNICOS =====================

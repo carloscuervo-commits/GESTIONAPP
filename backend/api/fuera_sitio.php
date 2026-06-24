@@ -6,12 +6,24 @@ $pdo    = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
 // --------------------------------------------------------------
-// GET /fuera_sitio.php?tareaId=X
-// Devuelve todos los intentos de check fuera de sitio de una tarea
-// (aceptados y cancelados).
+// GET /fuera_sitio.php?count=1       -> conteo de pendientes (para badge)
+// GET /fuera_sitio.php               -> lista pendientes (revisado=0)
+// GET /fuera_sitio.php?archivados=1  -> lista gestionados (revisado=1)
+// Filtros opcionales: tareaId, tecnicoId, desde, hasta
 // --------------------------------------------------------------
 if ($method === 'GET') {
-  $where  = ['1=1'];
+  // Badge del dashboard: solo devuelve el conteo de no revisados
+  if (isset($_GET['count'])) {
+    try {
+      $stmt = $pdo->query("SELECT COUNT(*) FROM checkin_fuera_sitio WHERE revisado = 0");
+      jsonOut(['pendientes' => (int)$stmt->fetchColumn()]);
+    } catch (Exception $e) {
+      jsonOut(['error' => $e->getMessage()], 500);
+    }
+  }
+
+  $archivados = !empty($_GET['archivados']) ? 1 : 0;
+  $where  = ['f.revisado = ' . $archivados];
   $params = [];
 
   if (!empty($_GET['tareaId'])) {
@@ -28,10 +40,12 @@ if ($method === 'GET') {
   }
 
   $sql = "SELECT f.*, u.nombre AS tecnico_nombre,
-            t.titulo AS tarea_titulo, t.cliente AS tarea_cliente
+            t.titulo AS tarea_titulo, t.cliente AS tarea_cliente,
+            ur.nombre AS revisado_por_nombre
           FROM checkin_fuera_sitio f
-          LEFT JOIN usuarios u ON u.id COLLATE utf8mb4_general_ci = f.tecnico_id COLLATE utf8mb4_general_ci
-          LEFT JOIN tareas   t ON t.id COLLATE utf8mb4_general_ci = f.tarea_id   COLLATE utf8mb4_general_ci
+          LEFT JOIN usuarios u  ON u.id  COLLATE utf8mb4_general_ci = f.tecnico_id   COLLATE utf8mb4_general_ci
+          LEFT JOIN tareas   t  ON t.id  COLLATE utf8mb4_general_ci = f.tarea_id     COLLATE utf8mb4_general_ci
+          LEFT JOIN usuarios ur ON ur.id COLLATE utf8mb4_general_ci = f.revisado_por COLLATE utf8mb4_general_ci
           WHERE " . implode(' AND ', $where) . "
           ORDER BY f.creado_en DESC";
 
@@ -42,10 +56,34 @@ if ($method === 'GET') {
     foreach ($rows as &$r) {
       $r['distancia_metros'] = (int)$r['distancia_metros'];
       $r['radio_metros']     = (int)$r['radio_metros'];
+      $r['revisado']         = (bool)$r['revisado'];
       if ($r['lat'] !== null) $r['lat'] = (float)$r['lat'];
       if ($r['lng'] !== null) $r['lng'] = (float)$r['lng'];
     }
     jsonOut($rows);
+  } catch (Exception $e) {
+    jsonOut(['error' => $e->getMessage()], 500);
+  }
+}
+
+// --------------------------------------------------------------
+// PUT /fuera_sitio.php?id=X
+// body: { revisadoPor, observacion? }
+// Marca el registro como gestionado por el admin.
+// --------------------------------------------------------------
+if ($method === 'PUT') {
+  $id = $_GET['id'] ?? null;
+  if (!$id) jsonOut(['error' => 'id requerido'], 400);
+  $d = jsonInput();
+  if (empty($d['revisadoPor'])) jsonOut(['error' => 'revisadoPor requerido'], 400);
+
+  try {
+    $pdo->prepare(
+      "UPDATE checkin_fuera_sitio
+       SET revisado = 1, revisado_por = ?, revisado_en = NOW(), observacion = ?
+       WHERE id = ?"
+    )->execute([$d['revisadoPor'], $d['observacion'] ?? null, $id]);
+    jsonOut(['ok' => true]);
   } catch (Exception $e) {
     jsonOut(['error' => $e->getMessage()], 500);
   }

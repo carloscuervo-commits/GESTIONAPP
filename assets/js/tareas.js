@@ -499,6 +499,7 @@ function renderDashboard() {
   html += '</div>';
   document.getElementById('dashboard-view').innerHTML = html;
   renderAlertasRetraso();
+  actualizarBadgeFueraSitio();
 }
 
 // Banner persistente de técnicos tardíos (actualizado también por alarma.js cada 60s)
@@ -532,6 +533,37 @@ function renderAlertasRetraso() {
           </span>`;
         }).join('')}
       </div>
+    </div>`;
+}
+
+// --------------------------------------------------------------
+// Alerta visual de checks fuera de sitio pendientes (solo admin)
+// Sin sonido — aparece en la zona de alertas del dashboard
+// --------------------------------------------------------------
+let _fueraSitioPendientes = 0;
+
+async function actualizarBadgeFueraSitio() {
+  if (!currentUser || currentUser.perfil !== 'admin' || !API_BASE) return;
+  try {
+    const res = await fetch(`${API_BASE}/fuera_sitio.php?count=1`);
+    const data = await res.json();
+    _fueraSitioPendientes = data.pendientes || 0;
+  } catch(e) { /* silencioso */ }
+  renderAlertasFueraSitio();
+}
+
+function renderAlertasFueraSitio() {
+  const el = document.getElementById('alertas-fuera-sitio');
+  if (!el || !currentUser || currentUser.perfil !== 'admin') return;
+  if (!_fueraSitioPendientes) { el.innerHTML = ''; return; }
+  const n = _fueraSitioPendientes;
+  el.innerHTML = `
+    <div style="background:#f59e0b;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;border-radius:var(--radius)">
+      <span style="font-size:14px;font-weight:700">📍 ${n} check${n>1?'s':''} fuera de sitio por gestionar</span>
+      <button onclick="setArea('informes');seleccionarInforme('fuera_sitio')"
+        style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:5px 14px;border-radius:99px;cursor:pointer;font-size:13px;font-weight:600">
+        Ver en Informes →
+      </button>
     </div>`;
 }
 

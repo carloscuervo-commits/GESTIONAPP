@@ -308,17 +308,19 @@ function _calcMinutosTarde(horaProg, checkIn) {
 // --------------------------------------------------------------
 // Registro de informes
 // --------------------------------------------------------------
-// --------------------------------------------------------------
 // 6) Checks fuera de sitio
 // --------------------------------------------------------------
+let _fueraSitioArchivados = false;
+
 async function renderFueraSitioHTML(filtros) {
   const tablaEl = document.getElementById('informe-tabla');
   if (tablaEl) tablaEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Cargando...</div>';
 
   const params = new URLSearchParams();
-  if (filtros.desde)   params.set('desde',      filtros.desde);
-  if (filtros.hasta)   params.set('hasta',      filtros.hasta);
-  if (filtros.tecnico) params.set('tecnicoId',  filtros.tecnico);
+  if (_fueraSitioArchivados) params.set('archivados', '1');
+  if (filtros.desde)   params.set('desde',     filtros.desde);
+  if (filtros.hasta)   params.set('hasta',     filtros.hasta);
+  if (filtros.tecnico) params.set('tecnicoId', filtros.tecnico);
 
   let filas = [];
   try {
@@ -346,19 +348,26 @@ async function renderFueraSitioHTML(filtros) {
     { key: 'ubicacion',  label: 'Ubicación' },
   ];
   _informeFilas = filas.map(f => ({
-    fecha:     (f.creado_en || '').slice(0, 16).replace('T', ' '),
-    tecnico:   f.tecnico_nombre || f.tecnico_id || '-',
-    cliente:   f.tarea_cliente  || '-',
-    tarea:     f.tarea_titulo   || '-',
-    tipo:      f.tipo           || '-',
-    distancia: f.distancia_metros,
-    radio:     f.radio_metros,
-    accion:    f.accion         || '-',
-    ubicacion: (f.lat != null && f.lng != null) ? `${f.lat},${f.lng}` : '',
+    fecha:            (f.creado_en || '').slice(0, 16).replace('T', ' '),
+    tecnico:          f.tecnico_nombre || f.tecnico_id || '-',
+    cliente:          f.tarea_cliente  || '-',
+    tarea:            f.tarea_titulo   || '-',
+    tipo:             f.tipo           || '-',
+    distancia:        f.distancia_metros,
+    radio:            f.radio_metros,
+    accion:           f.accion         || '-',
+    ubicacion:        (f.lat != null && f.lng != null) ? `${f.lat},${f.lng}` : '',
+    id:               f.id,
+    observacion:      f.observacion    || '',
+    revisado_por:     f.revisado_por_nombre || '',
+    revisado_en:      (f.revisado_en || '').slice(0, 16).replace('T', ' '),
   }));
 
+  const empty = _fueraSitioArchivados
+    ? 'Sin checks archivados para los filtros seleccionados.'
+    : 'Sin checks pendientes por gestionar.';
   if (!_informeFilas.length) {
-    return '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Sin registros fuera de sitio para los filtros seleccionados.</div>';
+    return `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">${empty}</div>`;
   }
 
   const accionColor = a => a === 'aceptado' ? '#f59e0b' : '#dc2626';
@@ -367,13 +376,21 @@ async function renderFueraSitioHTML(filtros) {
     ? `<a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px">📍 Ver mapa</a>`
     : '<span style="color:var(--text-muted);font-size:12px">—</span>';
 
-  return `<table style="width:100%;border-collapse:collapse;font-size:13px">
-    <thead><tr>
-      ${['Fecha / Hora','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación'].map(h =>
-        `<th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${h}</th>`
-      ).join('')}
-    </tr></thead>
-    <tbody>${_informeFilas.map(r => `<tr>
+  const colsHeader = _fueraSitioArchivados
+    ? ['Fecha / Hora','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación','Gestionado por','Observación']
+    : ['Fecha / Hora','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación',''];
+
+  const filasTR = _informeFilas.map(r => {
+    const extraCol = _fueraSitioArchivados
+      ? `<td style="padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted)">
+           ${esc(r.revisado_por)}${r.revisado_en ? `<br><span style="font-size:11px">${esc(r.revisado_en)}</span>` : ''}
+         </td>
+         <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;max-width:200px">${esc(r.observacion || '—')}</td>`
+      : `<td style="padding:7px 10px;border-bottom:1px solid var(--border)">
+           <button class="btn-save" style="padding:4px 10px;font-size:12px"
+             onclick="gestionarFueraSitio('${r.id}', this)">✅ Gestionar</button>
+         </td>`;
+    return `<tr id="fs-row-${r.id}">
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${esc(r.fecha)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tecnico)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente)}</td>
@@ -387,8 +404,78 @@ async function renderFueraSitioHTML(filtros) {
         </span>
       </td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${mapsLink(r.ubicacion)}</td>
-    </tr>`).join('')}</tbody>
+      ${extraCol}
+    </tr>`;
+  }).join('');
+
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr>
+      ${colsHeader.map(h =>
+        `<th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${h}</th>`
+      ).join('')}
+    </tr></thead>
+    <tbody>${filasTR}</tbody>
   </table>`;
+}
+
+async function gestionarFueraSitio(id, btn) {
+  // Si ya hay un form abierto para esta fila, lo cierra
+  const existente = document.getElementById(`fs-form-${id}`);
+  if (existente) { existente.remove(); return; }
+
+  const row = document.getElementById(`fs-row-${id}`);
+  if (!row) return;
+  const colCount = row.children.length;
+
+  const formRow = document.createElement('tr');
+  formRow.id = `fs-form-${id}`;
+  formRow.innerHTML = `
+    <td colspan="${colCount}" style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+        <textarea id="fs-obs-${id}" placeholder="Observación (opcional)..."
+          style="flex:1;min-width:220px;min-height:56px;padding:6px 8px;font-size:13px;border:1px solid var(--border);border-radius:6px;resize:vertical"></textarea>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn-save" style="padding:6px 14px;font-size:13px"
+            onclick="confirmarGestionFueraSitio('${id}', this)">✅ Listo</button>
+          <button class="btn-cancel" style="padding:6px 14px;font-size:13px"
+            onclick="document.getElementById('fs-form-${id}')?.remove()">Cancelar</button>
+        </div>
+      </div>
+    </td>`;
+  row.after(formRow);
+  document.getElementById(`fs-obs-${id}`)?.focus();
+}
+
+async function confirmarGestionFueraSitio(id, btn) {
+  if (!currentUser) return;
+  const obs = document.getElementById(`fs-obs-${id}`)?.value.trim() || null;
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  try {
+    const res = await fetch(`${API_BASE}/fuera_sitio.php?id=${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ revisadoPor: currentUser.id, observacion: obs }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    // Quitar fila + form del DOM
+    document.getElementById(`fs-form-${id}`)?.remove();
+    document.getElementById(`fs-row-${id}`)?.remove();
+    // Actualizar badge
+    actualizarBadgeFueraSitio();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '✅ Listo';
+    alert('Error al gestionar: ' + e.message);
+  }
+}
+
+function toggleFueraSitioArchivados() {
+  _fueraSitioArchivados = !_fueraSitioArchivados;
+  const btn = document.getElementById('fs-toggle-archivados');
+  if (btn) btn.textContent = _fueraSitioArchivados ? '📋 Ver pendientes' : '📦 Ver archivados';
+  recalcularInforme();
 }
 
 const INFORMES = {
@@ -422,6 +509,10 @@ async function renderInformesView() {
         <div id="informe-campo-cliente" style="display:none"></div>
         <label id="informe-campo-desde" style="font-size:12px;color:var(--text-muted);display:none;align-items:center;gap:4px">Desde <input type="date" id="informe-desde" onchange="recalcularInforme()"></label>
         <label id="informe-campo-hasta" style="font-size:12px;color:var(--text-muted);display:none;align-items:center;gap:4px">Hasta <input type="date" id="informe-hasta" onchange="recalcularInforme()"></label>
+        <div id="informe-campo-archivados" style="display:none">
+          <button id="fs-toggle-archivados" class="btn-cancel" style="padding:7px 12px;font-size:13px"
+            onclick="toggleFueraSitioArchivados()">📦 Ver archivados</button>
+        </div>
         <button class="btn-save" onclick="exportarInformeExcel()">⬇️ Exportar a Excel</button>
       </div>
     </div>
@@ -464,6 +555,20 @@ function actualizarCamposInforme() {
   const wrapHasta = document.getElementById('informe-campo-hasta');
   if (wrapDesde) wrapDesde.style.display = campos.includes('desde') ? 'flex' : 'none';
   if (wrapHasta) wrapHasta.style.display = campos.includes('hasta') ? 'flex' : 'none';
+
+  // Toggle archivados: solo visible en el informe de checks fuera de sitio
+  const wrapArch = document.getElementById('informe-campo-archivados');
+  if (wrapArch) {
+    if (_informeActual === 'fuera_sitio') {
+      wrapArch.style.display = '';
+      // Resetear al cambiar de informe
+      _fueraSitioArchivados = false;
+      const btn = document.getElementById('fs-toggle-archivados');
+      if (btn) btn.textContent = '📦 Ver archivados';
+    } else {
+      wrapArch.style.display = 'none';
+    }
+  }
 
   recalcularInforme();
 }
