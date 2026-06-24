@@ -62,13 +62,17 @@ if ($method === 'GET') {
               t.fecha_programacion,
               t.hora_programacion
             FROM visita_participantes vp
-            JOIN reportes r ON r.id = vp.reporte_id
+            JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
             JOIN tareas t   ON t.id = r.tarea_id
             WHERE " . implode(' AND ', $where) . "
             ORDER BY vp.check_in DESC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    jsonOut($stmt->fetchAll());
+    try {
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute($params);
+      jsonOut($stmt->fetchAll());
+    } catch (Exception $e) {
+      jsonOut(['error' => $e->getMessage(), 'sql_fragment' => substr($sql, 0, 200)], 500);
+    }
   }
 
   if (!empty($_GET['todos'])) {
