@@ -572,20 +572,13 @@
       <div style="background:var(--bg,#f8fafc);border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px">
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">📍 Coordenadas GPS para geofencing</div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
-          Abre Google Maps → haz clic derecho en el punto exacto del cliente → copia las coordenadas que aparecen en el menú.
+          Abre Google Maps → haz clic derecho en el punto exacto del cliente → copia las coordenadas y pégalas aquí.
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div>
-            <label class="form-label" style="font-size:11px">Latitud</label>
-            <input class="form-input" id="cm-lat" type="number" step="any" placeholder="Ej: 4.6097"
-              oninput="_actualizarLinkMaps()">
-          </div>
-          <div>
-            <label class="form-label" style="font-size:11px">Longitud</label>
-            <input class="form-input" id="cm-lng" type="number" step="any" placeholder="Ej: -74.0817"
-              oninput="_actualizarLinkMaps()">
-          </div>
-        </div>
+        <input class="form-input" id="cm-coords" type="text" placeholder="Ej: 3.3689549, -76.5109297"
+          oninput="_parsearCoords(this.value)">
+        <input type="hidden" id="cm-lat">
+        <input type="hidden" id="cm-lng">
+        <div id="cm-coords-preview" style="font-size:11px;color:#16a34a;margin-top:4px;display:none"></div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -632,7 +625,7 @@
 <script src="assets/js/informes.js?v=20260624a"></script>
 <script src="assets/js/alarma.js?v=20260624b"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
-<script src="assets/js/clientes.js?v=20260624b"></script>
+<script src="assets/js/clientes.js?v=20260624c"></script>
 <script src="assets/js/app.js?v=20260623c"></script>
 </body>
 </html>

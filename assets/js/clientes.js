@@ -112,11 +112,19 @@ function abrirModalCliente(id = null) {
   document.getElementById('cliente-modal-titulo').textContent = c ? `Editar: ${c.nombre}` : 'Nuevo cliente';
   document.getElementById('cm-nombre').value    = c?.nombre    || '';
   document.getElementById('cm-direccion').value = c?.direccion || '';
-  document.getElementById('cm-lat').value       = c?.lat       != null ? c.lat : '';
-  document.getElementById('cm-lng').value       = c?.lng       != null ? c.lng : '';
   document.getElementById('cm-radio').value     = c?.radio_metros        ?? 200;
   document.getElementById('cm-plazo').value     = c?.plazo_factura_dias  ?? 8;
   document.getElementById('cm-alegra-id').value = c?.alegra_id || '';
+  // Coordenadas: mostrar en campo combinado si existen
+  const hasCoords = c?.lat != null && c?.lng != null;
+  document.getElementById('cm-coords').value = hasCoords ? `${c.lat}, ${c.lng}` : '';
+  document.getElementById('cm-lat').value    = hasCoords ? c.lat : '';
+  document.getElementById('cm-lng').value    = hasCoords ? c.lng : '';
+  const preview = document.getElementById('cm-coords-preview');
+  if (preview) {
+    if (hasCoords) { preview.textContent = `✅ Lat: ${(+c.lat).toFixed(6)}  Lng: ${(+c.lng).toFixed(6)}`; preview.style.display = 'block'; }
+    else           { preview.style.display = 'none'; }
+  }
 
   _actualizarLinkMaps();
 
@@ -129,6 +137,26 @@ function abrirModalCliente(id = null) {
 function cerrarModalCliente() {
   document.getElementById('cliente-modal').classList.remove('open');
   _clienteEditId = null;
+}
+
+function _parsearCoords(raw) {
+  // Acepta "lat, lng" o "lat lng" con cualquier separador de espacios
+  const parts = raw.trim().split(/[\s,]+/);
+  const lat = parseFloat(parts[0]);
+  const lng = parseFloat(parts[1]);
+  const latEl     = document.getElementById('cm-lat');
+  const lngEl     = document.getElementById('cm-lng');
+  const preview   = document.getElementById('cm-coords-preview');
+  if (!isNaN(lat) && !isNaN(lng) && parts.length >= 2) {
+    latEl.value = lat;
+    lngEl.value = lng;
+    if (preview) { preview.textContent = `✅ Lat: ${lat.toFixed(6)}  Lng: ${lng.toFixed(6)}`; preview.style.display = 'block'; }
+  } else {
+    latEl.value = '';
+    lngEl.value = '';
+    if (preview) preview.style.display = 'none';
+  }
+  _actualizarLinkMaps();
 }
 
 function _actualizarLinkMaps() {
