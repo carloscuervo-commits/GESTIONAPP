@@ -308,12 +308,91 @@ function _calcMinutosTarde(horaProg, checkIn) {
 // --------------------------------------------------------------
 // Registro de informes
 // --------------------------------------------------------------
+// --------------------------------------------------------------
+// 6) Checks fuera de sitio
+// --------------------------------------------------------------
+async function renderFueraSitioHTML(filtros) {
+  const tablaEl = document.getElementById('informe-tabla');
+  if (tablaEl) tablaEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Cargando...</div>';
+
+  const params = new URLSearchParams();
+  if (filtros.desde)   params.set('desde',      filtros.desde);
+  if (filtros.hasta)   params.set('hasta',      filtros.hasta);
+  if (filtros.tecnico) params.set('tecnicoId',  filtros.tecnico);
+
+  let filas = [];
+  try {
+    const res = await fetch(`${API_BASE}/fuera_sitio.php?${params}`);
+    filas = await res.json();
+    if (!Array.isArray(filas)) filas = [];
+  } catch(e) {
+    return '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error cargando datos.</div>';
+  }
+
+  _informeColumnas = [
+    { key: 'fecha',      label: 'Fecha / Hora' },
+    { key: 'tecnico',    label: 'Técnico' },
+    { key: 'cliente',    label: 'Cliente' },
+    { key: 'tarea',      label: 'Tarea' },
+    { key: 'tipo',       label: 'Tipo' },
+    { key: 'distancia',  label: 'Distancia (m)' },
+    { key: 'radio',      label: 'Radio (m)' },
+    { key: 'accion',     label: 'Acción' },
+    { key: 'ubicacion',  label: 'Ubicación' },
+  ];
+  _informeFilas = filas.map(f => ({
+    fecha:     (f.creado_en || '').slice(0, 16).replace('T', ' '),
+    tecnico:   f.tecnico_nombre || f.tecnico_id || '-',
+    cliente:   f.tarea_cliente  || '-',
+    tarea:     f.tarea_titulo   || '-',
+    tipo:      f.tipo           || '-',
+    distancia: f.distancia_metros,
+    radio:     f.radio_metros,
+    accion:    f.accion         || '-',
+    ubicacion: (f.lat != null && f.lng != null) ? `${f.lat},${f.lng}` : '',
+  }));
+
+  if (!_informeFilas.length) {
+    return '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Sin registros fuera de sitio para los filtros seleccionados.</div>';
+  }
+
+  const accionColor = a => a === 'aceptado' ? '#f59e0b' : '#dc2626';
+  const tipoLabel   = t => t === 'checkin' ? '🟢 Check-in' : '🔴 Check-out';
+  const mapsLink    = coords => coords
+    ? `<a href="https://www.google.com/maps?q=${coords}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px">📍 Ver mapa</a>`
+    : '<span style="color:var(--text-muted);font-size:12px">—</span>';
+
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr>
+      ${['Fecha / Hora','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación'].map(h =>
+        `<th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${h}</th>`
+      ).join('')}
+    </tr></thead>
+    <tbody>${_informeFilas.map(r => `<tr>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${esc(r.fecha)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tecnico)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tarea)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${tipoLabel(r.tipo)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;color:#dc2626">${r.distancia}m</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text-muted)">${r.radio}m</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">
+        <span style="background:${accionColor(r.accion)}20;color:${accionColor(r.accion)};border-radius:99px;padding:2px 9px;font-size:11px;font-weight:600">
+          ${r.accion === 'aceptado' ? '⚠️ Aceptó continuar' : '✋ Canceló'}
+        </span>
+      </td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${mapsLink(r.ubicacion)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
 const INFORMES = {
   actividades_tecnico: { nombre: '👷 Actividades de un técnico', campos: ['tecnico', 'desde', 'hasta'], calcular: calcActividadesTecnico },
   tarjetas_cliente: { nombre: '📋 Tarjetas de un cliente', campos: ['cliente'], calcular: calcTarjetasCliente },
   facturas_modulo: { nombre: '🧾 Facturas generadas (módulo Facturación)', campos: ['desde', 'hasta', 'cliente'], calcular: calcFacturasModulo },
   reportes_busqueda: { nombre: '🔍 Reportes de tarjetas operativas', campos: ['desde', 'hasta', 'cliente'], calcular: calcReportesBusqueda, custom: renderReportesBusquedaHTML },
   tardias_llegada: { nombre: '⏰ Llegadas tardías', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderTardiasHTML },
+  fuera_sitio: { nombre: '📍 Checks fuera de sitio', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderFueraSitioHTML },
 };
 
 // --------------------------------------------------------------

@@ -11,17 +11,32 @@ $method = $_SERVER['REQUEST_METHOD'];
 // (aceptados y cancelados).
 // --------------------------------------------------------------
 if ($method === 'GET') {
-  $tareaId = $_GET['tareaId'] ?? null;
-  if (!$tareaId) jsonOut(['error' => 'tareaId requerido'], 400);
+  $where  = ['1=1'];
+  $params = [];
 
-  $stmt = $pdo->prepare(
-    "SELECT f.*, u.nombre AS tecnico_nombre
-     FROM checkin_fuera_sitio f
-     LEFT JOIN usuarios u ON u.id = f.tecnico_id
-     WHERE f.tarea_id = ?
-     ORDER BY f.creado_en ASC"
-  );
-  $stmt->execute([$tareaId]);
+  if (!empty($_GET['tareaId'])) {
+    $where[] = 'f.tarea_id = ?'; $params[] = $_GET['tareaId'];
+  }
+  if (!empty($_GET['tecnicoId'])) {
+    $where[] = 'f.tecnico_id = ?'; $params[] = $_GET['tecnicoId'];
+  }
+  if (!empty($_GET['desde'])) {
+    $where[] = 'DATE(f.creado_en) >= ?'; $params[] = $_GET['desde'];
+  }
+  if (!empty($_GET['hasta'])) {
+    $where[] = 'DATE(f.creado_en) <= ?'; $params[] = $_GET['hasta'];
+  }
+
+  $sql = "SELECT f.*, u.nombre AS tecnico_nombre,
+            t.titulo AS tarea_titulo, t.cliente AS tarea_cliente
+          FROM checkin_fuera_sitio f
+          LEFT JOIN usuarios u ON u.id = f.tecnico_id
+          LEFT JOIN tareas   t ON t.id = f.tarea_id
+          WHERE " . implode(' AND ', $where) . "
+          ORDER BY f.creado_en DESC";
+
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute($params);
   $rows = $stmt->fetchAll();
   foreach ($rows as &$r) {
     $r['distancia_metros'] = (int)$r['distancia_metros'];
