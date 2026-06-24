@@ -65,9 +65,18 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
   // skipFetch=true en la llamada inicial (evita fetch duplicado al arrancar).
   if (!skipFetch && typeof API_BASE !== 'undefined' && API_BASE) {
     try {
-      const enVisita = await fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json());
+      const [enVisita, borradores] = await Promise.all([
+        fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json()),
+        fetch(`${API_BASE}/reportes.php?estado=borrador`).then(r => r.json()),
+      ]);
       visitasActivas = {};
       (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
+      // Refrescar borradores para captar checkouts de otros dispositivos
+      borradoresActivos = {};
+      (Array.isArray(borradores) ? borradores : []).forEach(r => {
+        if (!borradoresActivos[r.tarea_id]) borradoresActivos[r.tarea_id] = [];
+        borradoresActivos[r.tarea_id].push(r);
+      });
     } catch(e) { /* silencioso: usa estado anterior */ }
   }
 
