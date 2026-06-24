@@ -58,7 +58,16 @@ if (!is_array($data)) {
 $out = [];
 foreach ($data as $c) {
   if (!empty($c['id']) && !empty($c['name'])) {
-    $out[] = ['id' => $c['id'], 'name' => $c['name']];
+    // Extraer dirección si Alegra la devuelve (puede ser string u objeto)
+    $addr = null;
+    if (!empty($c['address'])) {
+      if (is_array($c['address'])) {
+        $addr = $c['address']['address'] ?? null;
+      } else {
+        $addr = (string)$c['address'];
+      }
+    }
+    $out[] = ['id' => $c['id'], 'name' => $c['name'], 'address' => $addr];
   }
 }
 

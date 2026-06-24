@@ -156,6 +156,53 @@ function closeVisitaTecnicoModal() {
   _visitaTecnicoCallback = null;
 }
 
+// ----------------- Geofencing -----------------
+// Obtiene GPS del navegador y verifica si el técnico está dentro del radio del cliente.
+// Retorna { lat, lng } si se puede proceder, null si el técnico canceló.
+// tipo: 'checkin' | 'checkout'
+async function _geofenceCheck(tareaId, tipo) {
+  if (!navigator.geolocation || !API_BASE) return { lat: null, lng: null };
+
+  return new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+          const res = await fetch(`${API_BASE}/reportes.php?geofence=1&tareaId=${encodeURIComponent(tareaId)}&lat=${lat}&lng=${lng}`);
+          const geo = await res.json();
+          // Sin ubicación de cliente o cliente no encontrado → proceder sin bloqueo
+          if (geo.error || geo.sinUbicacion) { resolve({ lat, lng }); return; }
+          // Dentro del radio → proceder
+          if (geo.dentroZona) { resolve({ lat, lng }); return; }
+          // Fuera del radio → mostrar alerta
+          const tipoLabel = tipo === 'checkin' ? 'check-in' : 'check-out';
+          const ok = confirm(
+            `📍 Estás a ${geo.distanciaMetros}m del cliente "${geo.clienteNombre}".\n` +
+            `Radio permitido: ${geo.radioMetros}m\n\n` +
+            `Se registrará que hiciste ${tipoLabel} fuera del sitio.\n` +
+            `¿Continuar de todas formas?`
+          );
+          // Registrar intento
+          fetch(`${API_BASE}/fuera_sitio.php`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tareaId, tecnicoId: currentUser?.id || null,
+              tipo, lat, lng,
+              distanciaMetros: geo.distanciaMetros,
+              radioMetros:     geo.radioMetros,
+              accion: ok ? 'aceptado' : 'cancelado',
+            }),
+          }).catch(() => {});
+          resolve(ok ? { lat, lng } : null);
+        } catch { resolve({ lat, lng }); } // error de red → no bloquear
+      },
+      () => resolve({ lat: null, lng: null }), // GPS denegado/no disponible
+      { timeout: 12000, maximumAge: 60000 }
+    );
+  });
+}
+
 // ----------------- Iniciar / Finalizar visita -----------------
 async function iniciarVisita(tareaId, event) {
   if (event) event.stopPropagation();
@@ -168,10 +215,13 @@ async function iniciarVisita(tareaId, event) {
     return;
   }
 
-  const ejecutarCheckin = async (tecnicoId, checkIn) => {
+  const ejecutarCheckin = async (tecnicoId) => {
+    // Geofencing antes de enviar al servidor
+    const geo = await _geofenceCheck(tareaId, 'checkin');
+    if (geo === null) return; // técnico canceló
     try {
       const body = { tareaId, tecnicoCheckinId: tecnicoId };
-      if (checkIn) body.checkIn = checkIn; // "HH:MM" solo en flujo admin
+      if (geo.lat !== null) { body.lat = geo.lat; body.lng = geo.lng; }
       const res = await fetch(`${API_BASE}/reportes.php`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -266,10 +316,17 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
   if (!visita) { alert('No hay una visita en curso para esta tarea.'); return; }
 
   const ejecutar = async (tecnicoId) => {
+    // Geofencing solo para técnicos (no admin: ellos registran manualmente)
+    let geoLat = null, geoLng = null;
+    if (!currentUser || currentUser.perfil !== 'admin') {
+      const geo = await _geofenceCheck(tareaId, 'checkout');
+      if (geo === null) return; // técnico canceló
+      if (geo.lat !== null) { geoLat = geo.lat; geoLng = geo.lng; }
+    }
     try {
       const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId }),
+        body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }

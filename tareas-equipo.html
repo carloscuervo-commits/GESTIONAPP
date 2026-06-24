@@ -60,6 +60,7 @@
   <button class="area-tab" data-area="facturacion" onclick="setArea('facturacion')">🧾 Facturación</button>
   <button class="area-tab" data-area="informes" onclick="setArea('informes')">📊 Informes</button>
   <button class="area-tab" data-area="usuarios" id="tab-usuarios" onclick="setArea('usuarios')" style="display:none">👥 Usuarios</button>
+  <button class="area-tab" data-area="clientes" id="tab-clientes" onclick="setArea('clientes')" style="display:none">🏢 Clientes</button>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -123,6 +124,9 @@
 
 <!-- USUARIOS VIEW -->
 <div id="usuarios-view" style="display:none;padding:16px 20px 30px"></div>
+
+<!-- CLIENTES VIEW -->
+<div id="clientes-view" style="display:none;padding:16px 20px 30px"></div>
 
 <!-- CARTERA MODAL -->
 <div class="cartera-modal-overlay" id="cartera-modal">
@@ -537,6 +541,74 @@
 </div>
 
 <!-- MODAL: alarma diaria de recordatorio (solo admin) -->
+<!-- CLIENTE MODAL -->
+<div class="modal-overlay" id="cliente-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">
+      <span id="cliente-modal-titulo">Cliente</span>
+      <button class="modal-close" onclick="cerrarModalCliente()">✕</button>
+    </div>
+
+    <div style="display:grid;gap:12px;margin-bottom:16px">
+      <div>
+        <label class="form-label">Nombre *</label>
+        <input class="form-input" id="cm-nombre" type="text" placeholder="Nombre del cliente">
+      </div>
+      <div>
+        <label class="form-label">Dirección</label>
+        <input class="form-input" id="cm-direccion" type="text" placeholder="Ej: Calle 80 #20-15, Bogotá"
+          oninput="_actualizarLinkMaps()">
+        <a id="cm-maps-link" href="#" target="_blank" rel="noopener"
+          style="display:none;font-size:12px;color:#6366f1;margin-top:4px;display:inline-block">
+          🗺️ Buscar en Google Maps
+        </a>
+      </div>
+
+      <div style="background:var(--bg,#f8fafc);border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">📍 Coordenadas GPS para geofencing</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
+          Abre Google Maps → haz clic derecho en el punto exacto del cliente → copia las coordenadas que aparecen en el menú.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label" style="font-size:11px">Latitud</label>
+            <input class="form-input" id="cm-lat" type="number" step="any" placeholder="Ej: 4.6097"
+              oninput="_actualizarLinkMaps()">
+          </div>
+          <div>
+            <label class="form-label" style="font-size:11px">Longitud</label>
+            <input class="form-input" id="cm-lng" type="number" step="any" placeholder="Ej: -74.0817"
+              oninput="_actualizarLinkMaps()">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label class="form-label">Radio de geofencing (metros)</label>
+          <input class="form-input" id="cm-radio" type="number" min="50" max="5000" value="200">
+        </div>
+        <div>
+          <label class="form-label">Plazo factura (días)</label>
+          <input class="form-input" id="cm-plazo" type="number" min="1" max="365" value="8">
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label" style="color:var(--text-muted)">ID en Alegra <span style="font-weight:400">(se llena automáticamente)</span></label>
+        <input class="form-input" id="cm-alegra-id" type="text" placeholder="Automático" style="color:var(--text-muted)">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn-cancel" id="cm-btn-eliminar" onclick="eliminarCliente()"
+        style="display:none;background:#fef2f2;color:#dc2626;border-color:#fca5a5">🗑️ Eliminar</button>
+      <button class="btn-cancel" onclick="cerrarModalCliente()">Cancelar</button>
+      <button class="btn-save" onclick="guardarCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="alarma-modal" style="z-index:400">
   <div class="modal" style="max-width:380px;text-align:center">
     <div class="modal-title" style="justify-content:center">🔔 Recordatorio</div>
@@ -547,14 +619,15 @@
 
 
 <script src="assets/js/core.js?v=20260624b"></script>
-<script src="assets/js/auth.js?v=20260622d"></script>
-<script src="assets/js/tareas.js?v=20260624f"></script>
+<script src="assets/js/auth.js?v=20260624c"></script>
+<script src="assets/js/tareas.js?v=20260624g"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260624h"></script>
+<script src="assets/js/reportes.js?v=20260624i"></script>
 <script src="assets/js/informes.js?v=20260624a"></script>
 <script src="assets/js/alarma.js?v=20260624b"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
+<script src="assets/js/clientes.js?v=20260624a"></script>
 <script src="assets/js/app.js?v=20260623c"></script>
 </body>
 </html>

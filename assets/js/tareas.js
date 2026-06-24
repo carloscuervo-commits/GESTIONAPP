@@ -546,7 +546,8 @@ function setArea(a) {
   const isFacturacion = a === 'facturacion';
   const isInformes   = a === 'informes';
   const isUsuarios   = a === 'usuarios';
-  const isOther = isCartera || isFacturacion || isInformes || isUsuarios;
+  const isClientes   = a === 'clientes';
+  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -555,6 +556,7 @@ function setArea(a) {
   document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
   document.getElementById('informes-view').style.display    = isInformes   ? 'block' : 'none';
   document.getElementById('usuarios-view').style.display    = isUsuarios   ? 'block' : 'none';
+  document.getElementById('clientes-view').style.display    = isClientes   ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -566,6 +568,7 @@ function setArea(a) {
   else if (isFacturacion) { /* nada que cargar al entrar */ }
   else if (isInformes)  { renderInformesView(); }
   else if (isUsuarios)  { renderUsuariosView(); }
+  else if (isClientes)  { cargarClientes(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.
@@ -864,6 +867,10 @@ function seleccionarClienteAlegraIdx(i) {
   document.getElementById('f-cliente').value = c.name;
   clienteValidadoAlegra = true;
   hideClienteSuggestions();
+  // Sincronizar alegra_id y dirección en la tabla clientes (no bloquea el flujo)
+  if (typeof sincronizarClienteAlegra === 'function') {
+    sincronizarClienteAlegra(c.name, c.id, c.address || null);
+  }
 }
 
 function hideClienteSuggestions() {
