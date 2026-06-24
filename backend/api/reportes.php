@@ -413,11 +413,43 @@ if ($method === 'PUT') {
 }
 
 // --------------------------------------------------------------
-// DELETE /reportes.php?id=UUID  -> elimina un reporte (ej. check-in por error)
+// DELETE /reportes.php?id=UUID               -> elimina un reporte completo
+// DELETE /reportes.php?participanteId=UUID   -> elimina un participante;
+//   si el reporte queda sin participantes, también borra el reporte
 // --------------------------------------------------------------
 if ($method === 'DELETE') {
+  // ── Eliminar participante individual ──────────────────────────
+  if (!empty($_GET['participanteId'])) {
+    $partId = $_GET['participanteId'];
+    // Obtener reporte_id antes de borrar
+    $stmt = $pdo->prepare("SELECT reporte_id FROM visita_participantes WHERE id = ?");
+    $stmt->execute([$partId]);
+    $part = $stmt->fetch();
+    if (!$part) jsonOut(['error' => 'Participante no encontrado'], 404);
+    $repId = $part['reporte_id'];
+
+    $pdo->prepare("DELETE FROM visita_participantes WHERE id = ?")->execute([$partId]);
+
+    // Si no quedan participantes, borrar el reporte completo
+    $cnt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ?");
+    $cnt->execute([$repId]);
+    if ((int)$cnt->fetchColumn() === 0) {
+      $pdo->prepare("DELETE FROM reportes WHERE id = ?")->execute([$repId]);
+      jsonOut(['ok' => true, 'reporteEliminado' => true]);
+    }
+
+    // Si quedan participantes, recalcular estado del reporte
+    $sinOut = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
+    $sinOut->execute([$repId]);
+    $nuevoEstado = (int)$sinOut->fetchColumn() > 0 ? 'en_visita' : 'borrador';
+    $pdo->prepare("UPDATE reportes SET estado = ? WHERE id = ?")->execute([$nuevoEstado, $repId]);
+
+    jsonOut(['ok' => true, 'reporteEliminado' => false]);
+  }
+
+  // ── Eliminar reporte completo ─────────────────────────────────
   $id = $_GET['id'] ?? null;
-  if (!$id) jsonOut(['error' => 'id requerido'], 400);
+  if (!$id) jsonOut(['error' => 'id o participanteId requerido'], 400);
   $pdo->prepare("DELETE FROM reportes WHERE id = ?")->execute([$id]);
   jsonOut(['ok' => true]);
 }

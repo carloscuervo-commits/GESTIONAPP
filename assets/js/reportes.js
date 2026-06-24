@@ -976,10 +976,14 @@ async function renderHistorialVisitasModal(tareaId) {
         : r.estado === 'completado' || r.pdf_archivo ? '<span style="color:#169BBC;font-size:11px">📄 PDF listo</span>'
         : r.estado === 'borrador' ? '<span style="color:#f59e0b;font-size:11px">📝 Borrador</span>'
         : '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>';
+      const puedeEliminarReporte = esAdmin && ['en_visita','borrador'].includes(r.estado);
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
           <span style="font-size:12px;font-weight:600;color:#0D3B40">📅 ${fecha}</span>
-          ${estadoBadge}
+          <div style="display:flex;align-items:center;gap:6px">
+            ${estadoBadge}
+            ${puedeEliminarReporte ? `<button onclick="eliminarReporteVisita('${r.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer" title="Eliminar visita completa">🗑️ Borrar visita</button>` : ''}
+          </div>
         </div>`;
       if (partes.length) {
         partes.forEach(p => {
@@ -994,11 +998,12 @@ async function renderHistorialVisitasModal(tareaId) {
             : '';
           if (esAdmin) {
             const opciones = TEAM.map(m => `<option value="${m.id}"${m.id===p.tecnico_id?' selected':''}>${esc(m.name)}</option>`).join('');
-            html += `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;margin-bottom:6px;font-size:12px" data-part-id="${p.id}" data-rep-id="${r.id}">
+            html += `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;margin-bottom:6px;font-size:12px" data-part-id="${p.id}" data-rep-id="${r.id}">
               <select style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;background:var(--card);color:var(--text)" class="hvp-tecnico">${opciones}</select>
               <input type="time" value="${checkIn}"  class="hvp-in"  style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:80px;background:var(--card);color:var(--text)">
               <input type="time" value="${checkOut}" class="hvp-out" style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:80px;background:var(--card);color:var(--text)">
               <button onclick="guardarParticipanteVisita(this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">💾</button>
+              <button onclick="eliminarParticipanteVisita('${p.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Eliminar este check-in">🗑️</button>
             </div>${tardiBadge ? `<div style="margin-bottom:4px">${tardiBadge}</div>` : ''}`;
           } else {
             const dur = p.check_out ? calcularDuracion(p.check_in, p.check_out) : 'En curso';
@@ -1024,6 +1029,43 @@ async function renderHistorialVisitasModal(tareaId) {
     div.innerHTML = '';
     div.style.display = 'none';
   }
+}
+
+async function eliminarParticipanteVisita(participanteId, tareaId, btn) {
+  if (!confirm('¿Eliminar este check-in? Esta acción no se puede deshacer.')) return;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res  = await fetch(`${API_BASE}/reportes.php?participanteId=${participanteId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!data.ok) { alert('No se pudo eliminar.'); btn.disabled = false; btn.textContent = '🗑️'; return; }
+    // Sincronizar estado local
+    if (data.reporteEliminado) {
+      delete visitasActivas[tareaId];
+      delete borradoresActivos[tareaId];
+    } else {
+      // Refrescar visitas
+      await cargarVisitasActivas();
+    }
+    await renderHistorialVisitasModal(tareaId);
+    render();
+  } catch(e) { alert('Error de conexión.'); btn.disabled = false; btn.textContent = '🗑️'; }
+}
+
+async function eliminarReporteVisita(reporteId, tareaId, btn) {
+  if (!confirm('¿Eliminar esta visita completa? Se borrarán todos los check-ins registrados en ella.')) return;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res  = await fetch(`${API_BASE}/reportes.php?id=${reporteId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!data.ok) { alert('No se pudo eliminar.'); btn.disabled = false; btn.textContent = '🗑️ Borrar visita'; return; }
+    delete visitasActivas[tareaId];
+    if (borradoresActivos[tareaId]) {
+      borradoresActivos[tareaId] = borradoresActivos[tareaId].filter(b => b.id !== reporteId);
+      if (!borradoresActivos[tareaId].length) delete borradoresActivos[tareaId];
+    }
+    await renderHistorialVisitasModal(tareaId);
+    render();
+  } catch(e) { alert('Error de conexión.'); btn.disabled = false; btn.textContent = '🗑️ Borrar visita'; }
 }
 
 async function guardarParticipanteVisita(btn) {
