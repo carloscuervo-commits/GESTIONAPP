@@ -45,7 +45,7 @@ function iniciarAlarmaChecker() {
   if (_alarmaIniciada) return; // evita duplicar el setInterval si iniciarApp() se llama más de una vez
   _alarmaIniciada = true;
   _chequearAlarma();
-  _chequearRetrasoTecnicos();
+  _chequearRetrasoTecnicos(true); // skipFetch=true: usa visitasActivas ya cargado por iniciarApp()
   setInterval(_chequearAlarma, 20000);          // revisión de alarma diaria cada 20s
   setInterval(_chequearRetrasoTecnicos, 60000); // revisión de retrasos cada 60s
 }
@@ -57,12 +57,13 @@ function iniciarAlarmaChecker() {
 
 let _retrasoAlertadas = new Set(); // IDs de tareas ya alertadas en esta sesión
 
-async function _chequearRetrasoTecnicos() {
+async function _chequearRetrasoTecnicos(skipFetch = false) {
   if (!currentUser || currentUser.perfil !== 'admin') return;
   if (typeof visitasActivas === 'undefined' || typeof tasks === 'undefined') return;
 
-  // Refrescar visitasActivas desde el backend para captar check-ins de otros dispositivos
-  if (typeof API_BASE !== 'undefined' && API_BASE) {
+  // Refrescar visitasActivas desde el backend para captar check-ins de otros dispositivos.
+  // skipFetch=true en la llamada inicial (evita fetch duplicado al arrancar).
+  if (!skipFetch && typeof API_BASE !== 'undefined' && API_BASE) {
     try {
       const enVisita = await fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json());
       visitasActivas = {};

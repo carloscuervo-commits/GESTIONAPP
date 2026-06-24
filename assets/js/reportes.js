@@ -605,6 +605,16 @@ async function cargarImagenDataURL(url) {
 
 let _generandoPDF = false;
 
+async function _cargarJsPDF() {
+  if (window.jspdf) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
 async function generarPDFReporte(btn) {
   if (_generandoPDF) return; // evita doble clic mientras se genera
   _generandoPDF = true;
@@ -620,6 +630,7 @@ async function generarPDFReporte(btn) {
   }
   statusEl.innerHTML = '⏳ Generando PDF, esto puede tardar unos segundos...';
   try {
+    await _cargarJsPDF();
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageW = 210, marginX = 15;

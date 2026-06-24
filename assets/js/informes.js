@@ -429,8 +429,16 @@ function formatCeldaInforme(v, tipo) {
   return esc(String(v));
 }
 
-function exportarInformeExcel() {
+async function exportarInformeExcel() {
   if (!_informeFilas.length) { alert('No hay datos para exportar.'); return; }
+  if (!window.XLSX) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
   const aoa = [_informeColumnas.map(c => c.label)];
   _informeFilas.forEach(fila => {
     aoa.push(_informeColumnas.map(c => {

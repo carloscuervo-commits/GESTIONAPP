@@ -4,6 +4,11 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
+## Estado actual (última actualización: 2026-06-23 — deploy #25e ✅)
+
+- **Deploy #25e (2026-06-23 23:00) — desplegado y verificado**:
+  - **Cache-bust `reportes.js`**: bumpeado a `?v=20260623g` para forzar descarga del archivo correcto (completo, 44786B, 927L). El browser tenía cacheada la versión truncada `?v=20260623f` (37674B, 810L) que producía `SyntaxError: Missing } in template expression` → `cargarVisitasActivas is not defined` → app no iniciaba. Commit `Fix #25e`. Con `?v=20260623g` todas las funciones de `reportes.js` cargan correctamente.
+
 ## Estado actual (última actualización: 2026-06-23 — deploy #25d ✅)
 
 - **Deploy #25d (2026-06-23 22:49) — desplegado y verificado**:
@@ -12,7 +17,7 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
 ## Estado actual (última actualización: 2026-06-23 — deploy #25b)
 
-- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623f`, `reportes.js?v=20260623f`, `informes.js?v=20260623a`, `alarma.js?v=20260623a`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623f`, `reportes.js?v=20260623g`, `informes.js?v=20260623a`, `alarma.js?v=20260623a`, `usuarios.js?v=20260622a`, `app.js?v=20260623c`.
 - **NOTA COLACIÓN**: `visita_participantes` usa `COLLATE utf8mb4_unicode_ci` (vs `utf8mb4_general_ci` en `reportes`/`tareas`). Todo JOIN entre estas tablas debe incluir `COLLATE utf8mb4_general_ci` en la condición ON. Ejemplo: `JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci`.
 - **Deploy #25b (2026-06-23 21:58) — desplegado y verificado**:
   - **Fix colación MySQL**: `JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci` en endpoint `?tardias=1` de `reportes.php`. Sin este COLLATE el JOIN fallaba con `SQLSTATE[HY000] 1267 Illegal mix of collations`. Commit `dfcf8ed` en GitHub → deploy cPanel completado. Endpoint verificado: HTTP 200 con datos reales.
