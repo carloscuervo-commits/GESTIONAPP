@@ -161,7 +161,10 @@ function closeVisitaTecnicoModal() {
 // Retorna { lat, lng } si se puede proceder, null si el técnico canceló.
 // tipo: 'checkin' | 'checkout'
 async function _geofenceCheck(tareaId, tipo) {
-  if (!navigator.geolocation || !API_BASE) return { lat: null, lng: null };
+  if (!navigator.geolocation || !API_BASE) {
+    alert('[GEO-DEBUG] navigator.geolocation no disponible');
+    return { lat: null, lng: null };
+  }
 
   return new Promise(resolve => {
     navigator.geolocation.getCurrentPosition(
@@ -169,12 +172,19 @@ async function _geofenceCheck(tareaId, tipo) {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         try {
-          const res = await fetch(`${API_BASE}/reportes.php?geofence=1&tareaId=${encodeURIComponent(tareaId)}&lat=${lat}&lng=${lng}`);
+          const url = `${API_BASE}/reportes.php?geofence=1&tareaId=${encodeURIComponent(tareaId)}&lat=${lat}&lng=${lng}`;
+          const res = await fetch(url);
           const geo = await res.json();
           // Sin ubicación de cliente o cliente no encontrado → proceder sin bloqueo
-          if (geo.error || geo.sinUbicacion) { resolve({ lat, lng }); return; }
+          if (geo.error || geo.sinUbicacion) {
+            alert(`[GEO-DEBUG] Sin ubicación del cliente. Respuesta: ${JSON.stringify(geo)}`);
+            resolve({ lat, lng }); return;
+          }
           // Dentro del radio → proceder
-          if (geo.dentroZona) { resolve({ lat, lng }); return; }
+          if (geo.dentroZona) {
+            alert(`[GEO-DEBUG] Dentro de zona. Distancia: ${geo.distanciaMetros}m, radio: ${geo.radioMetros}m`);
+            resolve({ lat, lng }); return;
+          }
           // Fuera del radio → mostrar alerta
           const tipoLabel = tipo === 'checkin' ? 'check-in' : 'check-out';
           const ok = confirm(
@@ -195,10 +205,16 @@ async function _geofenceCheck(tareaId, tipo) {
             }),
           }).catch(() => {});
           resolve(ok ? { lat, lng } : null);
-        } catch { resolve({ lat, lng }); } // error de red → no bloquear
+        } catch(e) {
+          alert(`[GEO-DEBUG] Error en fetch: ${e.message}`);
+          resolve({ lat, lng });
+        }
       },
-      () => resolve({ lat: null, lng: null }), // GPS denegado/no disponible
-      { timeout: 12000, maximumAge: 60000 }
+      (err) => {
+        alert(`[GEO-DEBUG] GPS denegado o no disponible. Código: ${err.code} — ${err.message}`);
+        resolve({ lat: null, lng: null });
+      },
+      { timeout: 12000, maximumAge: 0 }
     );
   });
 }
