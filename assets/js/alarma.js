@@ -61,6 +61,15 @@ async function _chequearRetrasoTecnicos() {
   if (!currentUser || currentUser.perfil !== 'admin') return;
   if (typeof visitasActivas === 'undefined' || typeof tasks === 'undefined') return;
 
+  // Refrescar visitasActivas desde el backend para captar check-ins de otros dispositivos
+  if (typeof API_BASE !== 'undefined' && API_BASE) {
+    try {
+      const enVisita = await fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json());
+      visitasActivas = {};
+      (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
+    } catch(e) { /* silencioso: usa estado anterior */ }
+  }
+
   const { fecha: hoy, hora: horaActual } = _horaBogota();
 
   const tardias = tasks.filter(t =>

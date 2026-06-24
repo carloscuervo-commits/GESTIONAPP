@@ -4,9 +4,14 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-23 — deploy #24)
+## Estado actual (última actualización: 2026-06-23 — deploy #25)
 
-- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623f`, `reportes.js?v=20260623e`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623f`, `reportes.js?v=20260623f`, `informes.js?v=20260623a`, `alarma.js?v=20260623a`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
+- **Deploy #25 (2026-06-23) — pendiente de deploy**:
+  - **Fix alerta técnico tardío**: `_chequearRetrasoTecnicos()` en `alarma.js` ahora refresca `visitasActivas` desde `reportes.php?estado=en_visita` antes de calcular tardíos. Esto captura check-ins registrados en otros dispositivos y apaga la alerta/banner en tiempo real (máx. 60s de delay). Sin cambios en DB.
+  - **Reporte "Llegadas tardías"** en Pestaña Informes: nueva entrada `tardias_llegada` en `INFORMES`. Filtros: rango de fechas y técnico. Llama a `reportes.php?tardias=1` (nuevo endpoint). Muestra tabla: fecha, cliente, tarea, técnico, hora programada, llegada real, minutos tarde (badge rojo). Exportable a Excel. Lógica: `DATE(check_in) = fecha_programacion AND TIME(check_in) > hora_programacion`. `informes.js?v=20260623a`.
+  - **Badge "Tardía" en historial de visitas**: en `renderHistorialVisitasModal()` (`reportes.js`), cuando el `check_in` de un participante es posterior a `hora_programacion` de la tarea (en la misma `fecha_programacion`), se muestra badge rojo "🕐 Tardía" junto al nombre. `reportes.js?v=20260623f`.
+  - **Nuevo endpoint `GET reportes.php?tardias=1`**: JOIN entre `visita_participantes`, `reportes` y `tareas`. Filtra por `DATE(check_in)=fecha_programacion AND TIME(check_in)>hora_programacion`. Soporta filtros `desde`, `hasta`, `tecnico_id`. Sin migración SQL.
 - **Deploy #24 (2026-06-23) — desplegado y verificado**:
   - **`autocomplete="off"` en todos los inputs**: todos los `type="text"`, `type="email"` y `type="password"` del HTML recibieron `autocomplete="off"` (o `autocomplete="new-password"` en el caso de los PIN). Esto evita que Chrome autollene con credenciales de cPanel.
   - **Popup "¿Se terminó la tarea?"**: muestra el título y cliente de la tarea en una franja teal bajo el encabezado (`#popup-tarea-terminada-nombre`). Se agrega botón "Cancelar" (misma acción que "No, falta continuar"). JS en `reportes.js`.
@@ -200,34 +205,4 @@ DEPLOYPATH=/home/innovate/public_html/gestion/
 
 9. **Trazabilidad de cambios de estado**: cada cambio de `estado` en una tarea se registra en `tarea_historial` vía `registrarHistorial()` (no se registra si el estado no cambió).
 
-10. **Tarjeta de tarea simplificada para IT/IF**: el modal "Nueva Tarea"/edición tiene orden de campos fijo (Cliente → Título → Descripción → Equipo asignado → Área/Estado/...) para todas las áreas. Cuando `area` es `it` o `if`, `updateFormForArea()` oculta además `grp-fecha` (fecha límite), `grp-tiempo`, `grp-treal`, `grp-recursos` y `grp-notas` (todos con `id` asignado para poder ocultarlos). El **equipo asignado** ya no usa chips seleccionables tipo toggle: `buildTeamPicker()` ahora renderiza los miembros ya asignados como chips con botón "✕" para quitar (`toggleTeamChip`), más un `<select>` "+ Agregar técnico..." con los miembros disponibles que al elegir uno lo agrega (`addTeamMember`). Esto aplica a todas las áreas, no solo IT/IF.
-
-## Convenciones de código
-
-- **PHP**:
-  - Endpoints en `backend/api/*.php`, un archivo por recurso, todos los métodos HTTP (GET/POST/PUT/DELETE) en el mismo archivo con `if ($method === 'X') { ... }`.
-  - Siempre `require_once __DIR__ . '/../db.php'; applyCors();` al inicio.
-  - Respuestas siempre vía `jsonOut($data, $codigoHttp)` — nunca `echo` directo.
-  - Usar `strlen()`, no `mb_strlen()` (el host no garantiza `mbstring`).
-  - Errores de Alegra/HTTP externos se devuelven como `jsonOut(['error' => '...'], 5xx)`, nunca se dejan excepciones sin capturar.
-  - Nombres de columnas SQL en snake_case; nombres de campos en el JSON del frontend en camelCase (el mapeo vive en `taskToApi`/`apiToTask`).
-
-- **SQL**:
-  - Migraciones numeradas secuencialmente en `db/NNN_descripcion.sql` (ej. `001_init.sql`, `002_seguimiento.sql`). Cada migración es incremental (usa `ALTER TABLE ... ADD COLUMN`), nunca se reescribe `001_init.sql`.
-  - Tablas en `InnoDB`, `utf8mb4`, claves foráneas explícitas con `ON DELETE CASCADE`/`SET NULL` donde aplica.
-
-- **JavaScript (frontend)**:
-  - Todo en `<script>` dentro de `tareas-equipo.html`, sin módulos.
-  - Constantes de configuración en mayúsculas al inicio del script (`API_BASE`, `STORAGE_KEY`, `TEAM`, `AREAS`, `AREA_FLOWS`).
-  - Funciones `async` para cualquier llamada a `fetch`; errores se capturan con `try/catch` y se notifican con `alert(...)`.
-  - `esc()` para escapar HTML al insertar texto dinámico en el DOM (evitar XSS básico).
-  - Colores de área/usuario definidos como hex en `AREAS`/`TEAM` y reutilizados para badges (`color + '20'` para fondo semi-transparente).
-
-- **Git / deploy**:
-  - Commits descriptivos en español, en imperativo o sustantivo ("Agregar...", "Fix: ...", "Actualizar...").
-  - Flujo de deploy: commit/push desde GitHub Desktop → cPanel "Git Version Control" → **Update from Remote** (verificar que aparezca el badge "New" con el commit correcto) → **Deploy HEAD Commit**.
-  - cPanel cachea respuestas; al probar endpoints tras un deploy, usar un parámetro de cache-busting (`?cb=<numero único>`).
-
-## Notas de seguridad pendientes
-
-- `config_alegra.php` (ahora en `backend/config/`) contiene credenciales reales de Alegra (`ALEGRA_EMAIL`, `ALEGRA_TOKEN`). Ya se agregó a `.gitignore` y se quitó del `.cpanel.yml`, igual que `config.php`. **Pendiente**: (1) hacer el deploy de la reorganización de carpetas, creando antes manualmente `backend/config/config.php` y `backend/config/config_alegra.php` en el servidor con las credenciales reales; (2) idealmente rotar el token de Alegra, ya q
+10. **Tarjeta de tarea simplificada para IT/IF**: el modal "Nueva Tarea"/edición tiene orden de campos fijo (Cliente → Título → Descripción → Equipo asignado → Área/Estado/...) para todas las áreas. Cuando `area` es `it` o `if`, `updateFormForAr

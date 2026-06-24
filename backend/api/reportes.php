@@ -37,6 +37,40 @@ function reporteSinFotos($row) {
 // GET /reportes.php?todos=1            -> TODOS los reportes (con datos de la tarea), para informes/exportes
 // --------------------------------------------------------------
 if ($method === 'GET') {
+  // GET ?tardias=1[&desde=YYYY-MM-DD][&hasta=YYYY-MM-DD][&tecnico_id=X]
+  // Devuelve participantes cuyo check_in fue posterior a la hora_programacion de la tarea, en la misma fecha programada.
+  if (!empty($_GET['tardias'])) {
+    $where  = ["vp.check_in IS NOT NULL",
+               "t.fecha_programacion IS NOT NULL",
+               "t.hora_programacion IS NOT NULL",
+               "DATE(vp.check_in) = t.fecha_programacion",
+               "TIME(vp.check_in) > t.hora_programacion"];
+    $params = [];
+    if (!empty($_GET['desde'])) { $where[] = "t.fecha_programacion >= ?"; $params[] = $_GET['desde']; }
+    if (!empty($_GET['hasta'])) { $where[] = "t.fecha_programacion <= ?"; $params[] = $_GET['hasta']; }
+    if (!empty($_GET['tecnico_id'])) { $where[] = "vp.tecnico_id = ?"; $params[] = $_GET['tecnico_id']; }
+    $sql = "SELECT
+              vp.id          AS participante_id,
+              vp.tecnico_id,
+              vp.check_in,
+              vp.check_out,
+              r.id           AS reporte_id,
+              r.tarea_id,
+              t.titulo,
+              t.cliente,
+              t.area,
+              t.fecha_programacion,
+              t.hora_programacion
+            FROM visita_participantes vp
+            JOIN reportes r ON r.id = vp.reporte_id
+            JOIN tareas t   ON t.id = r.tarea_id
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY vp.check_in DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    jsonOut($stmt->fetchAll());
+  }
+
   if (!empty($_GET['todos'])) {
     $stmt = $pdo->query("SELECT r.*, t.cliente, t.titulo, t.area FROM reportes r JOIN tareas t ON t.id = r.tarea_id ORDER BY r.creado_en DESC");
     jsonOut(array_map('reporteSinFotos', $stmt->fetchAll()));

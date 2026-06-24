@@ -226,6 +226,86 @@ function renderReportesBusquedaHTML(filtros) {
 }
 
 // --------------------------------------------------------------
+// 5) Llegadas tardías: participantes cuyo check_in fue después de la hora programada
+// --------------------------------------------------------------
+async function renderTardiasHTML(filtros) {
+  const tablaEl = document.getElementById('informe-tabla');
+  if (tablaEl) tablaEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Cargando...</div>';
+
+  const params = new URLSearchParams({ tardias: 1 });
+  if (filtros.desde)   params.set('desde',      filtros.desde);
+  if (filtros.hasta)   params.set('hasta',      filtros.hasta);
+  if (filtros.tecnico) params.set('tecnico_id', filtros.tecnico);
+
+  let filas = [];
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?${params}`);
+    filas = await res.json();
+    if (!Array.isArray(filas)) filas = [];
+  } catch(e) {
+    return '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error cargando datos.</div>';
+  }
+
+  // Guardar para exportar a Excel
+  _informeColumnas = [
+    { key: 'fecha',        label: 'Fecha' },
+    { key: 'cliente',      label: 'Cliente' },
+    { key: 'tarea',        label: 'Tarea' },
+    { key: 'tecnico',      label: 'Técnico' },
+    { key: 'horaProg',     label: 'Hora programada' },
+    { key: 'horaLlegada',  label: 'Llegada real' },
+    { key: 'minutosTarde', label: 'Minutos tarde' },
+  ];
+  _informeFilas = filas.map(f => {
+    const minutosTarde = _calcMinutosTarde(f.hora_programacion, f.check_in);
+    return {
+      fecha:        (f.fecha_programacion || '').slice(0, 10),
+      cliente:      f.cliente  || '-',
+      tarea:        f.titulo   || '-',
+      tecnico:      getMember(f.tecnico_id)?.name || f.tecnico_id || '-',
+      horaProg:     f.hora_programacion ? f.hora_programacion.slice(0, 5) : '-',
+      horaLlegada:  f.check_in ? f.check_in.slice(11, 16) : '-',
+      minutosTarde: minutosTarde !== null ? minutosTarde : '-',
+    };
+  });
+
+  if (!_informeFilas.length) {
+    return '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Sin llegadas tardías para los filtros seleccionados.</div>';
+  }
+
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Fecha</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Cliente</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Tarea</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Técnico</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">H. programada</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Llegada real</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Min. tarde</th>
+    </tr></thead>
+    <tbody>${_informeFilas.map(f => `<tr>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.fecha)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.cliente)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.tarea)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.tecnico)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);color:#64748b">${esc(f.horaProg)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);color:#dc2626;font-weight:600">${esc(f.horaLlegada)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">
+        <span style="background:#fef2f2;color:#dc2626;border-radius:99px;padding:2px 8px;font-size:12px;font-weight:700">+${esc(String(f.minutosTarde))} min</span>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function _calcMinutosTarde(horaProg, checkIn) {
+  if (!horaProg || !checkIn) return null;
+  // horaProg: "HH:MM:SS" o "HH:MM", checkIn: "YYYY-MM-DD HH:MM:SS"
+  const [hP, mP] = horaProg.split(':').map(Number);
+  const [hC, mC] = checkIn.slice(11, 16).split(':').map(Number);
+  return (hC * 60 + mC) - (hP * 60 + mP);
+}
+
+// --------------------------------------------------------------
 // Registro de informes
 // --------------------------------------------------------------
 const INFORMES = {
@@ -233,6 +313,7 @@ const INFORMES = {
   tarjetas_cliente: { nombre: '📋 Tarjetas de un cliente', campos: ['cliente'], calcular: calcTarjetasCliente },
   facturas_modulo: { nombre: '🧾 Facturas generadas (módulo Facturación)', campos: ['desde', 'hasta', 'cliente'], calcular: calcFacturasModulo },
   reportes_busqueda: { nombre: '🔍 Reportes de tarjetas operativas', campos: ['desde', 'hasta', 'cliente'], calcular: calcReportesBusqueda, custom: renderReportesBusquedaHTML },
+  tardias_llegada: { nombre: '⏰ Llegadas tardías', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderTardiasHTML },
 };
 
 // --------------------------------------------------------------
@@ -317,11 +398,18 @@ function recalcularInforme() {
     desde: document.getElementById('informe-desde')?.value || '',
     hasta: document.getElementById('informe-hasta')?.value || '',
   };
+  const tablaEl = document.getElementById('informe-tabla');
+  if (!tablaEl) return;
+
+  // Informe asíncrono (ej. llegadas tardías): renderTardiasHTML devuelve Promise<HTML>
+  if (def.customAsync) {
+    def.customAsync(filtros).then(html => { if (tablaEl) tablaEl.innerHTML = html; });
+    return;
+  }
+
   const resultado = def.calcular ? (def.calcular(filtros) || { columnas: [], filas: [] }) : { columnas: [], filas: [] };
   _informeColumnas = resultado.columnas;
   _informeFilas = resultado.filas;
-  const tablaEl = document.getElementById('informe-tabla');
-  if (!tablaEl) return;
   tablaEl.innerHTML = def.custom ? def.custom(filtros) : renderTablaInformeHTML(_informeColumnas, _informeFilas);
 }
 
