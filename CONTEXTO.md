@@ -4,9 +4,14 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
-## Estado actual (última actualización: 2026-06-23 — deploy #23)
+## Estado actual (última actualización: 2026-06-23 — deploy #24)
 
-- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623c`, `reportes.js?v=20260623d`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
+- **Cache-busting actual en `tareas-equipo.html`**: `core.js?v=20260623b`, `auth.js?v=20260622d`, `tareas.js?v=20260623f`, `reportes.js?v=20260623e`, `alarma.js?v=20260622f`, `usuarios.js?v=20260622a`, `app.js?v=20260623b`.
+- **Deploy #24 (2026-06-23) — desplegado y verificado**:
+  - **`autocomplete="off"` en todos los inputs**: todos los `type="text"`, `type="email"` y `type="password"` del HTML recibieron `autocomplete="off"` (o `autocomplete="new-password"` en el caso de los PIN). Esto evita que Chrome autollene con credenciales de cPanel.
+  - **Popup "¿Se terminó la tarea?"**: muestra el título y cliente de la tarea en una franja teal bajo el encabezado (`#popup-tarea-terminada-nombre`). Se agrega botón "Cancelar" (misma acción que "No, falta continuar"). JS en `reportes.js`.
+  - **Acciones rápidas en modal**: al abrir una tarjeta para editar, `openModal()` en `tareas.js` llena `#modal-acciones-rapidas` con los mismos botones que aparecen en la tarjeta (Iniciar visita, Continuar reporte, Archivar, etc.) — depende de `renderVisitaBoton()` que vive en `reportes.js` (mismo scope global).
+  - **Historial de visitas en modal** (`renderHistorialVisitasModal()` en `reportes.js`): al abrir una tarjeta IT/IF, hace GET a `reportes.php?tareaId=...` y muestra todas las visitas con participantes. Técnico: solo lectura (nombre, horas, duración). Admin: grilla editable (select técnico, time inputs check-in/out, botón 💾). Llama `PUT reportes.php?id=X` con `accion:'editParticipante'`. Backend: nueva rama `editParticipante` en `reportes.php PUT` que actualiza `visita_participantes` y recalcula estado del reporte (en_visita vs borrador).
 - **Deploy #23 (2026-06-23) — desplegado y verificado**:
   - **Input búsqueda cambiado a `type="search"`**: en `tareas-equipo.html`, el `<input id="search">` pasó de `type="text"` a `type="search"`, lo que habilita el botón nativo "×" del browser para limpiar el campo de búsqueda sin JS adicional.
 - **Deploy #22 (2026-06-23) — desplegado y verificado**:
@@ -22,6 +27,7 @@ URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 - **Fix PDF nombre de archivo + overflow cliente (2026-06-23)**: `reportes.js` ahora usa `splitTextToSize` para todas las filas del encabezado del PDF (Cliente, Tarea, etc.) — el nombre largo ya no se sale de la página, se parte en segundas líneas. Nombre de archivo cambiado de `reporte-{uuid}.pdf` a `Innovate-YYYYMMDD-Pal1-Pal2-Pal3-Pal4.pdf` (primeras 4 palabras del cliente, caracteres especiales removidos). `reporte_pdf.php` POST acepta campo `nombre` sanitizado y lo usa para guardar; GET lo sirve en `Content-Disposition`.
 - **Fix bfcache filtro "carcuervo" (2026-06-23)**: el intento anterior de limpiar en `iniciarApp()` no era suficiente porque Chrome restaura los valores del formulario DESPUÉS de que JS corre. Solución: `window.addEventListener('pageshow', ...)` en `app.js` que limpia `#search`, `#f-estado`, `#f-responsable` — `pageshow` dispara justo después de que el browser termina el restore del bfcache.
 - **Últimos deploys desplegados y verificados**:
+  - **Deploy #24 (2026-06-23)**: historial de visitas editable en modal de tarea; acciones rápidas en modal (Iniciar visita, Archivar, etc.); cliente·título en popup "¿Se terminó la tarea?"; botón "✕ Borrar fecha" en formulario de programación.
   - **Deploy #23 (2026-06-23)**: input búsqueda `type="search"` (botón nativo "×").
   - **Deploy #22 (2026-06-23)**: modal check-in admin muestra técnicos ya en sitio y excluye del selector los con check-in activo; notificación de checkout al admin; fix `confirmarMotivoNoFactura` (capturaba id después de cerrar el modal); cliente en uppercase en tarjetas; `setArea()` limpia filtros al cambiar área.
   - **Deploy #21 (2026-06-23)**: multi-técnico por visita (`visita_participantes`), motivo de archivado sin factura (`motivo_no_factura`), PDF nombre descriptivo, bfcache fix via `pageshow`. Migraciones ejecutadas: `migracion_motivo_no_factura.sql`, `migracion_visita_participantes.sql`, `migracion_hora_prog.sql`.

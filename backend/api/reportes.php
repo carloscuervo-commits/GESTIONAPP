@@ -182,6 +182,38 @@ if ($method === 'PUT') {
 
   $d = jsonInput();
 
+  // ── Edición admin de un participante individual ──────────────────
+  if (($d['accion'] ?? '') === 'editParticipante') {
+    $partId   = $d['participanteId'] ?? null;
+    $tecnicoId = $d['tecnicoId']     ?? null;
+    $hIn      = $d['checkIn']        ?? null;  // "HH:MM"
+    $hOut     = $d['checkOut']       ?? null;  // "HH:MM" o null
+    if (!$partId || !$hIn) jsonOut(['error' => 'participanteId y checkIn son obligatorios'], 400);
+
+    // Recuperar la fecha de la fila actual para componer datetimes
+    $stmtPrev = $pdo->prepare("SELECT check_in FROM visita_participantes WHERE id = ?");
+    $stmtPrev->execute([$partId]);
+    $prevPart = $stmtPrev->fetch();
+    $fechaBase = $prevPart ? substr($prevPart['check_in'], 0, 10) : date('Y-m-d');
+
+    $newIn  = $fechaBase . ' ' . $hIn  . ':00';
+    $newOut = $hOut ? ($fechaBase . ' ' . $hOut . ':00') : null;
+
+    $pdo->prepare("UPDATE visita_participantes SET tecnico_id=?, check_in=?, check_out=? WHERE id=?")
+      ->execute([$tecnicoId, $newIn, $newOut, $partId]);
+
+    // Si ya todos tienen checkout → mantener borrador; si hay alguno sin → en_visita
+    $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
+    $stmtCnt->execute([$id]);
+    $sinOut = (int)$stmtCnt->fetchColumn();
+    $nuevoEstado = $sinOut > 0 ? 'en_visita' : 'borrador';
+    $pdo->prepare("UPDATE reportes SET estado=? WHERE id=?")->execute([$nuevoEstado, $id]);
+
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$id]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()));
+  }
+
   if (($d['accion'] ?? '') === 'checkout') {
     $tecnicoOut = $d['tecnicoCheckoutId'] ?? null;
     $partId     = $d['participanteId']    ?? null;

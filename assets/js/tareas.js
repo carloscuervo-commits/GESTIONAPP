@@ -1,4 +1,15 @@
 // Actualiza la etiqueta de fecha fin en el formulario según fechaProg + diasProg
+function borrarProgramacion() {
+  const fp = document.getElementById('f-fechaprog');
+  const dp = document.getElementById('f-dias-prog');
+  const hp = document.getElementById('f-hora-prog');
+  const lb = document.getElementById('fechaprog-fin-label');
+  if (fp) fp.value = '';
+  if (dp) dp.value = 1;
+  if (hp) hp.value = '08:00';
+  if (lb) lb.textContent = '';
+}
+
 function actualizarFechaFinProg() {
   const fecha = document.getElementById('f-fechaprog')?.value;
   const dias  = parseInt(document.getElementById('f-dias-prog')?.value) || 1;
@@ -752,6 +763,45 @@ function openModal(id, preArea, preEstado) {
       : 'Sin archivo adjunto';
   }
   buildTeamPicker(t?.team||[]);
+
+  // ── Acciones rápidas en modal (mismas que en la tarjeta) ──────────
+  const accionesDiv = document.getElementById('modal-acciones-rapidas');
+  if (accionesDiv) {
+    if (t) {
+      const showArchivarM = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
+                         || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
+      let aHtml = '';
+      if (['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) {
+        aHtml += `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>`;
+      }
+      if (['it','if'].includes(t.area) && !['realizado','facturado','archivado'].includes(t.estado)) {
+        if (typeof renderVisitaBoton === 'function') aHtml += renderVisitaBoton(t);
+      }
+      if (showArchivarM) {
+        aHtml += `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>`;
+      }
+      if (aHtml) {
+        accionesDiv.innerHTML = `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">${aHtml}</div>`;
+        accionesDiv.style.display = 'block';
+      } else {
+        accionesDiv.style.display = 'none';
+      }
+    } else {
+      accionesDiv.style.display = 'none';
+    }
+  }
+
+  // ── Historial de visitas en modal ─────────────────────────────────
+  const histDiv = document.getElementById('modal-historial-visitas');
+  if (histDiv) {
+    if (t && ['it','if'].includes(t.area) && typeof renderHistorialVisitasModal === 'function') {
+      renderHistorialVisitasModal(t.id);
+      histDiv.style.display = 'block';
+    } else {
+      histDiv.style.display = 'none';
+    }
+  }
+
   document.getElementById('modal').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),50);
 }

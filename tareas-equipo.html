@@ -157,7 +157,7 @@
       </div>
       <div class="form-group" id="cm-g-monto-acuerdo" style="display:none">
         <label>Monto acordado</label>
-        <input type="text" id="cm-monto-acuerdo" placeholder="ej: 500000">
+        <input type="text" id="cm-monto-acuerdo" placeholder="ej: 500000" autocomplete="off">
       </div>
       <div class="form-group full">
         <label>Notas de gestión</label>
@@ -194,30 +194,30 @@
       <!-- ID -->
       <div class="form-group">
         <label>ID (iniciales únicas) *</label>
-        <input type="text" id="um-id" maxlength="10" placeholder="ej: CAC, AZ, JG"
+        <input type="text" id="um-id" maxlength="10" placeholder="ej: CAC, AZ, JG" autocomplete="off"
           oninput="this.value=this.value.toUpperCase();_actualizarAvatarPreview()">
         <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Máx 10 caracteres. No se puede cambiar después.</div>
       </div>
       <!-- Iniciales -->
       <div class="form-group">
         <label>Iniciales (en avatar) *</label>
-        <input type="text" id="um-iniciales" maxlength="5" placeholder="ej: CAC, AZ"
+        <input type="text" id="um-iniciales" maxlength="5" placeholder="ej: CAC, AZ" autocomplete="off"
           oninput="this.value=this.value.toUpperCase();_actualizarAvatarPreview()">
       </div>
       <!-- Nombre -->
       <div class="form-group full">
         <label>Nombre completo *</label>
-        <input type="text" id="um-nombre" placeholder="ej: Carlos Andrés Cuervo">
+        <input type="text" id="um-nombre" placeholder="ej: Carlos Andrés Cuervo" autocomplete="off">
       </div>
       <!-- Email -->
       <div class="form-group">
         <label>Correo electrónico</label>
-        <input type="email" id="um-email" placeholder="usuario@innovate.com.co">
+        <input type="email" id="um-email" placeholder="usuario@innovate.com.co" autocomplete="off">
       </div>
       <!-- Rol descriptivo -->
       <div class="form-group">
         <label>Cargo / rol descriptivo</label>
-        <input type="text" id="um-rol" placeholder="ej: Técnico de campo, Gerente...">
+        <input type="text" id="um-rol" placeholder="ej: Técnico de campo, Gerente..." autocomplete="off">
       </div>
       <!-- Perfil -->
       <div class="form-group">
@@ -240,9 +240,9 @@
         <div id="um-pin-status" style="font-size:12px;margin-bottom:8px;padding:8px 10px;background:#f0fdf4;border-radius:8px;color:#059669"></div>
         <label>PIN de acceso (4 dígitos)</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <input type="password" id="um-pin" maxlength="4" inputmode="numeric" pattern="\d{4}"
+          <input type="password" id="um-pin" maxlength="4" inputmode="numeric" pattern="\d{4}" autocomplete="new-password"
             placeholder="Nuevo PIN (4 dígitos)" style="flex:1;min-width:140px;letter-spacing:4px;font-size:16px">
-          <input type="password" id="um-pin-confirm" maxlength="4" inputmode="numeric" pattern="\d{4}"
+          <input type="password" id="um-pin-confirm" maxlength="4" inputmode="numeric" pattern="\d{4}" autocomplete="new-password"
             placeholder="Confirmar PIN" style="flex:1;min-width:140px;letter-spacing:4px;font-size:16px">
         </div>
       </div>
@@ -291,7 +291,7 @@
       </div>
       <div class="form-group full" id="grp-titulo">
         <label>Título *</label>
-        <input type="text" id="f-titulo" placeholder="Descripción breve de la tarea">
+        <input type="text" id="f-titulo" placeholder="Descripción breve de la tarea" autocomplete="off">
       </div>
       <div class="form-group full" id="grp-desc">
         <label>Descripción</label>
@@ -302,7 +302,10 @@
         <div class="team-picker" id="team-picker"></div>
       </div>
       <div class="form-group" id="grp-fechaprog">
-        <label>Fecha de programación</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin:0">Fecha de programación</label>
+          <button type="button" onclick="borrarProgramacion()" style="background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:0;font-weight:600">✕ Borrar fecha</button>
+        </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="date" id="f-fechaprog" onchange="actualizarFechaFinProg()" style="flex:1;min-width:140px">
           <span style="color:var(--text-muted);font-size:13px">por</span>
@@ -359,11 +362,11 @@
       </div>
       <div class="form-group" id="grp-tiempo">
         <label>Tiempo estimado</label>
-        <input type="text" id="f-tiempo" placeholder="ej: 3 días, 4 horas">
+        <input type="text" id="f-tiempo" placeholder="ej: 3 días, 4 horas" autocomplete="off">
       </div>
       <div class="form-group" id="grp-treal">
         <label>Tiempo real</label>
-        <input type="text" id="f-treal" placeholder="ej: 2 días">
+        <input type="text" id="f-treal" placeholder="ej: 2 días" autocomplete="off">
       </div>
       <div class="form-group full" id="grp-recursos">
         <label>Recursos necesarios</label>
@@ -376,7 +379,7 @@
       <div class="form-group full" id="grupo-factura" style="display:none">
         <label>📄 Número de factura Alegra *</label>
         <div style="display:flex;gap:6px">
-          <input type="text" id="f-factura" placeholder="ej: FE1752" style="flex:1">
+          <input type="text" id="f-factura" placeholder="ej: FE1752" style="flex:1" autocomplete="off">
           <button type="button" class="btn-cancel" onclick="buscarFacturasAlegraCliente()">🔍 Buscar en Alegra</button>
         </div>
         <div id="facturas-alegra-info" style="margin-top:4px;font-size:.85em;color:var(--text-muted)"></div>
@@ -405,6 +408,8 @@
         <select id="f-est" onchange="onEstadoChange(this.value)"></select>
       </div>
     </div>
+    <div id="modal-acciones-rapidas" style="display:none;padding:12px 0 4px;flex-direction:column;gap:8px"></div>
+    <div id="modal-historial-visitas" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-delete" id="btn-delete" onclick="deleteTask()" style="display:none">🗑 Eliminar</button>
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
@@ -508,10 +513,12 @@
 <div class="modal-overlay" id="popup-tarea-terminada" style="z-index:360">
   <div class="modal" style="max-width:380px;text-align:center">
     <div class="modal-title" style="justify-content:center">✅ ¿Se terminó la tarea?</div>
+    <div id="popup-tarea-terminada-nombre" style="font-size:13px;font-weight:700;color:#169BBC;margin:-4px 0 12px;padding:6px 10px;background:#D6F3F4;border-radius:6px;display:none"></div>
     <p style="margin:0 0 16px;color:var(--text-muted);font-size:13px">¿Con esta visita la tarea quedó completamente terminada, o falta continuar en otra visita (trabajo de varios días)?</p>
     <div style="display:flex;flex-direction:column;gap:10px">
       <button class="btn-save" style="width:100%" onclick="resolverTareaTerminada(true)">✅ Sí, se terminó — mover a "Por facturar"</button>
       <button class="btn-cancel" style="width:100%" onclick="resolverTareaTerminada(false)">⏳ No, falta continuar (otra visita)</button>
+      <button style="width:100%;background:transparent;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="resolverTareaTerminada(false)">Cancelar</button>
     </div>
   </div>
 </div>
@@ -541,13 +548,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/js/core.js?v=20260623b"></script>
 <script src="assets/js/auth.js?v=20260622d"></script>
-<script src="assets/js/tareas.js?v=20260623d"></script>
+<script src="assets/js/tareas.js?v=20260623f"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260623d"></script>
+<script src="assets/js/reportes.js?v=20260623e"></script>
 <script src="assets/js/informes.js?v=20260622a"></script>
 <script src="assets/js/alarma.js?v=20260622f"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
-<script src="assets/js/app.js?v=20260623a"></script>
+<script src="assets/js/app.js?v=20260623b"></script>
 </body>
 </html>
