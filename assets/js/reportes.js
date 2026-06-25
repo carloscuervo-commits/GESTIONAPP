@@ -50,23 +50,39 @@ function renderVisitaBoton(t) {
     const partes = visita.participantes || [];
     let html = '';
 
-    // Mostrar estado de cada participante
+    // Mostrar estado de cada participante (con indicador de pausa activa)
     partes.forEach(p => {
       const nombre = getMember(p.tecnico_id)?.name || p.tecnico_id || 'Técnico';
       if (!p.check_out) {
-        html += `<div class="task-date" style="color:#16a34a;font-weight:600">🟢 ${esc(nombre)} · desde ${formatHora(p.check_in)}</div>`;
+        const pausaActiva = (p.pausas || []).find(x => !x.pausa_fin);
+        if (pausaActiva) {
+          html += `<div class="task-date" style="color:#f59e0b;font-weight:600">⏸️ ${esc(nombre)} · EN PAUSA desde ${formatHora(pausaActiva.pausa_inicio)}</div>`;
+        } else {
+          html += `<div class="task-date" style="color:#16a34a;font-weight:600">🟢 ${esc(nombre)} · desde ${formatHora(p.check_in)}</div>`;
+        }
       } else {
-        html += `<div class="task-date" style="color:#94a3b8;font-size:12px">✅ ${esc(nombre)}: ${formatHora(p.check_in)} – ${formatHora(p.check_out)}</div>`;
+        const durNeta = calcularDuracionNeta(p.check_in, p.check_out, p.pausas);
+        const minPausa = minutosEnPausas(p.pausas);
+        const pausaLabel = minPausa > 0 ? ` (−${minPausa}min pausa)` : '';
+        html += `<div class="task-date" style="color:#94a3b8;font-size:12px">✅ ${esc(nombre)}: ${formatHora(p.check_in)} – ${formatHora(p.check_out)} · ${durNeta}${pausaLabel}</div>`;
       }
     });
 
     const esAdmin = currentUser?.perfil === 'admin';
 
     if (esAdmin) {
-      // Admin: botón de finalizar por cada participante activo + botón para agregar otro técnico
+      // Admin: pausa/reanuda + finalizar por cada participante activo + agregar técnico
       partes.filter(p => !p.check_out).forEach(p => {
         const nombre = getMember(p.tecnico_id)?.name || 'Técnico';
-        html += `<button class="btn-archivar" style="background:#f59e0b;color:#fff;margin-top:4px"
+        const pausaActiva = (p.pausas || []).find(x => !x.pausa_fin);
+        if (pausaActiva) {
+          html += `<button class="btn-archivar" style="background:#16a34a;color:#fff;margin-top:4px"
+            onclick="reanudarVisita('${t.id}','${p.id}',event)">▶️ Reanudar: ${esc(nombre)}</button>`;
+        } else {
+          html += `<button class="btn-archivar" style="background:#f59e0b;color:#fff;margin-top:4px"
+            onclick="abrirPausaModal('${t.id}','${p.id}',event)">⏸️ Pausar: ${esc(nombre)}</button>`;
+        }
+        html += `<button class="btn-archivar" style="background:#64748b;color:#fff;margin-top:2px"
           onclick="finalizarVisitaParticipante('${t.id}','${p.id}',event)">🏁 Finalizar: ${esc(nombre)}</button>`;
       });
       html += `<button class="btn-archivar" style="background:#16a34a;color:#fff;margin-top:4px"
@@ -77,7 +93,16 @@ function renderVisitaBoton(t) {
         ? partes.find(p => p.tecnico_id === currentUser.id && !p.check_out)
         : null;
       if (miPart) {
-        html += `<button class="btn-archivar" style="background:#f59e0b;color:#fff"
+        const pausaActiva = (miPart.pausas || []).find(x => !x.pausa_fin);
+        if (pausaActiva) {
+          html += `<div class="task-date" style="color:#92400e;font-size:12px;margin-bottom:2px">📝 ${esc(pausaActiva.justificacion)}</div>`;
+          html += `<button class="btn-archivar" style="background:#16a34a;color:#fff"
+            onclick="reanudarVisita('${t.id}','${miPart.id}',event)">▶️ Reanudar visita</button>`;
+        } else {
+          html += `<button class="btn-archivar" style="background:#f59e0b;color:#fff"
+            onclick="abrirPausaModal('${t.id}','${miPart.id}',event)">⏸️ Pausar visita</button>`;
+        }
+        html += `<button class="btn-archivar" style="background:#64748b;color:#fff;margin-top:2px"
           onclick="finalizarVisitaParticipante('${t.id}','${miPart.id}',event)">🏁 Finalizar mi visita</button>`;
       } else if (currentUser && !partes.find(p => p.tecnico_id === currentUser.id)) {
         // No ha registrado llegada todavía
@@ -147,6 +172,30 @@ function calcularDuracion(checkIn, checkOut) {
   return `${h}h ${m}min`;
 }
 
+// Duración neta descontando pausas completadas
+function calcularDuracionNeta(checkIn, checkOut, pausas) {
+  if (!checkIn || !checkOut) return '-';
+  const a = new Date(checkIn.replace(' ', 'T'));
+  const b = new Date(checkOut.replace(' ', 'T'));
+  let totalMin = Math.max(0, Math.round((b - a) / 60000));
+  (pausas || []).filter(p => p.pausa_fin).forEach(p => {
+    const pi = new Date(p.pausa_inicio.replace(' ', 'T'));
+    const pf = new Date(p.pausa_fin.replace(' ', 'T'));
+    totalMin -= Math.max(0, Math.round((pf - pi) / 60000));
+  });
+  totalMin = Math.max(0, totalMin);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return `${h}h ${m}min`;
+}
+
+function minutosEnPausas(pausas) {
+  return (pausas || []).filter(p => p.pausa_fin).reduce((acc, p) => {
+    const pi = new Date(p.pausa_inicio.replace(' ', 'T'));
+    const pf = new Date(p.pausa_fin.replace(' ', 'T'));
+    return acc + Math.max(0, Math.round((pf - pi) / 60000));
+  }, 0);
+}
+
 // ----------------- Selector rápido de técnico (sin login todavía) -----------------
 let _visitaTecnicoCallback = null;
 
@@ -168,6 +217,60 @@ function resolverSelectorTecnico(tecnicoId) {
 function closeVisitaTecnicoModal() {
   document.getElementById('visita-tecnico-modal').classList.remove('open');
   _visitaTecnicoCallback = null;
+}
+
+// ----------------- Pausa / Reanuda visita -----------------
+let _pausaTareaId = null;
+let _pausaParticipanteId = null;
+
+function abrirPausaModal(tareaId, participanteId, event) {
+  if (event) event.stopPropagation();
+  _pausaTareaId = tareaId;
+  _pausaParticipanteId = participanteId;
+  document.getElementById('pausa-justificacion').value = '';
+  document.getElementById('pausa-modal').classList.add('open');
+}
+
+function cerrarPausaModal() {
+  document.getElementById('pausa-modal').classList.remove('open');
+  _pausaTareaId = null;
+  _pausaParticipanteId = null;
+}
+
+async function confirmarPausa() {
+  const justificacion = document.getElementById('pausa-justificacion').value.trim();
+  if (!justificacion) { alert('Escribe el motivo de la pausa.'); return; }
+  const tareaId = _pausaTareaId;
+  const participanteId = _pausaParticipanteId;
+  cerrarPausaModal();
+  const visita = visitasActivas[tareaId];
+  if (!visita) return;
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'pausar', participanteId, justificacion }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    visitasActivas[tareaId] = data;
+    render();
+  } catch (e) { console.error(e); alert('No se pudo pausar la visita. Revisa tu conexión.'); }
+}
+
+async function reanudarVisita(tareaId, participanteId, event) {
+  if (event) event.stopPropagation();
+  const visita = visitasActivas[tareaId];
+  if (!visita) return;
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'reanudar', participanteId }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    visitasActivas[tareaId] = data;
+    render();
+  } catch (e) { console.error(e); alert('No se pudo reanudar la visita. Revisa tu conexión.'); }
 }
 
 // ----------------- Geofencing -----------------
@@ -590,7 +693,7 @@ function renderFormularioReporte() {
         <span>👷 Inició: ${esc(tecnicoIn)}</span>
         <span>🏁 Finalizó: ${esc(tecnicoOut)}</span>
         <span>🕐 ${formatHora(r.check_in)} – ${formatHora(r.check_out)}</span>
-        <span>⏱ ${calcularDuracion(r.check_in, r.check_out)}</span>
+        <span>⏱ ${calcularDuracionNeta(r.check_in, r.check_out, (r.participantes||[]).flatMap(p=>p.pausas||[]))}</span>
       </div>
       ${esAdmin ? renderCabeceraEditableAdmin(r) : ''}
     </div>
@@ -777,9 +880,20 @@ async function generarPDFReporte(btn) {
         const nombre   = getMember(p.tecnico_id)?.name || p.tecnico_id || '-';
         const horaIn   = formatHora(p.check_in);
         const horaOut  = p.check_out ? formatHora(p.check_out) : '-';
-        const dur      = p.check_out ? calcularDuracion(p.check_in, p.check_out) : 'En curso';
+        const durNeta  = p.check_out ? calcularDuracionNeta(p.check_in, p.check_out, p.pausas) : 'En curso';
+        const minPausa = minutosEnPausas(p.pausas);
+        const pausaLabel = minPausa > 0 ? ` · Pausa: ${minPausa}min` : '';
         const etiqueta = partes.length > 1 ? `Técnico ${i + 1}` : 'Técnico';
-        filas.push([etiqueta, `${nombre}   ${horaIn} → ${horaOut}   (${dur})`]);
+        filas.push([etiqueta, `${nombre}   ${horaIn} → ${horaOut}   (${durNeta}${pausaLabel})`]);
+        // Detalle de pausas en el PDF
+        (p.pausas || []).forEach(pz => {
+          const pIn  = pz.pausa_inicio ? pz.pausa_inicio.substring(11,16) : '-';
+          const pOut = pz.pausa_fin    ? pz.pausa_fin.substring(11,16)    : 'activa';
+          const pDur = pz.pausa_fin
+            ? Math.round((new Date(pz.pausa_fin.replace(' ','T')) - new Date(pz.pausa_inicio.replace(' ','T')))/60000) + 'min'
+            : '';
+          filas.push(['  Pausa', `${pIn} – ${pOut}${pDur?' ('+pDur+')':''} · ${pz.justificacion}`]);
+        });
       });
     } else {
       // Fallback para reportes creados antes de la migración multi-técnico
@@ -1026,10 +1140,24 @@ async function renderHistorialVisitasModal(tareaId) {
               <button onclick="eliminarParticipanteVisita('${p.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Eliminar este check-in">🗑️</button>
             </div>${tardiBadge ? `<div style="margin-bottom:4px">${tardiBadge}</div>` : ''}`;
           } else {
-            const dur = p.check_out ? calcularDuracion(p.check_in, p.check_out) : 'En curso';
+            const dur = p.check_out ? calcularDuracionNeta(p.check_in, p.check_out, p.pausas) : 'En curso';
             html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
               👤 ${esc(nombre)} &nbsp;·&nbsp; ${checkIn}${checkOut?' → '+checkOut:' (en curso)'} &nbsp;·&nbsp; ${dur}${tardiBadge}
             </div>`;
+          }
+          // Pausas de este participante
+          const pausas = p.pausas || [];
+          if (pausas.length > 0) {
+            html += `<div style="margin:0 0 6px 12px;border-left:2px solid #fde68a;padding-left:8px">`;
+            pausas.forEach(pz => {
+              const pIn  = pz.pausa_inicio ? pz.pausa_inicio.substring(11,16) : '-';
+              const pOut = pz.pausa_fin    ? pz.pausa_fin.substring(11,16)    : '(activa)';
+              const pDur = pz.pausa_fin
+                ? (() => { const d = Math.round((new Date(pz.pausa_fin.replace(' ','T')) - new Date(pz.pausa_inicio.replace(' ','T')))/60000); return `${d}min`; })()
+                : '';
+              html += `<div style="font-size:11px;color:#92400e;margin-bottom:2px">⏸️ ${pIn} – ${pOut}${pDur ? ' ('+pDur+')' : ''} · ${esc(pz.justificacion)}</div>`;
+            });
+            html += `</div>`;
           }
         });
       } else {

@@ -15,7 +15,13 @@ function fotosDeReporte($pdo, $reporteId) {
 function participantesDeReporte($pdo, $reporteId) {
   $stmt = $pdo->prepare("SELECT * FROM visita_participantes WHERE reporte_id = ? ORDER BY check_in ASC");
   $stmt->execute([$reporteId]);
-  return $stmt->fetchAll();
+  $partes = $stmt->fetchAll();
+  foreach ($partes as &$p) {
+    $stmt2 = $pdo->prepare("SELECT id, pausa_inicio, pausa_fin, justificacion FROM visita_pausas WHERE participante_id = ? ORDER BY pausa_inicio ASC");
+    $stmt2->execute([$p['id']]);
+    $p['pausas'] = $stmt2->fetchAll();
+  }
+  return $partes;
 }
 
 function reporteConFotos($pdo, $row) {
@@ -298,6 +304,36 @@ if ($method === 'PUT') {
     jsonOut(reporteConFotos($pdo, $stmt->fetch()));
   }
 
+  // ── Pausar visita de un participante ────────────────────────────
+  if (($d['accion'] ?? '') === 'pausar') {
+    $partId       = $d['participanteId'] ?? null;
+    $justificacion = trim($d['justificacion'] ?? '');
+    if (!$partId)       jsonOut(['error' => 'participanteId requerido'], 400);
+    if ($justificacion === '') jsonOut(['error' => 'La justificación es obligatoria'], 400);
+    // Idempotente: si ya hay pausa activa, devolver el reporte tal cual
+    $stmtPausa = $pdo->prepare("SELECT id FROM visita_pausas WHERE participante_id = ? AND pausa_fin IS NULL");
+    $stmtPausa->execute([$partId]);
+    if (!$stmtPausa->fetch()) {
+      $pausaId = bin2hex(random_bytes(16));
+      $pdo->prepare("INSERT INTO visita_pausas (id, participante_id, pausa_inicio, justificacion) VALUES (?, ?, NOW(), ?)")
+        ->execute([$pausaId, $partId, $justificacion]);
+    }
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$id]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()));
+  }
+
+  // ── Reanudar visita de un participante ──────────────────────────
+  if (($d['accion'] ?? '') === 'reanudar') {
+    $partId = $d['participanteId'] ?? null;
+    if (!$partId) jsonOut(['error' => 'participanteId requerido'], 400);
+    $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
+      ->execute([$partId]);
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$id]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()));
+  }
+
   if (($d['accion'] ?? '') === 'checkout') {
     $tecnicoOut  = $d['tecnicoCheckoutId'] ?? null;
     $partId      = $d['participanteId']    ?? null;
@@ -306,6 +342,9 @@ if ($method === 'PUT') {
 
     if ($partId) {
       // ── Multi-tech: actualizar participante específico ──────────
+      // Auto-cerrar pausa activa si el técnico finaliza estando en pausa
+      $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
+        ->execute([$partId]);
       $pdo->prepare("UPDATE visita_participantes SET check_out = NOW(), checkout_lat = ?, checkout_lng = ? WHERE id = ?")
         ->execute([$checkoutLat, $checkoutLng, $partId]);
       // ¿Quedan participantes sin checkout?

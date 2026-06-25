@@ -4,6 +4,14 @@ Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo
 
 URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
 
+## Estado actual (última actualización: 2026-06-25)
+
+- **Cambio pendiente de deploy (2026-06-25): Pausa / reanuda visita**
+  - Nueva tabla `visita_pausas (id, participante_id, pausa_inicio, pausa_fin, justificacion)` con FK a `visita_participantes ON DELETE CASCADE`. **Acción pendiente en deploy**: ejecutar `backend/migracion_visita_pausas.sql` antes de publicar.
+  - Backend (`reportes.php`): `participantesDeReporte()` incluye `pausas[]` por participante. Nuevas acciones PUT: `pausar` (crea fila con justificación obligatoria, idempotente) y `reanudar` (cierra pausa activa). Checkout auto-cierra la pausa activa si el técnico finaliza estando en pausa.
+  - Frontend (`reportes.js?v=20260625a`): `calcularDuracionNeta(checkIn, checkOut, pausas)` y `minutosEnPausas(pausas)` descuentan las pausas del tiempo ejecutado. `renderVisitaBoton` muestra "⏸️ EN PAUSA" (amber) con el motivo, botón "▶️ Reanudar" cuando hay pausa activa, o "⏸️ Pausar visita" cuando no. Historial y PDF muestran detalle de pausas y duración neta.
+  - HTML: nuevo modal `#pausa-modal` (z-index:315) con textarea de justificación. Funciones JS: `abrirPausaModal`, `cerrarPausaModal`, `confirmarPausa`, `reanudarVisita`.
+
 ## Estado actual (última actualización: 2026-06-24 — Deploy #27 desplegado y verificado ✅)
 
 - **Versiones de caché en `tareas-equipo.html`**: `core.js?v=20260624a`, `tareas.js?v=20260624a`, `reportes.js?v=20260624a`, `informes.js?v=20260624a`, `alarma.js?v=20260624a`, `app.js?v=20260623c`.

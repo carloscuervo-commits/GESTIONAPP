@@ -500,6 +500,23 @@
   </div>
 </div>
 
+<!-- MODAL: justificación de pausa de visita -->
+<div class="modal-overlay" id="pausa-modal" style="z-index:315">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">⏸️ Pausar visita</div>
+    <p style="margin:0 0 12px;font-size:13px;color:var(--text-muted)">
+      Indica el motivo de la pausa (ej: salida a almorzar, desplazamiento, etc.)
+    </p>
+    <textarea id="pausa-justificacion" rows="3"
+      style="width:100%;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;background:var(--card);color:var(--text);margin-bottom:16px"
+      placeholder="Motivo de la pausa..."></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="btn-cancel" style="flex:1" onclick="cerrarPausaModal()">Cancelar</button>
+      <button class="btn-save" style="flex:2;background:#f59e0b;border-color:#f59e0b" onclick="confirmarPausa()">⏸️ Pausar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: formulario de reporte de visita (mobile-first) -->
 <div class="modal-overlay" id="reporte-modal" style="z-index:350">
   <div class="modal" style="max-width:560px">
@@ -621,7 +638,7 @@
 <script src="assets/js/tareas.js?v=20260624k"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260624o"></script>
+<script src="assets/js/reportes.js?v=20260625a"></script>
 <script src="assets/js/informes.js?v=20260624r"></script>
 <script src="assets/js/alarma.js?v=20260624e"></script>
 <script src="assets/js/usuarios.js?v=20260622a"></script>
