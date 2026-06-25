@@ -59,10 +59,23 @@ if ($method === 'POST') {
 
   $rutaPdf = __DIR__ . '/../uploads/reporte_pdf/' . $rep['pdf_archivo'];
 
-  $asunto = "🧾 Reporte de visita — " . ($rep['cliente'] ?: 'Cliente') . " — " . $rep['titulo'];
-  $cuerpo = "<p>Se adjunta el reporte de la visita técnica.</p>"
-    . "<p><b>Cliente:</b> " . htmlspecialchars($rep['cliente'] ?: '-') . "<br>"
-    . "<b>Tarea:</b> " . htmlspecialchars($rep['titulo']) . "</p>";
+  // Fecha de la visita en español (mismo formato que el mensaje de WhatsApp)
+  $fechaVisita = '';
+  if (!empty($rep['check_in'])) {
+    $meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    $dt = new DateTime($rep['check_in'], new DateTimeZone('America/Bogota'));
+    $fechaVisita = $dt->format('j') . ' de ' . $meses[(int)$dt->format('n') - 1] . ' de ' . $dt->format('Y');
+  }
+
+  $tituloH  = htmlspecialchars($rep['titulo'] ?: 'servicio técnico');
+  $clienteH = htmlspecialchars($rep['cliente'] ?: '');
+
+  $asunto = "🧾 Reporte de visita técnica — " . ($rep['cliente'] ?: 'Cliente');
+  $cuerpo = "<p>Buen día. Adjunto el reporte de visita técnica para <b>{$tituloH}</b>"
+    . ($clienteH ? " – {$clienteH}" : '')
+    . ($fechaVisita ? ", realizada el {$fechaVisita}" : '') . ".</p>"
+    . "<p>Agradecemos su confianza en Grupo Innovate. Estamos siempre disponibles para apoyarle en sus próximas necesidades de soporte técnico. ¡Será un gusto servirle de nuevo! 🔧</p>"
+    . "<p><em>Grupo Innovate · 📞 317 645 2811 · info@innovate.com.co</em></p>";
 
   $ok = enviarCorreoConAdjunto($correos, $asunto, $cuerpo, $rutaPdf, $rep['pdf_archivo']);
   if (!$ok) jsonOut(['error' => 'No se pudo enviar el correo (revisa la configuración de correo del servidor)'], 500);

@@ -556,7 +556,7 @@ function cerrarFormularioReporte() {
   document.getElementById('popup-tarea-terminada').classList.add('open');
 }
 
-function resolverTareaTerminada(terminada) {
+async function resolverTareaTerminada(terminada) {
   document.getElementById('popup-tarea-terminada').classList.remove('open');
   const tareaId = reporteActual ? reporteActual.tarea_id : null;
   reporteActual = null;
@@ -567,7 +567,9 @@ function resolverTareaTerminada(terminada) {
       tasks[idx].estado = 'realizado';
       tasks[idx].updatedAt = new Date().toISOString();
       save();
-      syncTask(tasks[idx], false);
+      // await garantiza que el servidor actualiza antes de cualquier re-carga
+      // (sin esto, auto-sync puede disparar y revertir el estado local con datos viejos del servidor)
+      await syncTask(tasks[idx], false);
     }
   }
   cargarVisitasActivas();

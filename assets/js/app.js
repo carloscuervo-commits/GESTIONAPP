@@ -73,6 +73,7 @@ async function iniciarApp(){
   await cargarVisitasActivas();
   aplicarPermisosUI();
   iniciarAlarmaChecker();
+  iniciarAutoSync();
   setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
 }
 
@@ -84,6 +85,42 @@ window.addEventListener('pageshow', () => {
   const ids = ['search', 'f-estado', 'f-responsable'];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 });
+
+// ===================== AUTO-SYNC (polling cada 20s) =====================
+// Recarga tareas y visitas activas en segundo plano para que todos los
+// usuarios vean los cambios de los demás sin necesidad de refrescar.
+// Se salta el ciclo si hay un modal de edición abierto (para no
+// interrumpir lo que el usuario está escribiendo) o si la pestaña
+// no está visible (ahorra tráfico cuando la app está en segundo plano).
+
+const AUTO_SYNC_INTERVALO = 20000; // ms
+let _autoSyncActivo = false;
+
+async function autoSync() {
+  if (!API_BASE) return;
+  if (!currentUser) return;
+  if (document.visibilityState === 'hidden') return;
+  // No sincronizar si hay un modal de edición abierto
+  const modalesEdicion = ['modal', 'reporte-modal'];
+  if (modalesEdicion.some(id => document.getElementById(id)?.classList.contains('open'))) return;
+
+  try {
+    await load();
+    render();
+    // cargarVisitasActivas también llama render() internamente
+    await cargarVisitasActivas();
+  } catch (e) {
+    // Error de red silencioso — el usuario sigue trabajando con los datos que tiene
+    console.warn('Auto-sync falló (sin conexión?):', e);
+  }
+}
+
+function iniciarAutoSync() {
+  if (_autoSyncActivo) return;
+  _autoSyncActivo = true;
+  setInterval(autoSync, AUTO_SYNC_INTERVALO);
+}
+// ===================== FIN AUTO-SYNC =====================
 
 (async function init(){
   // Si no hay sesión válida, cargarSesion() muestra la pantalla de login
