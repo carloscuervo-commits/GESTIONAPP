@@ -172,7 +172,9 @@ function calcularDuracion(checkIn, checkOut) {
   return `${h}h ${m}min`;
 }
 
-// Duración neta descontando pausas completadas
+// Duración neta descontando pausas completadas.
+// Solo descuenta la parte de cada pausa que cae dentro del intervalo [check_in, check_out]
+// (clipping), para que pausas fuera del horario no produzcan duraciones negativas.
 function calcularDuracionNeta(checkIn, checkOut, pausas) {
   if (!checkIn || !checkOut) return '-';
   const a = new Date(checkIn.replace(' ', 'T'));
@@ -181,7 +183,11 @@ function calcularDuracionNeta(checkIn, checkOut, pausas) {
   (pausas || []).filter(p => p.pausa_fin).forEach(p => {
     const pi = new Date(p.pausa_inicio.replace(' ', 'T'));
     const pf = new Date(p.pausa_fin.replace(' ', 'T'));
-    totalMin -= Math.max(0, Math.round((pf - pi) / 60000));
+    // Clip al intervalo de trabajo antes de descontar
+    const overlapStart = Math.max(pi, a);
+    const overlapEnd   = Math.min(pf, b);
+    const overlap = Math.max(0, Math.round((overlapEnd - overlapStart) / 60000));
+    totalMin -= overlap;
   });
   totalMin = Math.max(0, totalMin);
   const h = Math.floor(totalMin / 60), m = totalMin % 60;
@@ -1224,6 +1230,15 @@ async function guardarParticipanteVisita(btn) {
   const hIn    = row.querySelector('.hvp-in').value;
   const hOut   = row.querySelector('.hvp-out').value;
   if (!hIn) { alert('La hora de entrada es obligatoria.'); return; }
+
+  // Contar pausas del participante antes de guardar para detectar eliminaciones
+  let pausasAntes = 0;
+  try {
+    const repAntes = await fetch(`${API_BASE}/reportes.php?id=${repId}`).then(r => r.json());
+    const partAntes = (repAntes.participantes || []).find(p => p.id === partId);
+    pausasAntes = (partAntes?.pausas || []).filter(p => p.pausa_fin).length;
+  } catch(e) { /* no crítico */ }
+
   btn.disabled = true; btn.textContent = '⏳';
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${repId}`, {
@@ -1232,10 +1247,27 @@ async function guardarParticipanteVisita(btn) {
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
-    btn.textContent = '✅';
-    setTimeout(() => { btn.disabled = false; btn.textContent = '💾'; }, 1500);
-    // Actualizar visitasActivas si este reporte sigue activo
-    if (data.estado === 'en_visita') { visitasActivas[data.tarea_id] = data; render(); }
+
+    // Detectar si el backend eliminó pausas que quedaron fuera del nuevo horario
+    const partDespues = (data.participantes || []).find(p => p.id === partId);
+    const pausasDespues = (partDespues?.pausas || []).filter(p => p.pausa_fin).length;
+    const eliminadas = pausasAntes - pausasDespues;
+
+    btn.textContent = eliminadas > 0 ? `✅ (${eliminadas} pausa${eliminadas>1?'s':''} eliminada${eliminadas>1?'s':''})` : '✅';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '💾'; }, 2500);
+
+    // Actualizar estado local y re-renderizar historial
+    if (data.estado === 'en_visita') visitasActivas[data.tarea_id] = data;
+    else {
+      // Puede que haya pasado de en_visita a borrador tras editar
+      if (visitasActivas[data.tarea_id]?.id === repId) delete visitasActivas[data.tarea_id];
+      if (!borradoresActivos[data.tarea_id]) borradoresActivos[data.tarea_id] = [];
+      const idx = borradoresActivos[data.tarea_id].findIndex(b => b.id === repId);
+      if (idx >= 0) borradoresActivos[data.tarea_id][idx] = data;
+      else borradoresActivos[data.tarea_id].push(data);
+    }
+    render();
+    await renderHistorialVisitasModal(data.tarea_id);
   } catch(e) {
     alert('Error al guardar. Intenta de nuevo.');
     btn.disabled = false; btn.textContent = '💾';

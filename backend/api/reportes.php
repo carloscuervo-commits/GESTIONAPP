@@ -292,12 +292,31 @@ if ($method === 'PUT') {
     $pdo->prepare("UPDATE visita_participantes SET tecnico_id=?, check_in=?, check_out=? WHERE id=?")
       ->execute([$tecnicoId, $newIn, $newOut, $partId]);
 
+    // Eliminar pausas que quedaron completamente fuera del nuevo rango de trabajo:
+    //   - empieza después del nuevo checkout (o no hay checkout)
+    //   - termina antes del nuevo check-in
+    if ($newOut) {
+      $pdo->prepare("DELETE FROM visita_pausas WHERE participante_id = ? AND (pausa_inicio >= ? OR (pausa_fin IS NOT NULL AND pausa_fin <= ?))")
+        ->execute([$partId, $newOut, $newIn]);
+    } else {
+      $pdo->prepare("DELETE FROM visita_pausas WHERE participante_id = ? AND pausa_fin IS NOT NULL AND pausa_fin <= ?")
+        ->execute([$partId, $newIn]);
+    }
+
     // Si ya todos tienen checkout → mantener borrador; si hay alguno sin → en_visita
     $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
     $stmtCnt->execute([$id]);
     $sinOut = (int)$stmtCnt->fetchColumn();
     $nuevoEstado = $sinOut > 0 ? 'en_visita' : 'borrador';
-    $pdo->prepare("UPDATE reportes SET estado=? WHERE id=?")->execute([$nuevoEstado, $id]);
+
+    // Sincronizar top-level check_in / check_out del reporte con MIN/MAX de los participantes,
+    // para que renderFormularioReporte muestre siempre la hora correcta.
+    $stmtSync = $pdo->prepare("SELECT MIN(check_in), MAX(check_out) FROM visita_participantes WHERE reporte_id = ?");
+    $stmtSync->execute([$id]);
+    [$minIn, $maxOut] = $stmtSync->fetch(\PDO::FETCH_NUM);
+
+    $pdo->prepare("UPDATE reportes SET estado=?, check_in=?, check_out=? WHERE id=?")
+      ->execute([$nuevoEstado, $minIn ?: $prev['check_in'], $maxOut, $id]);
 
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
     $stmt->execute([$id]);
