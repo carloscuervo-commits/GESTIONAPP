@@ -558,6 +558,9 @@ function cerrarFormularioReporte() {
 
 async function resolverTareaTerminada(terminada) {
   document.getElementById('popup-tarea-terminada').classList.remove('open');
+  // Si el modal de edición de tarea estaba abierto (visita iniciada desde el modal),
+  // cerrarlo para evitar que el usuario guarde datos viejos y revierta el estado.
+  document.getElementById('modal')?.classList.remove('open');
   const tareaId = reporteActual ? reporteActual.tarea_id : null;
   reporteActual = null;
 
