@@ -47,8 +47,13 @@ async function syncTask(task, isNew) {
   if (!API_BASE) return;
   try {
     const url = isNew ? `${API_BASE}/tareas.php` : `${API_BASE}/tareas.php?id=${task.id}`;
-    await fetch(url, { method: isNew?'POST':'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(taskToApi(task)) });
-  } catch (e) { console.error('Error guardando en servidor', e); alert('No se pudo guardar en el servidor. Revisa tu conexión.'); }
+    const res = await fetch(url, { method: isNew?'POST':'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(taskToApi(task)) });
+    if (!res.ok) {
+      let msg = `Error del servidor (${res.status})`;
+      try { const d = await res.json(); if (d.error) msg = d.error; } catch {}
+      throw new Error(msg);
+    }
+  } catch (e) { console.error('Error guardando en servidor', e); alert('No se pudo guardar en el servidor: ' + e.message); }
 }
 
 async function syncDelete(id) {

@@ -568,8 +568,10 @@ async function resolverTareaTerminada(terminada) {
       tasks[idx].updatedAt = new Date().toISOString();
       save();
       // await garantiza que el servidor actualiza antes de cualquier re-carga
-      // (sin esto, auto-sync puede disparar y revertir el estado local con datos viejos del servidor)
       await syncTask(tasks[idx], false);
+      // Recargar desde el servidor para que la UI refleje el estado real guardado
+      await load();
+      render();
     }
   }
   cargarVisitasActivas();
