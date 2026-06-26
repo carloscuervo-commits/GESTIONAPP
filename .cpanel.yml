@@ -1,8 +1,9 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/innovate/public_html/gestion/
+    - export DEPLOYPATH=/home/innovate/public_html/ginno/
     - /bin/cp -r tareas-equipo.html $DEPLOYPATH
+    - /bin/cp -r .htaccess $DEPLOYPATH
     - /bin/mkdir -p $DEPLOYPATH/assets/css
     - /bin/cp -r assets/css/. $DEPLOYPATH/assets/css/
     - /bin/mkdir -p $DEPLOYPATH/assets/js

@@ -71,11 +71,17 @@ if ($method === 'POST') {
   $clienteH = htmlspecialchars($rep['cliente'] ?: '');
 
   $asunto = "🧾 Reporte de visita técnica — " . ($rep['cliente'] ?: 'Cliente');
-  $cuerpo = "<p>Buen día. Adjunto el reporte de visita técnica para <b>{$tituloH}</b>"
+  $cuerpo = "<div style='font-family:Arial,sans-serif;max-width:600px;color:#1e293b'>"
+    . "<p>Buen día. Adjunto el reporte de visita técnica para <b>{$tituloH}</b>"
     . ($clienteH ? " – {$clienteH}" : '')
     . ($fechaVisita ? ", realizada el {$fechaVisita}" : '') . ".</p>"
     . "<p>Agradecemos su confianza en Grupo Innovate. Estamos siempre disponibles para apoyarle en sus próximas necesidades de soporte técnico. ¡Será un gusto servirle de nuevo! 🔧</p>"
-    . "<p><em>Grupo Innovate · 📞 317 645 2811 · info@innovate.com.co</em></p>";
+    . "<hr style='border:none;border-top:1px solid #e2e8f0;margin:20px 0'>"
+    . "<p style='color:#64748b;font-size:13px;margin:0'>"
+    . "<strong style='color:#169BBC'>Grupo Innovate</strong> · 📞 317 645 2811 · "
+    . "<a href='mailto:info@innovate.com.co' style='color:#169BBC;text-decoration:none'>info@innovate.com.co</a><br>"
+    . "<span style='color:#94a3b8;font-size:12px'>Mensaje enviado por Ginno, asistente de Grupo Innovate</span>"
+    . "</p></div>";
 
   $ok = enviarCorreoConAdjunto($correos, $asunto, $cuerpo, $rutaPdf, $rep['pdf_archivo']);
   if (!$ok) jsonOut(['error' => 'No se pudo enviar el correo (revisa la configuración de correo del servidor)'], 500);

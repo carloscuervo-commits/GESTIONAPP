@@ -71,7 +71,7 @@ $cuerpo = "
   </div>
   <div style='background:#f8fafc;border:1px solid #e2e8f0;border-top:0;padding:12px 20px;border-radius:0 0 8px 8px'>
     <p style='margin:0;color:#94a3b8;font-size:12px'>
-      Generado automáticamente por el sistema de gestión · Grupo Innovate
+      Ginno · Asistente de Grupo Innovate · <a href='https://grupoinnovate.com/ginno/' style='color:#169BBC;text-decoration:none'>grupoinnovate.com</a>
     </p>
   </div>
 </div>";

@@ -1,8 +1,18 @@
-# CONTEXTO.md — Gestión App (Innovate)
+# CONTEXTO.md — Ginno (Grupo Innovate)
 
-Tablero de gestión de tareas para el equipo de Innovate (IT, IF, Administrativo, Comercial/Cartera), con integración a Alegra.
+**Ginno** es el asistente de gestión de Grupo Innovate — G Inno. Tablero de tareas para el equipo (IT, IF, Administrativo, Comercial/Cartera), con integración a Alegra. Se comunica como un compañero de trabajo, no como un sistema.
 
-URL pública: https://grupoinnovate.com/gestion/tareas-equipo.html
+URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
+
+## Estado actual (última actualización: 2026-06-26)
+
+- **Rebrand a Ginno (2026-06-26)** — pendiente de deploy:
+  - `tareas-equipo.html`: `<title>` → "Ginno"; pantalla de login muestra "Ginno" + "Tu asistente · Grupo Innovate"; alt del logo → "Ginno"; modal de alarma → "🔔 Ginno te recuerda" + botón "Entendido, gracias Ginno".
+  - `backend/lib/mailer.php`: boundary MIME cambiado de `INNOVATE-` a `GINNO-`.
+  - `backend/api/reportes.php`: correos de check-in y checkout internos ahora dicen "¡Hola! Te cuento que..." y firman "Ginno · Asistente de Grupo Innovate".
+  - `backend/api/reporte_enviar_correo.php`: correo al cliente mantiene marca "Grupo Innovate" pero añade "Mensaje enviado por Ginno, asistente de Grupo Innovate".
+  - `backend/api/alertas.php`: footer del correo de técnico tardío → "Ginno · Asistente de Grupo Innovate · grupoinnovate.com".
+  - **Acción manual en servidor**: cambiar `CORREO_FROM_NOMBRE` en `backend/config/config_correo.php` de lo que sea actual a `'Ginno'` para que el campo "De:" de los correos diga "Ginno".
 
 ## Estado actual (última actualización: 2026-06-25)
 

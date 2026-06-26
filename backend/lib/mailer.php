@@ -20,7 +20,7 @@ function enviarCorreoConAdjunto(array $destinatarios, string $asunto, string $cu
   $destinatarios = array_values(array_unique(array_filter(array_map('trim', $destinatarios))));
   if (empty($destinatarios)) return false;
 
-  $boundary = 'INNOVATE-' . bin2hex(random_bytes(12));
+  $boundary = 'GINNO-' . bin2hex(random_bytes(12));
   $to = implode(', ', $destinatarios);
 
   $headers = [];

@@ -215,10 +215,14 @@ if ($method === 'POST') {
       $horaDisplay = $checkInParam ? date('d/m/Y H:i', strtotime($checkInParam)) . ' (manual)' : date('d/m/Y H:i');
       enviarCorreoConAdjunto([CORREO_ADMIN_FIJO],
         "🟢 Técnico adicional en sitio — " . ($tarea['cliente'] ?: 'Sin cliente'),
-        "<p><b>{$tecnicoNombre}</b> llegó a sitio (visita en curso).</p>"
-        . "<p><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
+        "<div style='font-family:Arial,sans-serif;max-width:600px;color:#1e293b'>"
+        . "<p>¡Hola! Te cuento que <b>{$tecnicoNombre}</b> acaba de unirse a una visita en curso.</p>"
+        . "<p style='margin:0'><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
         . "<b>Tarea:</b> " . htmlspecialchars($tarea['titulo']) . "<br>"
-        . "<b>Hora:</b> {$horaDisplay}</p>"
+        . "<b>Hora de llegada:</b> {$horaDisplay}</p>"
+        . "<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0'>"
+        . "<p style='color:#94a3b8;font-size:12px;margin:0'>Ginno · Asistente de Grupo Innovate</p>"
+        . "</div>"
       );
     } catch (Throwable $e) {}
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
@@ -240,10 +244,14 @@ if ($method === 'POST') {
     $horaDisplay = $checkInParam ? date('d/m/Y H:i', strtotime($checkInParam)) . ' (manual)' : date('d/m/Y H:i');
     enviarCorreoConAdjunto([CORREO_ADMIN_FIJO],
       "🟢 Visita iniciada — " . ($tarea['cliente'] ?: 'Sin cliente'),
-      "<p><b>{$tecnicoNombre}</b> inició una visita técnica.</p>"
-      . "<p><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
+      "<div style='font-family:Arial,sans-serif;max-width:600px;color:#1e293b'>"
+      . "<p>¡Hola! Te cuento que <b>{$tecnicoNombre}</b> ya está en sitio.</p>"
+      . "<p style='margin:0'><b>Cliente:</b> " . htmlspecialchars($tarea['cliente'] ?: '-') . "<br>"
       . "<b>Tarea:</b> " . htmlspecialchars($tarea['titulo']) . "<br>"
       . "<b>Hora de inicio:</b> {$horaDisplay}</p>"
+      . "<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0'>"
+      . "<p style='color:#94a3b8;font-size:12px;margin:0'>Ginno · Asistente de Grupo Innovate</p>"
+      . "</div>"
     );
   } catch (Throwable $e) {}
 
@@ -431,17 +439,21 @@ if ($method === 'PUT') {
       enviarCorreoConAdjunto(
         [CORREO_ADMIN_FIJO],
         "🔴 Visita finalizada — {$cliente}",
-        "<p><b>{$tecnicoNombre}</b> finalizó su visita técnica.</p>"
+        "<div style='font-family:Arial,sans-serif;max-width:600px;color:#1e293b'>"
+        . "<p>¡Hola! <b>{$tecnicoNombre}</b> ya terminó su visita. Aquí el resumen:</p>"
         . "<table style='border-collapse:collapse;font-size:14px'>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📅 Fecha</td><td><b>{$fechaVisita}</b></td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>🕐 Check-in</td><td><b>{$horaIn}</b></td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>🕐 Check-out</td><td><b>{$horaOut}</b></td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>👤 Cliente</td><td><b>{$cliente}</b></td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📋 Tarea</td><td><b>{$titulo}</b></td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📝 Reporte</td><td>{$reporteLabel}</td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>📧 Enviado</td><td>{$enviadoLabel}</td></tr>"
-        . "<tr><td style='padding:4px 12px 4px 0;color:#666'>👥 En sitio</td><td>{$otrosLabel}</td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>📅 Fecha</td><td><b>{$fechaVisita}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>🕐 Check-in</td><td><b>{$horaIn}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>🕐 Check-out</td><td><b>{$horaOut}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>👤 Cliente</td><td><b>{$cliente}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>📋 Tarea</td><td><b>{$titulo}</b></td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>📝 Reporte</td><td>{$reporteLabel}</td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>📧 Enviado</td><td>{$enviadoLabel}</td></tr>"
+        . "<tr><td style='padding:4px 12px 4px 0;color:#64748b'>👥 En sitio</td><td>{$otrosLabel}</td></tr>"
         . "</table>"
+        . "<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0'>"
+        . "<p style='color:#94a3b8;font-size:12px;margin:0'>Ginno · Asistente de Grupo Innovate</p>"
+        . "</div>"
       );
     } catch (Throwable $e) {}
     // ────────────────────────────────────────────────────────────────

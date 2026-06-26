@@ -4,7 +4,7 @@ const STORAGE_KEY = 'cowork_tareas_v4';
 // Si está vacío, la app funciona en modo local (localStorage), igual que hoy.
 // Cuando se publique en cPanel, poner la URL del backend, ej:
 //   const API_BASE = 'https://tudominio.com/backend/api';
-const API_BASE = 'https://grupoinnovate.com/gestion/backend/api';
+const API_BASE = 'https://grupoinnovate.com/ginno/backend/api';
 
 function taskToApi(t) {
   return {
