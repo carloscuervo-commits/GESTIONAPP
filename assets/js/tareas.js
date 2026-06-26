@@ -301,10 +301,12 @@ function setView(v) {
   if (currentUser && currentUser.perfil === 'tecnico' && v === 'dashboard') v = 'kanban'; // técnicos no ven el dashboard global
   currentView=v;
   if (v === 'dashboard') {
-    // Salir de las vistas especiales (Cartera/Facturación/Usuarios) al volver al Dashboard
+    // Salir de las vistas especiales al volver al Dashboard
     document.getElementById('facturacion-view').style.display = 'none';
     document.getElementById('cartera-view').style.display = 'none';
     document.getElementById('usuarios-view').style.display = 'none';
+    document.getElementById('clientes-view').style.display = 'none';
+    document.getElementById('informes-view').style.display = 'none';
     document.querySelector('.filters').style.display = 'none';
     document.querySelector('.btn-add').style.display = 'inline-flex';
     document.getElementById('btn-kanban').style.display = '';
