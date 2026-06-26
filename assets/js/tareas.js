@@ -1063,7 +1063,18 @@ async function saveTask() {
   // Validaciones por estado en IT/IF
   if (['it','if'].includes(area)) {
     if (estado==='programado' && !fechaProg) { alert('Para pasar a En ejecución debes ingresar la Fecha de programación'); return; }
-    if (estado==='realizado'  && !reporte)   { alert('Para marcar como Por facturar debes ingresar el reporte del servicio'); return; }
+    if (estado==='realizado') {
+      // Hay reporte si: (1) texto reporte, (2) archivo nuevo adjunto, (3) archivo ya guardado, (4) reporte Ginno creado
+      const prevTask = editingId ? tasks.find(t => t.id === editingId) : null;
+      const fRepFile = document.getElementById('f-reporte-file');
+      const tieneArchivo = (fRepFile?.files?.[0]) || prevTask?.reporteArchivo;
+      const tieneReporteGinno = editingId && (typeof borradoresActivos !== 'undefined') &&
+        (borradoresActivos[editingId] || []).some(r => ['borrador','completado','enviado'].includes(r.estado));
+      if (!reporte && !tieneArchivo && !tieneReporteGinno) {
+        alert('Para marcar como Por facturar debes ingresar el reporte del servicio, adjuntar un archivo o crear un reporte de visita desde Ginno');
+        return;
+      }
+    }
     if (estado==='facturado'  && !factura)   { alert('Para marcar como Facturado debes ingresar el número de factura en Alegra'); return; }
   }
   const now = new Date().toISOString();
