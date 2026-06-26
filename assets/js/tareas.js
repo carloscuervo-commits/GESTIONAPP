@@ -496,8 +496,8 @@ function renderDashboard() {
     </div>`;
   }
 
-  html += '</div>';
   html += '<div id="alertas-fuera-sitio"></div>';
+  html += '</div>';
   document.getElementById('dashboard-view').innerHTML = html;
   renderAlertasRetraso();
   actualizarBadgeFueraSitio();
