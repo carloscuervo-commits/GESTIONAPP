@@ -223,30 +223,29 @@ async function eliminarCliente() {
 }
 
 // Llamado desde tareas.js cuando se selecciona un cliente de Alegra.
-// Actualiza alegra_id y direccion en la tabla clientes si el cliente ya existe.
+// Crea o actualiza el cliente con alegra_id y direccion.
+// Usa POST directo (sin GET previo) para evitar race condition con tareas.php
+// que también hace INSERT IGNORE al guardar la tarea.
 async function sincronizarClienteAlegra(nombre, alegraId, direccion) {
   if (!API_BASE || !nombre) return;
   try {
-    // Buscar si ya existe
-    const res  = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombre)}`);
+    // POST: si el cliente no existe lo crea; si ya existe devuelve el existente
+    const res  = await fetch(`${API_BASE}/clientes.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, alegra_id: alegraId, direccion: direccion || null }),
+    });
     const data = await res.json();
-    if (data.error) {
-      // No existe — crear con los datos disponibles
-      await fetch(`${API_BASE}/clientes.php`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, alegra_id: alegraId, direccion: direccion || null }),
+    if (!data.id) return;
+
+    // Si el registro devuelto (creado o existente via INSERT IGNORE) le faltan datos, actualizar
+    const updates = {};
+    if (!data.alegra_id && alegraId)   updates.alegra_id = alegraId;
+    if (!data.direccion && direccion)  updates.direccion = direccion;
+    if (Object.keys(updates).length) {
+      await fetch(`${API_BASE}/clientes.php?id=${data.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
       });
-    } else {
-      // Existe — actualizar solo si faltan datos
-      const updates = {};
-      if (!data.alegra_id && alegraId)   updates.alegra_id = alegraId;
-      if (!data.direccion && direccion)  updates.direccion = direccion;
-      if (Object.keys(updates).length) {
-        await fetch(`${API_BASE}/clientes.php?id=${data.id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        });
-      }
     }
     // Refrescar caché si la vista de clientes está abierta
     if (document.getElementById('clientes-view')?.offsetParent !== null) await cargarClientes();
