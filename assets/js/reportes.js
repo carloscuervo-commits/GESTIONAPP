@@ -1147,8 +1147,8 @@ async function renderHistorialVisitasModal(tareaId) {
             const opciones = TEAM.map(m => `<option value="${m.id}"${m.id===p.tecnico_id?' selected':''}>${esc(m.name)}</option>`).join('');
             html += `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;margin-bottom:6px;font-size:12px" data-part-id="${p.id}" data-rep-id="${r.id}">
               <select style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;background:var(--card);color:var(--text)" class="hvp-tecnico">${opciones}</select>
-              <input type="time" value="${checkIn}"  class="hvp-in"  style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:80px;background:var(--card);color:var(--text)">
-              <input type="time" value="${checkOut}" class="hvp-out" style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:80px;background:var(--card);color:var(--text)">
+              <input type="time" value="${checkIn}"  class="hvp-in"  style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:110px;background:var(--card);color:var(--text)">
+              <input type="time" value="${checkOut}" class="hvp-out" style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:110px;background:var(--card);color:var(--text)">
               <button onclick="guardarParticipanteVisita(this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">💾</button>
               <button onclick="eliminarParticipanteVisita('${p.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Eliminar este check-in">🗑️</button>
             </div>${tardiBadge ? `<div style="margin-bottom:4px">${tardiBadge}</div>` : ''}`;
