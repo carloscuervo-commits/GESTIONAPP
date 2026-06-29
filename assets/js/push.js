@@ -18,9 +18,9 @@ async function iniciarPush() {
       await _pushSuscribir();
     } else if (permiso === 'default') {
       _mostrarBannerPush();
-    }
     } else if (permiso === 'denied') {
       _mostrarBannerDenegado();
+    }
   } catch (e) {
     console.error('[Push] Error registrando SW:', e);
   }

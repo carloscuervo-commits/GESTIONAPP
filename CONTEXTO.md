@@ -6,6 +6,21 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: festivos Colombia en conteo de días multi-día (2026-06-29)** — pendiente de deploy:
+
+  - **Problema**: `fechaProgFin`, `diaActualEnProg` y `diasHabilesDesde` en `core.js` solo saltaban sábados y domingos. `_agendaTareasDelDia` en `agenda.js` calculaba el fin de rango sin saltarlos tampoco.
+  - **Solución**: se añadió a `core.js` el cálculo de festivos colombianos completo:
+    - `_pascua(anio)` — algoritmo Meeus/Jones/Butcher.
+    - `_nextLunes(d)` — Ley Emiliani (festivo → siguiente lunes).
+    - `_festivosColombia(anio)` — genera el `Set` de ISO strings con festivos fijos (Año Nuevo, 1 May, 20 Jul, 7 Ago, 8 Dic, 25 Dic), Emiliani (Reyes Magos, San José, San Pedro y San Pablo, Asunción, Día de la Raza, Todos los Santos, Ind. Cartagena) y móviles relativos a Pascua (Jue Santo, Vie Santo, Ascensión, Corpus Christi, Sagrado Corazón). Cache por año (`_festivosCache`).
+    - `esDiaHabil(fecha)` — devuelve `false` si es sáb/dom o festivo Colombia.
+  - Las tres funciones existentes (`diasHabilesDesde`, `fechaProgFin`, `diaActualEnProg`) ahora usan `esDiaHabil()` en lugar del check directo de `dow`.
+  - `_agendaTareasDelDia` en `agenda.js` actualizada: (a) retorna `[]` si `isoFecha` no es día hábil; (b) usa `fechaProgFin(t)` de `core.js` para calcular el fin del rango (en vez de sumar días calendario).
+  - **Versiones**: `core.js?v=20260629b`, `agenda.js?v=20260629b`.
+  - **Sin cambios SQL ni backend.**
+
+- **fix: sintaxis push.js (2026-06-29)** — había un `}` de más que dejaba el bloque `else if (permiso === 'denied')` fuera del `try/catch`. Corregido.
+
 - **feat: notificaciones push Web Push (2026-06-29)** — pendiente de deploy + setup manual:
 
   ### Archivos nuevos

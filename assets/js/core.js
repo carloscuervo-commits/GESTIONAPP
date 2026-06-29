@@ -187,6 +187,63 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function isVencida(t) { if (!t.fecha || ['por-facturar','archivado'].includes(t.estado)) return false; return t.fecha < new Date().toISOString().split('T')[0]; }
 
+// ===================== DÍAS HÁBILES (festivos Colombia) =====================
+
+// Pascua (algoritmo anónimo de Meeus/Jones/Butcher)
+function _pascua(anio) {
+  const a=anio%19,b=Math.floor(anio/100),c=anio%100,d=Math.floor(b/4),e=b%4;
+  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const mes=Math.floor((h+l-7*m+114)/31)-1, dia=((h+l-7*m+114)%31)+1;
+  return new Date(anio, mes, dia);
+}
+
+// Siguiente lunes (o mismo día si ya es lunes) — Ley Emiliani
+function _nextLunes(d) {
+  const r = new Date(d);
+  const dow = r.getDay();
+  if (dow !== 1) r.setDate(r.getDate() + ((8 - dow) % 7 || 7));
+  return r;
+}
+
+const _festivosCache = {};
+function _festivosColombia(anio) {
+  if (_festivosCache[anio]) return _festivosCache[anio];
+  const s = new Set();
+  const add = d => s.add(d.toISOString().split('T')[0]);
+  const addD = (base, n) => { const r=new Date(base); r.setDate(r.getDate()+n); return r; };
+  // Fijos
+  add(new Date(anio, 0,  1));  // Año Nuevo
+  add(new Date(anio, 4,  1));  // Día del Trabajo
+  add(new Date(anio, 6, 20));  // Independencia
+  add(new Date(anio, 7,  7));  // Batalla de Boyacá
+  add(new Date(anio,11,  8));  // Inmaculada Concepción
+  add(new Date(anio,11, 25));  // Navidad
+  // Ley Emiliani (siguiente lunes)
+  add(_nextLunes(new Date(anio, 0,  6)));  // Reyes Magos
+  add(_nextLunes(new Date(anio, 2, 19)));  // San José
+  add(_nextLunes(new Date(anio, 5, 29)));  // San Pedro y San Pablo
+  add(_nextLunes(new Date(anio, 7, 15)));  // Asunción
+  add(_nextLunes(new Date(anio, 9, 12)));  // Día de la Raza
+  add(_nextLunes(new Date(anio,10,  1)));  // Todos los Santos
+  add(_nextLunes(new Date(anio,10, 11)));  // Independencia de Cartagena
+  // Semana Santa y móviles (relativos a Pascua)
+  const pascua = _pascua(anio);
+  add(addD(pascua, -3));               // Jueves Santo
+  add(addD(pascua, -2));               // Viernes Santo
+  add(_nextLunes(addD(pascua,  39)));  // Ascensión
+  add(_nextLunes(addD(pascua,  60)));  // Corpus Christi
+  add(_nextLunes(addD(pascua,  68)));  // Sagrado Corazón de Jesús
+  return (_festivosCache[anio] = s);
+}
+
+function esDiaHabil(fecha) {
+  const dow = fecha.getDay();
+  if (dow === 0 || dow === 6) return false;
+  return !_festivosColombia(fecha.getFullYear()).has(fecha.toISOString().split('T')[0]);
+}
+
 function diasHabilesDesde(isoDate) {
   if (!isoDate) return 0;
   const inicio = new Date(isoDate);
@@ -197,8 +254,7 @@ function diasHabilesDesde(isoDate) {
   hoy.setHours(0,0,0,0);
   while (cur < hoy) {
     cur.setDate(cur.getDate() + 1);
-    const dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) dias++; // skip sat/sun
+    if (esDiaHabil(cur)) dias++;
   }
   return dias;
 }
@@ -249,8 +305,7 @@ function fechaProgFin(t) {
   let agregados = 0;
   while (agregados < dias) {
     d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) agregados++;
+    if (esDiaHabil(d)) agregados++;
   }
   return d.toISOString().split('T')[0];
 }
@@ -274,8 +329,7 @@ function diaActualEnProg(t) {
   const cur = new Date(inicio);
   while (cur < hoy) {
     cur.setDate(cur.getDate() + 1);
-    const dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) dia++;
+    if (esDiaHabil(cur)) dia++;
   }
   return Math.min(dia, t.diasProg); // nunca supera el total
 }

@@ -43,14 +43,16 @@ function _agendaDias() {
 }
 
 function _agendaTareasDelDia(isoFecha, tecnicoId = null) {
+  // Saltar días no hábiles (fines de semana y festivos Colombia)
+  const dFecha = new Date(isoFecha + 'T00:00:00');
+  if (!esDiaHabil(dFecha)) return [];
   return tasks
     .filter(t => {
       if (!t.fechaProg || t.estado === 'archivado') return false;
-      const diasP = t.diasProg || 1;
-      const fin = new Date(t.fechaProg);
-      fin.setDate(fin.getDate() + diasP - 1);
-      const isoFin = fin.toISOString().split('T')[0];
-      if (isoFecha < t.fechaProg || isoFecha > isoFin) return false;
+      if (isoFecha < t.fechaProg) return false;
+      if ((t.diasProg || 1) <= 1) return isoFecha === t.fechaProg;
+      const isoFin = fechaProgFin(t) || t.fechaProg;
+      if (isoFecha > isoFin) return false;
       if (tecnicoId && !(t.team || []).includes(tecnicoId)) return false;
       return true;
     })
