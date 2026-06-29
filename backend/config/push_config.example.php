@@ -9,6 +9,6 @@
  * Las claves VAPID ya fueron generadas para este proyecto:
  */
 
-define('PUSH_VAPID_PUBLIC',  'KHi2Fip4pc2PHDQ56hy4N4IiepDuofLW1PP2Mjg8VPezSywbuvgYLYvUZVienxaZTKl9Z4qq7AaWzZ2ZonXylA');
-define('PUSH_VAPID_PRIVATE', 'A9H-AALzvA3ZbHLMXt84ViVSDlOxaOX3494JoIgJM2s');
+define('PUSH_VAPID_PUBLIC',  'BGDU_Dxm4ihX2hhrVN7fPydNnGRQU9o6PiSQYEORT-9fiAMr3XhwWMnxRPxy9OQaoZDRUnInU7CEJMJ5EljOFSA');
+define('PUSH_VAPID_PRIVATE', 'CI9kyo9B3YHlvL27svi0b4dz2u0yJT5Z1nqsmO4A5DE');
 define('PUSH_SUBJECT',       'mailto:carlos.cuervo@innovate.com.co');

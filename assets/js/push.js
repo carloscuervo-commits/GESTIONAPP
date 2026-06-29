@@ -1,7 +1,7 @@
 // ===================== MÓDULO PUSH NOTIFICATIONS =====================
 // Registro del Service Worker y gestión de suscripción VAPID.
 
-const PUSH_PUBLIC_KEY = 'KHi2Fip4pc2PHDQ56hy4N4IiepDuofLW1PP2Mjg8VPezSywbuvgYLYvUZVienxaZTKl9Z4qq7AaWzZ2ZonXylA';
+const PUSH_PUBLIC_KEY = 'BGDU_Dxm4ihX2hhrVN7fPydNnGRQU9o6PiSQYEORT-9fiAMr3XhwWMnxRPxy9OQaoZDRUnInU7CEJMJ5EljOFSA';
 
 let _pushSW = null; // ServiceWorkerRegistration
 
@@ -41,6 +41,7 @@ async function _pushSuscribir() {
     _pushOcultarBanner();
   } catch (e) {
     console.error('[Push] Error al suscribir:', e);
+    _pushOcultarBanner();
   }
 }
 
