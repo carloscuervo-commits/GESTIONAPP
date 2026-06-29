@@ -783,10 +783,13 @@ function updateFormForArea() {
 function _aplicarResultadoContrato(c, area) {
   const elGrp  = document.getElementById('grp-tipo-tarea');
   const selTipo = document.getElementById('f-tipo-tarea');
+  console.log('[Contrato] aplicar:', {elGrp: !!elGrp, selTipo: !!selTipo, contrato_area: c?.contrato_area, horas: c?.contrato_horas_mes, area});
   if (!elGrp || !selTipo) return;
   const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
+  console.log('[Contrato] tieneContrato:', tieneContrato, '| display antes:', elGrp.style.display);
   if (tieneContrato) {
-    elGrp.style.display = '';
+    elGrp.style.display = 'block';
+    console.log('[Contrato] display después:', elGrp.style.display, '| offsetParent:', elGrp.offsetParent);
     if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
     actualizarInfoContrato(c);
   } else {
