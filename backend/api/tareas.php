@@ -65,13 +65,15 @@ if ($method === 'POST') {
   $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
 
   $stmt = $pdo->prepare("INSERT INTO tareas
-    (id, titulo, descripcion, area, estado, cliente, fecha_programacion, hora_programacion, dias_programacion, fecha_limite,
+    (id, titulo, descripcion, area, estado, tipo_tarea, cliente, fecha_programacion, hora_programacion, dias_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, factura, motivo_no_factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
      solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
-    $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'], $d['cliente'] ?? null,
+    $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'],
+    in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento',
+    $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['horaProg'] ?? '08:00', isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
     $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,
@@ -131,14 +133,16 @@ if ($method === 'PUT') {
   $alertaRetraso = ($nuevaFechaProg !== $prev['fecha_programacion']) ? 0 : (int)$prev['alerta_retraso_enviada'];
 
   $stmt = $pdo->prepare("UPDATE tareas SET
-    titulo=?, descripcion=?, area=?, estado=?, cliente=?, fecha_programacion=?, hora_programacion=?, dias_programacion=?, fecha_limite=?,
+    titulo=?, descripcion=?, area=?, estado=?, tipo_tarea=?, cliente=?, fecha_programacion=?, hora_programacion=?, dias_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, factura=?, motivo_no_factura=?,
     realizado_en=?, enviada_en=?, programado_en=?, seguimiento_fecha=?, seguimiento_historial=?,
     solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?,
     alerta_retraso_enviada=?
     WHERE id=?");
   $stmt->execute([
-    $d['titulo'], $d['desc'] ?? null, $d['area'], $estado, $d['cliente'] ?? null,
+    $d['titulo'], $d['desc'] ?? null, $d['area'], $estado,
+    in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento',
+    $d['cliente'] ?? null,
     $nuevaFechaProg, $d['horaProg'] ?? '08:00', isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
     $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
     $d['recursos'] ?? null, $d['notas'] ?? null, $d['reporte'] ?? null, $d['factura'] ?? null,

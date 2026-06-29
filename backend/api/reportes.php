@@ -148,6 +148,49 @@ if ($method === 'GET') {
     jsonOut(reporteConFotos($pdo, $row));
   }
 
+  // GET ?horasContrato=1&tareaId=X
+  // Devuelve horas_contratadas, horas_consumidas y horas_disponibles este mes para la tarea.
+  if (!empty($_GET['horasContrato']) && !empty($_GET['tareaId'])) {
+    $tareaId2 = $_GET['tareaId'];
+    $stmtT = $pdo->prepare("SELECT cliente, area, tipo_tarea FROM tareas WHERE id = ?");
+    $stmtT->execute([$tareaId2]);
+    $tInfo = $stmtT->fetch();
+    if (!$tInfo || $tInfo['tipo_tarea'] !== 'contrato') {
+      jsonOut(['horasContratadas' => 0, 'horasConsumidas' => 0, 'horasDisponibles' => 0]);
+    }
+
+    $stmtC = $pdo->prepare("
+      SELECT contrato_horas_mes FROM clientes
+      WHERE nombre COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+        AND contrato_area = ?
+      LIMIT 1
+    ");
+    $stmtC->execute([$tInfo['cliente'], $tInfo['area']]);
+    $cRow = $stmtC->fetch();
+    $horasContratadas = $cRow ? (float)$cRow['contrato_horas_mes'] : 0;
+
+    $stmtCons = $pdo->prepare("
+      SELECT COALESCE(SUM(vp.horas_contrato), 0)
+      FROM visita_participantes vp
+      JOIN reportes r2 ON r2.id = vp.reporte_id
+      JOIN tareas t2   ON t2.id = r2.tarea_id COLLATE utf8mb4_general_ci
+      WHERE t2.cliente   COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+        AND t2.tipo_tarea = 'contrato'
+        AND t2.area      = ?
+        AND YEAR(vp.check_out)  = YEAR(CURDATE())
+        AND MONTH(vp.check_out) = MONTH(CURDATE())
+        AND vp.horas_contrato IS NOT NULL
+    ");
+    $stmtCons->execute([$tInfo['cliente'], $tInfo['area']]);
+    $horasConsumidas = (float)$stmtCons->fetchColumn();
+
+    jsonOut([
+      'horasContratadas' => $horasContratadas,
+      'horasConsumidas'  => $horasConsumidas,
+      'horasDisponibles' => round($horasContratadas - $horasConsumidas, 1),
+    ]);
+  }
+
   if (!empty($_GET['tareaId'])) {
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE tarea_id = ? ORDER BY creado_en DESC");
     $stmt->execute([$_GET['tareaId']]);
@@ -297,8 +340,15 @@ if ($method === 'PUT') {
     $newIn  = $fechaBase . ' ' . $hIn  . ':00';
     $newOut = $hOut ? ($fechaBase . ' ' . $hOut . ':00') : null;
 
-    $pdo->prepare("UPDATE visita_participantes SET tecnico_id=?, check_in=?, check_out=? WHERE id=?")
-      ->execute([$tecnicoId, $newIn, $newOut, $partId]);
+    // Actualizar horas_contrato si el admin las edita explícitamente
+    if (array_key_exists('horasContrato', $d)) {
+      $horasContratoVal = ($d['horasContrato'] !== null && $d['horasContrato'] !== '') ? (float)$d['horasContrato'] : null;
+      $pdo->prepare("UPDATE visita_participantes SET tecnico_id=?, check_in=?, check_out=?, horas_contrato=? WHERE id=?")
+        ->execute([$tecnicoId, $newIn, $newOut, $horasContratoVal, $partId]);
+    } else {
+      $pdo->prepare("UPDATE visita_participantes SET tecnico_id=?, check_in=?, check_out=? WHERE id=?")
+        ->execute([$tecnicoId, $newIn, $newOut, $partId]);
+    }
 
     // Eliminar pausas que quedaron completamente fuera del nuevo rango de trabajo:
     //   - empieza después del nuevo checkout (o no hay checkout)
@@ -394,6 +444,81 @@ if ($method === 'PUT') {
       $pdo->prepare("UPDATE visita_participantes SET check_out=NOW(), checkout_lat=?, checkout_lng=? WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
         ->execute([$checkoutLat, $checkoutLng, $id, $tecnicoOut]);
     }
+
+    // ── Descuento de horas de contrato (si la tarea es tipo contrato) ──
+    try {
+      $stmtTipo = $pdo->prepare("SELECT t.tipo_tarea, t.cliente, t.area FROM reportes r JOIN tareas t ON t.id = r.tarea_id WHERE r.id = ?");
+      $stmtTipo->execute([$id]);
+      $tareaInfo = $stmtTipo->fetch();
+
+      if ($tareaInfo && $tareaInfo['tipo_tarea'] === 'contrato' && $partId) {
+        $stmtPart2 = $pdo->prepare("SELECT check_in, check_out FROM visita_participantes WHERE id = ?");
+        $stmtPart2->execute([$partId]);
+        $partData = $stmtPart2->fetch();
+
+        if ($partData && $partData['check_in'] && $partData['check_out']) {
+          // Duración neta en minutos (descontando pausas)
+          $durMinutos = max(0, (int)((strtotime($partData['check_out']) - strtotime($partData['check_in'])) / 60));
+          $stmtPausas = $pdo->prepare("SELECT pausa_inicio, pausa_fin FROM visita_pausas WHERE participante_id = ? AND pausa_fin IS NOT NULL");
+          $stmtPausas->execute([$partId]);
+          foreach ($stmtPausas->fetchAll() as $pz) {
+            $durMinutos -= max(0, (int)((strtotime($pz['pausa_fin']) - strtotime($pz['pausa_inicio'])) / 60));
+          }
+          $durMinutos = max(0, $durMinutos);
+
+          // Redondeo: mínimo 30 min; residuo > 10 min sube al siguiente bloque
+          $medias = (int)floor($durMinutos / 30);
+          if (($durMinutos % 30) > 10) $medias++;
+          $horasContrato = max(0.5, $medias * 0.5);
+
+          $pdo->prepare("UPDATE visita_participantes SET horas_contrato = ? WHERE id = ?")
+            ->execute([$horasContrato, $partId]);
+
+          // Horas consumidas este mes para el cliente/área
+          $stmtConsumo = $pdo->prepare("
+            SELECT COALESCE(SUM(vp.horas_contrato), 0)
+            FROM visita_participantes vp
+            JOIN reportes r2 ON r2.id = vp.reporte_id
+            JOIN tareas t2   ON t2.id = r2.tarea_id COLLATE utf8mb4_general_ci
+            WHERE t2.cliente   COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+              AND t2.tipo_tarea = 'contrato'
+              AND t2.area      = ?
+              AND YEAR(vp.check_out)  = YEAR(CURDATE())
+              AND MONTH(vp.check_out) = MONTH(CURDATE())
+              AND vp.horas_contrato IS NOT NULL
+          ");
+          $stmtConsumo->execute([$tareaInfo['cliente'], $tareaInfo['area']]);
+          $horasConsumidas = (float)$stmtConsumo->fetchColumn();
+
+          // Horas del contrato del cliente
+          $stmtContrato = $pdo->prepare("
+            SELECT contrato_horas_mes FROM clientes
+            WHERE nombre COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+              AND contrato_area = ?
+            LIMIT 1
+          ");
+          $stmtContrato->execute([$tareaInfo['cliente'], $tareaInfo['area']]);
+          $contratoRow      = $stmtContrato->fetch();
+          $horasContratadas = $contratoRow ? (float)$contratoRow['contrato_horas_mes'] : 0;
+
+          // Si se agotaron → crear tarea adicional automáticamente
+          if ($horasContratadas > 0 && $horasConsumidas > $horasContratadas) {
+            $nuevaTareaId = bin2hex(random_bytes(16));
+            $pdo->prepare("INSERT INTO tareas
+              (id, titulo, descripcion, area, estado, tipo_tarea, cliente, creado_por)
+              VALUES (?, ?, ?, ?, 'programado', 'evento', ?, 'ginno')")
+              ->execute([
+                $nuevaTareaId,
+                'Visita de contrato adicional',
+                'Horas de contrato agotadas. Visita generada automáticamente por Ginno.',
+                $tareaInfo['area'],
+                $tareaInfo['cliente'],
+              ]);
+          }
+        }
+      }
+    } catch (Throwable $e) { /* no bloquear checkout */ }
+    // ────────────────────────────────────────────────────────────────
 
     // ── Notificación de checkout a administrativo ──────────────────
     try {

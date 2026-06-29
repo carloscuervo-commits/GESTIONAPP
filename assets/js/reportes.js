@@ -43,12 +43,34 @@ async function cargarVisitasActivas() {
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
 
+// ----------------- Info horas de contrato (async) -----------------
+async function _cargarHorasContratoCard(tareaId, elId) {
+  if (!API_BASE) return;
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?horasContrato=1&tareaId=${tareaId}`);
+    const d = await res.json();
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (d && d.horasContratadas > 0) {
+      const disponibles = d.horasDisponibles;
+      const color = disponibles > 0 ? '#16a34a' : '#ef4444';
+      el.innerHTML = `<span style="color:${color};font-weight:600">📋 Contrato: ${d.horasContratadas}h/mes · Disponibles: ${disponibles}h</span>`;
+    }
+  } catch {}
+}
+
 // ----------------- Botón en la tarjeta (multi-técnico) -----------------
 function renderVisitaBoton(t) {
   const visita = visitasActivas[t.id];
   if (visita) {
     const partes = visita.participantes || [];
     let html = '';
+    // Horas de contrato disponibles (si aplica)
+    if (t.tipoTarea === 'contrato') {
+      const infoId = `contrato-info-activa-${t.id}`;
+      setTimeout(() => _cargarHorasContratoCard(t.id, infoId), 0);
+      html += `<div id="${infoId}" style="font-size:12px;color:var(--text-muted);margin-bottom:4px"></div>`;
+    }
 
     // Mostrar estado de cada participante (con indicador de pausa activa)
     partes.forEach(p => {
@@ -147,6 +169,13 @@ function renderVisitaBoton(t) {
       }
     }
     return html;
+  }
+  // Si es tarea de contrato, mostrar horas disponibles antes del botón
+  if (t.tipoTarea === 'contrato') {
+    const infoId = `contrato-info-card-${t.id}`;
+    setTimeout(() => _cargarHorasContratoCard(t.id, infoId), 0);
+    return `<div id="${infoId}" style="font-size:12px;color:var(--text-muted);margin-bottom:4px"></div>`
+         + `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita</button>`;
   }
   return `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita</button>`;
 }
@@ -476,6 +505,23 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
         borradoresActivos[tareaId].push(data);
         _reporteSoloEdicion = false;
         render();
+        // Si es tarea de contrato, mostrar resumen de horas al terminar
+        const tareaActual = tasks.find(x => x.id === tareaId);
+        if (tareaActual?.tipoTarea === 'contrato' && API_BASE) {
+          try {
+            const hr = await fetch(`${API_BASE}/reportes.php?horasContrato=1&tareaId=${tareaId}`);
+            const hd = await hr.json();
+            if (hd && hd.horasContratadas > 0) {
+              const partMio = (data.participantes || []).find(p => p.tecnico_id === tecnicoId);
+              const horasDescontadas = partMio?.horas_contrato ?? null;
+              const disponibles = hd.horasDisponibles;
+              let msg = `✅ Visita de contrato registrada.`;
+              if (horasDescontadas != null) msg += `\n⏱️ Descontadas: ${horasDescontadas}h`;
+              msg += `\n📋 Disponibles este mes: ${disponibles > 0 ? disponibles + 'h' : '⚠️ Horas agotadas'}`;
+              alert(msg);
+            }
+          } catch {}
+        }
         abrirFormularioReporte(data);
       } else {
         // Aún hay otros técnicos en sitio — actualizar estado sin abrir formulario
@@ -1111,6 +1157,7 @@ async function renderHistorialVisitasModal(tareaId) {
 
     // Para badge Tardía: obtener horaProg y fechaProg de la tarea
     const tarea = tasks.find(t => t.id === tareaId);
+    const esContrato = tarea?.tipoTarea === 'contrato';
     const horaProg  = tarea?.horaProg  || null; // "HH:MM"
     const fechaProg = tarea?.fechaProg || null; // "YYYY-MM-DD"
 
@@ -1145,10 +1192,18 @@ async function renderHistorialVisitasModal(tareaId) {
             : '';
           if (esAdmin) {
             const opciones = TEAM.map(m => `<option value="${m.id}"${m.id===p.tecnico_id?' selected':''}>${esc(m.name)}</option>`).join('');
-            html += `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;margin-bottom:6px;font-size:12px" data-part-id="${p.id}" data-rep-id="${r.id}">
+            const colsTemplate = esContrato ? '1fr auto auto auto auto auto' : '1fr auto auto auto auto';
+            const horasContratoCol = esContrato
+              ? `<input type="number" value="${p.horas_contrato ?? ''}" class="hvp-horas-contrato"
+                   min="0.5" step="0.5" placeholder="h"
+                   title="Horas de contrato descontadas"
+                   style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:60px;background:var(--card);color:var(--text)">`
+              : '';
+            html += `<div style="display:grid;grid-template-columns:${colsTemplate};gap:6px;align-items:center;margin-bottom:6px;font-size:12px" data-part-id="${p.id}" data-rep-id="${r.id}">
               <select style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;background:var(--card);color:var(--text)" class="hvp-tecnico">${opciones}</select>
               <input type="time" value="${checkIn}"  class="hvp-in"  style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:110px;background:var(--card);color:var(--text)">
               <input type="time" value="${checkOut}" class="hvp-out" style="border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;width:110px;background:var(--card);color:var(--text)">
+              ${horasContratoCol}
               <button onclick="guardarParticipanteVisita(this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">💾</button>
               <button onclick="eliminarParticipanteVisita('${p.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Eliminar este check-in">🗑️</button>
             </div>${tardiBadge ? `<div style="margin-bottom:4px">${tardiBadge}</div>` : ''}`;
@@ -1236,6 +1291,8 @@ async function guardarParticipanteVisita(btn) {
   const tecId  = row.querySelector('.hvp-tecnico').value;
   const hIn    = row.querySelector('.hvp-in').value;
   const hOut   = row.querySelector('.hvp-out').value;
+  const horasContratoEl = row.querySelector('.hvp-horas-contrato');
+  const horasContrato = horasContratoEl ? (horasContratoEl.value !== '' ? parseFloat(horasContratoEl.value) : null) : undefined;
   if (!hIn) { alert('La hora de entrada es obligatoria.'); return; }
 
   // Contar pausas del participante antes de guardar para detectar eliminaciones
@@ -1250,7 +1307,7 @@ async function guardarParticipanteVisita(btn) {
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${repId}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'editParticipante', participanteId: partId, tecnicoId: tecId, checkIn: hIn, checkOut: hOut || null }),
+      body: JSON.stringify({ accion: 'editParticipante', participanteId: partId, tecnicoId: tecId, checkIn: hIn, checkOut: hOut || null, ...(horasContrato !== undefined ? { horasContrato } : {}) }),
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }

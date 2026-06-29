@@ -14,6 +14,7 @@ function clienteRow($row) {
   $row['plazo_factura_dias'] = (int)($row['plazo_factura_dias'] ?? 8);
   if ($row['lat'] !== null) $row['lat'] = (float)$row['lat'];
   if ($row['lng'] !== null) $row['lng'] = (float)$row['lng'];
+  if ($row['contrato_horas_mes'] !== null) $row['contrato_horas_mes'] = (float)$row['contrato_horas_mes'];
   return $row;
 }
 
@@ -45,7 +46,8 @@ if ($method === 'GET') {
 
 // --------------------------------------------------------------
 // POST /clientes.php
-// body: { nombre, direccion?, lat?, lng?, radio_metros?, plazo_factura_dias?, alegra_id? }
+// body: { nombre, direccion?, lat?, lng?, radio_metros?, plazo_factura_dias?, alegra_id?,
+//         contrato_area?, contrato_horas_mes? }
 // Si el nombre ya existe devuelve el existente (no duplica).
 // --------------------------------------------------------------
 if ($method === 'POST') {
@@ -60,17 +62,20 @@ if ($method === 'POST') {
 
   $id = bin2hex(random_bytes(16));
   $pdo->prepare("INSERT INTO clientes
-    (id, nombre, direccion, lat, lng, radio_metros, plazo_factura_dias, alegra_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    (id, nombre, direccion, lat, lng, radio_metros, plazo_factura_dias, alegra_id,
+     contrato_area, contrato_horas_mes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     ->execute([
       $id,
       $d['nombre'],
-      $d['direccion']          ?? null,
-      isset($d['lat'])         ? (float)$d['lat']                : null,
-      isset($d['lng'])         ? (float)$d['lng']                : null,
-      isset($d['radio_metros']) ? (int)$d['radio_metros']        : 200,
+      $d['direccion']               ?? null,
+      isset($d['lat'])              ? (float)$d['lat']               : null,
+      isset($d['lng'])              ? (float)$d['lng']               : null,
+      isset($d['radio_metros'])     ? (int)$d['radio_metros']        : 200,
       isset($d['plazo_factura_dias']) ? (int)$d['plazo_factura_dias'] : 8,
-      $d['alegra_id']          ?? null,
+      $d['alegra_id']               ?? null,
+      $d['contrato_area']           ?? null,
+      isset($d['contrato_horas_mes']) ? (float)$d['contrato_horas_mes'] : null,
     ]);
 
   $stmt = $pdo->prepare("SELECT * FROM clientes WHERE id = ?");
@@ -100,7 +105,9 @@ if ($method === 'PUT') {
     lng                 = ?,
     radio_metros        = ?,
     plazo_factura_dias  = ?,
-    alegra_id           = ?
+    alegra_id           = ?,
+    contrato_area       = ?,
+    contrato_horas_mes  = ?
     WHERE id = ?")
     ->execute([
       $d['nombre']             ?? $prev['nombre'],
@@ -109,7 +116,9 @@ if ($method === 'PUT') {
       array_key_exists('lng', $d)       ? (isset($d['lng']) ? (float)$d['lng'] : null) : $prev['lng'],
       isset($d['radio_metros'])         ? (int)$d['radio_metros']        : (int)$prev['radio_metros'],
       isset($d['plazo_factura_dias'])   ? (int)$d['plazo_factura_dias']  : (int)$prev['plazo_factura_dias'],
-      array_key_exists('alegra_id', $d) ? $d['alegra_id'] : $prev['alegra_id'],
+      array_key_exists('alegra_id', $d)          ? $d['alegra_id']                     : $prev['alegra_id'],
+      array_key_exists('contrato_area', $d)       ? $d['contrato_area']                : $prev['contrato_area'],
+      array_key_exists('contrato_horas_mes', $d)  ? (isset($d['contrato_horas_mes']) ? (float)$d['contrato_horas_mes'] : null) : $prev['contrato_horas_mes'],
       $id,
     ]);
 

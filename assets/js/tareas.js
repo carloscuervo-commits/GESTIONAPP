@@ -764,7 +764,90 @@ function updateFormForArea() {
   if (elCot) elCot.style.display = area==='comercial' ? '' : 'none';
   const elTeam = document.getElementById('grp-team');
   if (elTeam) elTeam.style.display = area==='comercial' ? 'none' : '';
+  // Tipo de tarea: inicialmente oculto — se muestra solo si el cliente tiene contrato
+  const elTipoTarea = document.getElementById('grp-tipo-tarea');
+  if (elTipoTarea) elTipoTarea.style.display = 'none';
+  if (!itIf) {
+    const selTipo = document.getElementById('f-tipo-tarea');
+    if (selTipo) selTipo.value = 'evento';
+  }
   updateEstadoOptions();
+  // Verificar contrato del cliente actual (si hay alguno ingresado)
+  if (itIf) {
+    const clienteActual = document.getElementById('f-cliente')?.value.trim();
+    if (clienteActual) _verificarContratoCliente(clienteActual, area);
+  }
+}
+
+// Verifica si el cliente tiene contrato para el área actual.
+// Muestra/oculta el selector de tipo_tarea según el resultado.
+async function _verificarContratoCliente(nombreCliente, area) {
+  const elGrp  = document.getElementById('grp-tipo-tarea');
+  const selTipo = document.getElementById('f-tipo-tarea');
+  if (!elGrp || !selTipo || !['it','if'].includes(area)) {
+    if (elGrp) elGrp.style.display = 'none';
+    if (selTipo) selTipo.value = 'evento';
+    return;
+  }
+  if (!nombreCliente || !API_BASE) {
+    elGrp.style.display = 'none';
+    selTipo.value = 'evento';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombreCliente)}`);
+    const c = await res.json();
+    const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
+    if (tieneContrato) {
+      // Mostrar selector con opciones evento y contrato
+      elGrp.style.display = '';
+      // Si el valor actual no es válido para este cliente, dejar en 'evento'
+      if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
+      actualizarInfoContrato(c);
+    } else {
+      elGrp.style.display = 'none';
+      selTipo.value = 'evento';
+      const infoEl = document.getElementById('contrato-horas-info');
+      if (infoEl) infoEl.style.display = 'none';
+    }
+  } catch {
+    elGrp.style.display = 'none';
+    selTipo.value = 'evento';
+  }
+}
+
+// Muestra las horas disponibles del contrato en el formulario
+async function actualizarInfoContrato(clienteRow) {
+  const infoEl  = document.getElementById('contrato-horas-info');
+  const selTipo = document.getElementById('f-tipo-tarea');
+  if (!infoEl || !selTipo) return;
+  if (selTipo.value !== 'contrato') { infoEl.style.display = 'none'; return; }
+  // Datos del contrato ya cargados
+  if (clienteRow && clienteRow.contrato_horas_mes) {
+    const contratadas = parseFloat(clienteRow.contrato_horas_mes);
+    // Si hay una tarea existente, consultar consumidas desde el servidor
+    if (editingId && API_BASE) {
+      try {
+        const res = await fetch(`${API_BASE}/reportes.php?horasContrato=1&tareaId=${editingId}`);
+        const d = await res.json();
+        if (d && d.horasContratadas > 0) {
+          const color = d.horasDisponibles > 0 ? '' : 'color:#ef4444';
+          infoEl.innerHTML = `<span style="${color}">📋 ${contratadas}h/mes · Consumidas: ${d.horasConsumidas}h · Disponibles: ${d.horasDisponibles}h</span>`;
+          infoEl.style.display = 'block'; return;
+        }
+      } catch {}
+    }
+    infoEl.textContent = `📋 Contrato: ${contratadas}h/mes`;
+    infoEl.style.display = 'block';
+    return;
+  }
+  infoEl.style.display = 'none';
+}
+
+function onTipoTareaChange() {
+  const area = document.getElementById('f-area')?.value;
+  const cliente = document.getElementById('f-cliente')?.value.trim();
+  if (['it','if'].includes(area) && cliente) _verificarContratoCliente(cliente, area);
 }
 
 function openModal(id, preArea, preEstado) {
@@ -799,6 +882,17 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-reporte').value=t?.reporte||'';
   document.getElementById('f-factura').value=t?.factura||'';
   document.getElementById('f-labor-admin').value=t?.laborAdmin||'';
+  // Tipo de tarea — pre-cargar valor guardado, luego verificar contrato del cliente
+  const selTipo = document.getElementById('f-tipo-tarea');
+  if (selTipo) selTipo.value = t?.tipoTarea || 'evento';
+  // _verificarContratoCliente mostrará/ocultará el selector y ajustará el valor si es necesario
+  const clienteParaContrato = t?.cliente || '';
+  if (['it','if'].includes(defaultArea) && clienteParaContrato) {
+    setTimeout(() => _verificarContratoCliente(clienteParaContrato, defaultArea), 0);
+  } else {
+    const elGrp = document.getElementById('grp-tipo-tarea');
+    if (elGrp) elGrp.style.display = 'none';
+  }
   const elChk = document.getElementById('f-incluye-prog');
   if (elChk) elChk.checked = !!(t?.incluyeProg);
   document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
@@ -881,7 +975,15 @@ function onClienteInput() {
   const q = document.getElementById('f-cliente').value.trim();
   const box = document.getElementById('cliente-suggestions');
   clearTimeout(clienteSuggestTimer);
-  if (q.length < 2) { box.style.display = 'none'; return; }
+  if (q.length < 2) {
+    box.style.display = 'none';
+    // Sin cliente → ocultar tipo_tarea
+    const elGrp = document.getElementById('grp-tipo-tarea');
+    if (elGrp) elGrp.style.display = 'none';
+    const selTipo = document.getElementById('f-tipo-tarea');
+    if (selTipo) selTipo.value = 'evento';
+    return;
+  }
   clienteSuggestTimer = setTimeout(() => buscarClientesAlegra(q), 300);
 }
 
@@ -912,6 +1014,9 @@ function seleccionarClienteAlegraIdx(i) {
   if (typeof sincronizarClienteAlegra === 'function') {
     sincronizarClienteAlegra(c.name, c.id, c.address || null);
   }
+  // Verificar contrato para mostrar/ocultar tipo_tarea
+  const area = document.getElementById('f-area')?.value;
+  if (['it','if'].includes(area)) _verificarContratoCliente(c.name, area);
 }
 
 function hideClienteSuggestions() {
@@ -1106,6 +1211,7 @@ async function saveTask() {
   const laborAdmin = ['it','if'].includes(area) ? document.getElementById('f-labor-admin').value.trim() : '';
   const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
   const incluyeProg = area === 'admin' ? !!(document.getElementById('f-incluye-prog')?.checked) : false;
+  const tipoTarea = ['it','if'].includes(area) ? (document.getElementById('f-tipo-tarea')?.value || 'evento') : 'evento';
 
   // Si técnico crea una nueva tarea, asignarse automáticamente
   let teamFinal = [...selectedTeam];
@@ -1134,7 +1240,7 @@ async function saveTask() {
     enviadaAt: estado==='enviada' ? (prev?.enviadaAt || now) : prev?.enviadaAt || null,
     programadoAt: estado==='programado' ? (prev?.programadoAt || now) : prev?.programadoAt || null,
     seguimientoFecha, seguimientoHistorial,
-    laborAdmin, solicitudComercial, incluyeProg,
+    laborAdmin, solicitudComercial, incluyeProg, tipoTarea,
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
     cotizacionDocx: prev?.cotizacionDocx || null,
@@ -1245,35 +1351,4 @@ async function saveTask() {
   }
 
   // Subir archivo adjunto del reporte del servicio si se seleccionó uno
-  const fRepFile = document.getElementById('f-reporte-file');
-  if (fRepFile && fRepFile.files && fRepFile.files[0] && API_BASE) {
-    try {
-      const fd = new FormData();
-      fd.append('id', task.id);
-      fd.append('file', fRepFile.files[0]);
-      const resp = await fetch(`${API_BASE}/reporte_archivo.php`, { method: 'POST', body: fd });
-      const data = await resp.json();
-      if (data.ok) {
-        const idx = tasks.findIndex(t=>t.id===task.id);
-        if (idx>=0) tasks[idx].reporteArchivo = data.nombre;
-        save(); render();
-      } else {
-        alert('⚠️ No se pudo subir el archivo del reporte: ' + (data.error||'error desconocido'));
-      }
-    } catch (e) {
-      console.error('Error subiendo archivo del reporte', e);
-      alert('⚠️ No se pudo subir el archivo del reporte.');
-    }
-  }
-}
-
-function deleteTask() {
-  if (!editingId||!confirm('¿Eliminar esta tarea?')) return;
-  const id = editingId;
-  tasks=tasks.filter(t=>t.id!==id);
-  save(); closeModal(); render();
-  syncDelete(id);
-}
-
-document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
-document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
+  const fRepFile = document.getElementById('f-report

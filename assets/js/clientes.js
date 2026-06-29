@@ -49,6 +49,12 @@ function _ocultarCmSuggestions() {
   if (box) box.style.display = 'none';
 }
 
+function _cmContratoAreaChange() {
+  const area = document.getElementById('cm-contrato-area')?.value;
+  const grp  = document.getElementById('cm-contrato-horas-grp');
+  if (grp) grp.style.display = area ? '' : 'none';
+}
+
 // ----------------- Carga y render -----------------
 async function cargarClientes() {
   if (!API_BASE) return;
@@ -128,6 +134,13 @@ function abrirModalCliente(id = null) {
 
   _actualizarLinkMaps();
 
+  // Contrato
+  const selArea = document.getElementById('cm-contrato-area');
+  const inpHoras = document.getElementById('cm-contrato-horas');
+  if (selArea)  selArea.value  = c?.contrato_area  || '';
+  if (inpHoras) inpHoras.value = c?.contrato_horas_mes != null ? c.contrato_horas_mes : '';
+  _cmContratoAreaChange();
+
   const btnEliminar = document.getElementById('cm-btn-eliminar');
   if (btnEliminar) btnEliminar.style.display = id ? 'inline-flex' : 'none';
 
@@ -187,6 +200,9 @@ async function guardarCliente() {
   const latRaw = document.getElementById('cm-lat').value.trim();
   const lngRaw = document.getElementById('cm-lng').value.trim();
 
+  const contratoArea  = document.getElementById('cm-contrato-area')?.value  || null;
+  const contratoHoras = document.getElementById('cm-contrato-horas')?.value;
+
   const body = {
     nombre,
     direccion:          document.getElementById('cm-direccion').value.trim() || null,
@@ -195,6 +211,8 @@ async function guardarCliente() {
     radio_metros:       parseInt(document.getElementById('cm-radio').value)  || 200,
     plazo_factura_dias: parseInt(document.getElementById('cm-plazo').value)  || 8,
     alegra_id:          document.getElementById('cm-alegra-id').value.trim() || null,
+    contrato_area:      contratoArea || null,
+    contrato_horas_mes: contratoArea && contratoHoras !== '' ? parseFloat(contratoHoras) || null : null,
   };
 
   if (body.lat !== null && isNaN(body.lat)) { alert('Latitud inválida.'); return; }

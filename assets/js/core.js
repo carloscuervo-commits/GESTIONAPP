@@ -19,6 +19,7 @@ function taskToApi(t) {
     programadoAt: t.programadoAt || null,
     reporteArchivo: t.reporteArchivo || null,
     incluyeProg: t.incluyeProg ? 1 : 0,
+    tipoTarea: t.tipoTarea || 'evento',
   };
 }
 
@@ -40,6 +41,7 @@ function apiToTask(r) {
     cotizacionDocx: r.cotizacion_docx || null,
     reporteArchivo: r.reporte_archivo || null,
     incluyeProg: r.incluye_prog == 1,
+    tipoTarea: r.tipo_tarea || 'evento',
   };
 }
 
