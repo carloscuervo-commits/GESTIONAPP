@@ -185,6 +185,7 @@ function taskCard(t) {
     ${t.recursos?`<div class="task-date">🔧 ${esc(t.recursos.slice(0,45))}${t.recursos.length>45?'...':''}</div>`:''}
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
+    ${((['it','if'].includes(t.area) && t.estado==='realizado') || (t.area==='admin' && t.estado==='por-facturar')) && !t.factura ? `<button class="btn-archivar" style="background:#d97706;color:#fff" onclick="_abrirRegistroFacturaRapido('${t.id}',event)">🧾 Registrar factura</button>` : ''}
     ${(!t.factura && t.motivoNoFactura)?`<div class="task-date" style="color:#0D3B40;font-size:12px;font-weight:600">📋 Sin factura: ${esc(t.motivoNoFactura)}</div>`:''}
     ${(['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) ? `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>` : ''}
     ${(['it','if'].includes(t.area) && !['realizado','facturado','archivado'].includes(t.estado)) ? renderVisitaBoton(t) : ''}
@@ -1453,6 +1454,72 @@ function deleteTask() {
   const id = editingId;
   save(); closeModal(); render();
   syncDelete(id);
+}
+
+// ---- Registro rápido de factura desde la tarjeta ----
+function _abrirRegistroFacturaRapido(tareaId, event) {
+  event.stopPropagation();
+  _cerrarRegistroFacturaRapido();
+  const btn = event.currentTarget;
+  const popup = document.createElement('div');
+  popup.id = 'factura-rapida-popup';
+  popup.style.cssText = 'position:fixed;z-index:600;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:260px;max-width:300px';
+  const rect = btn.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 316)) + 'px';
+  popup.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">🧾 Registrar factura</div>
+    <input id="factura-rapida-input" type="text" placeholder="Nro. de factura en Alegra"
+      style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;
+             padding:7px 10px;font-size:13px;color:var(--text);background:var(--bg);outline:none;margin-bottom:8px"
+      onkeydown="if(event.key==='Enter')_confirmarFacturaRapida('${tareaId}')"
+      onclick="event.stopPropagation()">
+    <div style="display:flex;gap:6px">
+      <button onclick="_confirmarFacturaRapida('${tareaId}')"
+        style="flex:1;padding:7px;border-radius:6px;border:none;cursor:pointer;
+               background:#169BBC;color:#fff;font-weight:600;font-size:13px">
+        ✓ Marcar facturado
+      </button>
+      <button onclick="_cerrarRegistroFacturaRapido()"
+        style="padding:7px 10px;border-radius:6px;border:1px solid var(--border);cursor:pointer;
+               background:transparent;color:var(--text-muted);font-size:13px">✕</button>
+    </div>
+    <div style="margin-top:9px;text-align:center">
+      <a onclick="openModal('${tareaId}');_cerrarRegistroFacturaRapido();return false;" href="#"
+         style="font-size:11px;color:#169BBC;text-decoration:none">🔍 Buscar en Alegra</a>
+    </div>`;
+  document.body.appendChild(popup);
+  setTimeout(() => document.addEventListener('click', _cerrarRegistroFacturaRapido, { once: true }), 0);
+  document.getElementById('factura-rapida-input')?.focus();
+}
+
+function _cerrarRegistroFacturaRapido() {
+  const p = document.getElementById('factura-rapida-popup');
+  if (p) p.remove();
+}
+
+async function _confirmarFacturaRapida(tareaId) {
+  const input = document.getElementById('factura-rapida-input');
+  const nro = (input?.value || '').trim();
+  if (!nro) { input?.focus(); return; }
+  _cerrarRegistroFacturaRapido();
+  const t = tasks.find(x => x.id === tareaId);
+  if (!t) return;
+  const nextEstado = ['it','if'].includes(t.area) ? 'facturado' : t.estado;
+  try {
+    const res = await fetch(`${API_BASE}/tareas.php?id=${tareaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...taskToApi(t), factura: nro, estado: nextEstado }),
+    });
+    if (!res.ok) throw new Error();
+    const updated = await res.json();
+    const idx = tasks.findIndex(x => x.id === tareaId);
+    if (idx >= 0) tasks[idx] = apiToTask(updated);
+    render();
+  } catch(e) {
+    alert('No se pudo guardar la factura. Intenta de nuevo.');
+  }
 }
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
