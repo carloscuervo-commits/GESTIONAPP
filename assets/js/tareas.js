@@ -1351,4 +1351,57 @@ async function saveTask() {
   }
 
   // Subir archivo adjunto del reporte del servicio si se seleccionó uno
-  const fRepFile = document.getElementById('f-report
+  const fRepFile = document.getElementById('f-reporte-file');
+  if (fRepFile && fRepFile.files && fRepFile.files[0] && API_BASE) {
+    try {
+      const fd = new FormData();
+      fd.append('id', task.id);
+      fd.append('file', fRepFile.files[0]);
+      const resp = await fetch(`${API_BASE}/reporte_archivo.php`, { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (data.ok) {
+        const idx = tasks.findIndex(t=>t.id===task.id);
+        if (idx>=0) tasks[idx].reporteArchivo = data.nombre;
+        save(); render();
+      } else {
+        alert('⚠️ No se pudo subir el archivo del reporte: ' + (data.error||'error desconocido'));
+      }
+    } catch (e) {
+      console.error('Error subiendo archivo del reporte', e);
+      alert('⚠️ No se pudo subir el archivo del reporte.');
+    }
+  }
+}
+
+function deleteTask() {
+  if (!editingId||!confirm('¿Eliminar esta tarea?')) return;
+  const id = editingId;
+  tasks=tasks.filter(t=>t.id!==id);
+  save(); closeModal(); render();
+  syncDelete(id);
+}
+
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
+re;
+        save(); render();
+      } else {
+        alert('⚠️ No se pudo subir el archivo del reporte: ' + (data.error||'error desconocido'));
+      }
+    } catch (e) {
+      console.error('Error subiendo archivo del reporte', e);
+      alert('⚠️ No se pudo subir el archivo del reporte.');
+    }
+  }
+}
+
+function deleteTask() {
+  if (!editingId||!confirm('¿Eliminar esta tarea?')) return;
+  const id = editingId;
+  tasks=tasks.filter(t=>t.id!==id);
+  save(); closeModal(); render();
+  syncDelete(id);
+}
+
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
