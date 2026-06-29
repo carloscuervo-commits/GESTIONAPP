@@ -4,6 +4,47 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-06-29)
+
+- **feat: tipo_tarea contrato de horas (2026-06-29)** — pendiente de deploy:
+
+  ### Migración SQL (ejecutar en phpMyAdmin ANTES del deploy)
+  `db/009_tipo_tarea_contrato.sql`:
+  ```sql
+  ALTER TABLE tareas ADD COLUMN tipo_tarea ENUM('evento','proyecto','contrato') NOT NULL DEFAULT 'evento' AFTER area;
+  ALTER TABLE clientes ADD COLUMN contrato_area ENUM('it','if') NULL AFTER plazo_factura_dias, ADD COLUMN contrato_horas_mes DECIMAL(4,1) NULL AFTER contrato_area;
+  ALTER TABLE visita_participantes ADD COLUMN horas_contrato DECIMAL(4,1) NULL AFTER check_out;
+  ```
+  ⚠️ El usuario confirmó que ya ejecutó esta migración.
+
+  ### Archivos modificados
+  - **`backend/api/clientes.php`**: campos `contrato_area`/`contrato_horas_mes` en POST INSERT y PUT UPDATE. Nuevo endpoint `GET ?alegra_id=X` (busca por ID de Alegra). Endpoint `GET ?nombre=X` corregido (usaba `? COLLATE utf8mb4_general_ci` que es sintaxis inválida en PDO → 500; cambiado a `LOWER(nombre) = LOWER(?)`).
+  - **`backend/api/tareas.php`**: `tipo_tarea` en POST INSERT y PUT UPDATE.
+  - **`backend/api/reportes.php`**:
+    - GET `?horasContrato=1&tareaId=X` → `{horasContratadas, horasConsumidas, horasDisponibles}`.
+    - Checkout: calcula duración neta, descuenta horas con redondeo a media hora (mínimo 30min; residuo >10min sube al siguiente medio, ej. 40min → 1h, 10min → 0.5h), guarda `horas_contrato` en `visita_participantes`, auto-crea tarea adicional "Visita de contrato adicional" cuando se agotan horas.
+    - `editParticipante`: admin puede editar `horas_contrato` desde historial.
+  - **`assets/js/core.js`**: `tipoTarea` en `taskToApi()`/`apiToTask()`.
+  - **`assets/js/tareas.js`**: selector `#f-tipo-tarea` (oculto por defecto, visible solo en IT/IF cuando el cliente tiene contrato). Dos funciones de verificación:
+    - `_verificarContratoCliente(alegraId, area)` — usa `?alegra_id=` (se llama al seleccionar del dropdown de Alegra).
+    - `_verificarContratoClientePorNombre(nombre, area)` — usa `?nombre=` (se llama al editar tarea existente o cambiar área).
+    - `seleccionarClienteAlegraIdx` ahora pasa `c.id` (ID Alegra), no `c.name`.
+    - Eliminado el debounce de verificación al escribir en `onClienteInput` — solo verifica al seleccionar.
+  - **`assets/js/reportes.js`**: muestra horas disponibles en tarjeta (antes del check-in); admin edita `horas_contrato` en historial; alerta post-checkout con horas consumidas/restantes.
+  - **`assets/js/clientes.js`**: modal de cliente incluye selector de área de contrato y campo de horas/mes.
+  - **`tareas-equipo.html`**: HTML de `#grp-tipo-tarea`, `#contrato-horas-info`, sección contrato en modal cliente. Versiones: `core.js?v=20260629a`, `tareas.js?v=20260629d`, `reportes.js?v=20260629a`, `clientes.js?v=20260629a`.
+
+  ### Reglas de negocio del contrato
+  - Un cliente puede tener contrato en IT o IF (no ambos a la vez, columna `contrato_area`).
+  - Al seleccionar un cliente IT/IF en el formulario de tarea, si tiene contrato para esa área aparece el selector tipo_tarea (evento/proyecto/contrato). Si no tiene contrato, se asigna `evento` automáticamente.
+  - Descuento de horas: al hacer checkout, duración neta (checkout − checkin, descontando pausas si las hay) → redondear a media hora con gracia de 10min. Mínimo 0.5h.
+  - Si horas consumidas > horas contratadas → alerta al técnico + auto-crear nueva tarea "Visita de contrato adicional" en el mismo área/cliente.
+  - El contrato se resetea al inicio de cada mes (no implementado aún en backend — pendiente un cron o verificación en el endpoint de horas).
+  - Admin puede editar `horas_contrato` de cada participante desde el historial de visitas.
+
+  ### Issue de truncación de tareas.js (patrón identificado)
+  El Edit tool trunca las últimas líneas de `tareas.js` en cada edición. Solución definitiva: **usar python para todas las ediciones de este archivo** (reemplazos con `str.replace()` + write completo). El archivo tiene 1391 líneas y termina con los dos `addEventListener` del modal y cartera-modal.
+
 ## Estado actual (última actualización: 2026-06-26)
 
 - **Rebrand a Ginno (2026-06-26)** — pendiente de deploy:

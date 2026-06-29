@@ -775,7 +775,7 @@ function updateFormForArea() {
   // Verificar contrato del cliente actual (si hay alguno ingresado)
   if (itIf) {
     const clienteActual = document.getElementById('f-cliente')?.value.trim();
-    if (clienteActual) _verificarContratoCliente(clienteActual, area);
+    if (clienteActual) _verificarContratoClientePorNombre(clienteActual, area);
   }
 }
 
@@ -849,7 +849,7 @@ async function actualizarInfoContrato(clienteRow) {
 function onTipoTareaChange() {
   const area = document.getElementById('f-area')?.value;
   const cliente = document.getElementById('f-cliente')?.value.trim();
-  if (['it','if'].includes(area) && cliente) _verificarContratoCliente(cliente, area);
+  if (['it','if'].includes(area) && cliente) _verificarContratoClientePorNombre(cliente, area);
 }
 
 function openModal(id, preArea, preEstado) {
@@ -890,7 +890,7 @@ function openModal(id, preArea, preEstado) {
   // _verificarContratoCliente mostrará/ocultará el selector y ajustará el valor si es necesario
   const clienteParaContrato = t?.cliente || '';
   if (['it','if'].includes(defaultArea) && clienteParaContrato) {
-    setTimeout(() => _verificarContratoCliente(clienteParaContrato, defaultArea), 0);
+    setTimeout(() => _verificarContratoClientePorNombre(clienteParaContrato, defaultArea), 0);
   } else {
     const elGrp = document.getElementById('grp-tipo-tarea');
     if (elGrp) elGrp.style.display = 'none';
@@ -987,12 +987,6 @@ function onClienteInput() {
     return;
   }
   clienteSuggestTimer = setTimeout(() => buscarClientesAlegra(q), 300);
-  // También verificar contrato mientras el usuario escribe (con debounce propio)
-  clearTimeout(window._contratoTimer);
-  window._contratoTimer = setTimeout(() => {
-    const area = document.getElementById('f-area')?.value;
-    if (['it','if'].includes(area)) _verificarContratoCliente(q, area);
-  }, 600);
 }
 
 async function buscarClientesAlegra(q) {
@@ -1024,7 +1018,7 @@ function seleccionarClienteAlegraIdx(i) {
   }
   // Verificar contrato para mostrar/ocultar tipo_tarea
   const area = document.getElementById('f-area')?.value;
-  if (['it','if'].includes(area)) _verificarContratoCliente(c.name, area);
+  if (['it','if'].includes(area)) _verificarContratoCliente(c.id, area);
 }
 
 function hideClienteSuggestions() {
