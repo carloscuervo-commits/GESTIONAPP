@@ -6,6 +6,13 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: registro rápido de factura + limpieza modal "por facturar" (2026-06-29)** — pendiente de deploy:
+
+  - **Tarjeta kanban**: botón naranja `🧾 Registrar factura` en tarjetas IT/IF `realizado` y Admin `por-facturar` sin factura. Popup inline con input → Enter o botón guarda factura y mueve a `facturado` automáticamente. "Buscar en Alegra" abre el modal completo.
+  - **Modal**: nuevo botón `✓ Marcar como Facturado` dentro de `#grupo-factura` (visible solo en estado "por facturar"). Al hacer clic valida el campo `f-factura`, asigna estado `facturado` y llama `saveTask()`.
+  - **Limpieza visual del modal en "por facturar"**: se ocultan `#grp-fechaprog` (fecha prog + días + hora de inicio) y `#grupo-reporte` (textarea reporte + adjuntar archivo). La función `toggleFacturaField()` maneja esto; el campo de factura ahora también se muestra en estado `realizado` (no solo `facturado`/`archivado`/`por-facturar`).
+  - **Archivos**: `tareas.js?v=20260629k`, `tareas-equipo.html` (botón `#btn-marcar-facturado` en `#grupo-factura`). Sin cambios de backend ni SQL.
+
 - **feat: agenda semanal por técnico (2026-06-29)** — pendiente de deploy:
 
   ### Archivos nuevos/modificados

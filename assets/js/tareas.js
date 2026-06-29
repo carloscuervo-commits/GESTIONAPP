@@ -1146,10 +1146,17 @@ function seleccionarFacturaAlegra(i) {
 // ===================== FIN BUSCAR FACTURAS EN ALEGRA =====================
 
 function toggleFacturaField(estado) {
-  const showReporte  = ['programado','realizado','facturado','archivado'].includes(estado);
-  const showFactura  = ['facturado','archivado','por-facturar'].includes(estado);
-  document.getElementById('grupo-reporte').style.display  = showReporte  ? 'flex' : 'none';
-  document.getElementById('grupo-factura').style.display  = showFactura  ? 'flex' : 'none';
+  const esPorFacturar = estado === 'realizado' || estado === 'por-facturar';
+  const showReporte   = ['programado','realizado','facturado','archivado'].includes(estado) && !esPorFacturar;
+  const showFactura   = ['facturado','archivado','por-facturar','realizado'].includes(estado);
+  document.getElementById('grupo-reporte').style.display  = showReporte  ? 'flex'  : 'none';
+  document.getElementById('grupo-factura').style.display  = showFactura  ? 'flex'  : 'none';
+  // Ocultar campos irrelevantes en "por facturar"
+  const grpFecha = document.getElementById('grp-fechaprog');
+  if (grpFecha) grpFecha.style.display = esPorFacturar ? 'none' : '';
+  // Botón rápido "Marcar como Facturado"
+  const btnFact = document.getElementById('btn-marcar-facturado');
+  if (btnFact) btnFact.style.display = esPorFacturar ? 'block' : 'none';
 }
 
 function onEstadoChange(estado) {
@@ -1454,6 +1461,22 @@ function deleteTask() {
   const id = editingId;
   save(); closeModal(); render();
   syncDelete(id);
+}
+
+// ---- Marcar como Facturado desde el modal ----
+async function _marcarFacturadoDesdeModal() {
+  const nro = (document.getElementById('f-factura')?.value || '').trim();
+  if (!nro) {
+    document.getElementById('f-factura')?.focus();
+    alert('Ingresa el número de factura antes de continuar.');
+    return;
+  }
+  const t = editingId ? tasks.find(x => x.id === editingId) : null;
+  if (!t) return;
+  const nextEstado = ['it','if'].includes(t.area) ? 'facturado' : t.estado;
+  document.getElementById('f-estado').value = nextEstado;
+  document.getElementById('f-factura').value = nro;
+  await saveTask();
 }
 
 // ---- Registro rápido de factura desde la tarjeta ----
