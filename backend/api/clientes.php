@@ -33,7 +33,7 @@ if ($method === 'GET') {
   }
 
   if (!empty($_GET['nombre'])) {
-    $stmt = $pdo->prepare("SELECT * FROM clientes WHERE nombre COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci");
+    $stmt = $pdo->prepare("SELECT * FROM clientes WHERE LOWER(nombre) = LOWER(?)");
     $stmt->execute([$_GET['nombre']]);
     $row = $stmt->fetch();
     if (!$row) jsonOut(['error' => 'No encontrado'], 404);
