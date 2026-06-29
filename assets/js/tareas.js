@@ -779,42 +779,59 @@ function updateFormForArea() {
   }
 }
 
-// Verifica si el cliente tiene contrato para el área actual.
-// Muestra/oculta el selector de tipo_tarea según el resultado.
-async function _verificarContratoCliente(nombreCliente, area) {
+// Lógica compartida para mostrar/ocultar el selector tipo_tarea dado el objeto cliente.
+function _aplicarResultadoContrato(c, area) {
   const elGrp  = document.getElementById('grp-tipo-tarea');
   const selTipo = document.getElementById('f-tipo-tarea');
-  if (!elGrp || !selTipo || !['it','if'].includes(area)) {
-    if (elGrp) elGrp.style.display = 'none';
-    if (selTipo) selTipo.value = 'evento';
-    return;
-  }
-  if (!nombreCliente || !API_BASE) {
+  if (!elGrp || !selTipo) return;
+  const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
+  if (tieneContrato) {
+    elGrp.style.display = '';
+    if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
+    actualizarInfoContrato(c);
+  } else {
     elGrp.style.display = 'none';
     selTipo.value = 'evento';
+    const infoEl = document.getElementById('contrato-horas-info');
+    if (infoEl) infoEl.style.display = 'none';
+  }
+}
+
+// Verificar contrato por alegra_id (al seleccionar del dropdown de Alegra).
+// Si el cliente aún no tiene alegra_id en la BD, hace fallback por nombre.
+async function _verificarContratoCliente(alegraId, area, nombre = null) {
+  const elGrp = document.getElementById('grp-tipo-tarea');
+  if (!elGrp || !['it','if'].includes(area) || !alegraId || !API_BASE) {
+    if (elGrp) elGrp.style.display = 'none';
+    const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
     return;
   }
   try {
-    const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombreCliente)}`);
+    const res = await fetch(`${API_BASE}/clientes.php?alegra_id=${encodeURIComponent(alegraId)}`);
     const c = await res.json();
-    console.log('[Contrato] cliente:', nombreCliente, '| area:', area, '| resp:', c);
-    const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
-    console.log('[Contrato] tieneContrato:', tieneContrato, '| contrato_area:', c?.contrato_area, '| horas:', c?.contrato_horas_mes);
-    if (tieneContrato) {
-      // Mostrar selector con opciones evento y contrato
-      elGrp.style.display = '';
-      // Si el valor actual no es válido para este cliente, dejar en 'evento'
-      if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
-      actualizarInfoContrato(c);
-    } else {
-      elGrp.style.display = 'none';
-      selTipo.value = 'evento';
-      const infoEl = document.getElementById('contrato-horas-info');
-      if (infoEl) infoEl.style.display = 'none';
-    }
+    if (c.error && nombre) return _verificarContratoClientePorNombre(nombre, area);
+    _aplicarResultadoContrato(c, area);
   } catch {
     elGrp.style.display = 'none';
-    selTipo.value = 'evento';
+    const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
+  }
+}
+
+// Verificar contrato por nombre (al editar tarea existente o cambiar área).
+async function _verificarContratoClientePorNombre(nombre, area) {
+  const elGrp = document.getElementById('grp-tipo-tarea');
+  if (!elGrp || !['it','if'].includes(area) || !nombre || !API_BASE) {
+    if (elGrp) elGrp.style.display = 'none';
+    const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombre)}`);
+    const c = await res.json();
+    _aplicarResultadoContrato(c, area);
+  } catch {
+    elGrp.style.display = 'none';
+    const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
   }
 }
 
@@ -824,10 +841,8 @@ async function actualizarInfoContrato(clienteRow) {
   const selTipo = document.getElementById('f-tipo-tarea');
   if (!infoEl || !selTipo) return;
   if (selTipo.value !== 'contrato') { infoEl.style.display = 'none'; return; }
-  // Datos del contrato ya cargados
   if (clienteRow && clienteRow.contrato_horas_mes) {
     const contratadas = parseFloat(clienteRow.contrato_horas_mes);
-    // Si hay una tarea existente, consultar consumidas desde el servidor
     if (editingId && API_BASE) {
       try {
         const res = await fetch(`${API_BASE}/reportes.php?horasContrato=1&tareaId=${editingId}`);
@@ -845,6 +860,7 @@ async function actualizarInfoContrato(clienteRow) {
   }
   infoEl.style.display = 'none';
 }
+
 
 function onTipoTareaChange() {
   const area = document.getElementById('f-area')?.value;
@@ -1018,7 +1034,7 @@ function seleccionarClienteAlegraIdx(i) {
   }
   // Verificar contrato para mostrar/ocultar tipo_tarea
   const area = document.getElementById('f-area')?.value;
-  if (['it','if'].includes(area)) _verificarContratoCliente(c.id, area);
+  if (['it','if'].includes(area)) _verificarContratoCliente(c.id, area, c.name);
 }
 
 function hideClienteSuggestions() {
