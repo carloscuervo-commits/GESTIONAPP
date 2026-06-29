@@ -32,6 +32,14 @@ if ($method === 'GET') {
     jsonOut(clienteRow($row));
   }
 
+  if (!empty($_GET['alegra_id'])) {
+    $stmt = $pdo->prepare("SELECT * FROM clientes WHERE alegra_id = ?");
+    $stmt->execute([$_GET['alegra_id']]);
+    $row = $stmt->fetch();
+    if (!$row) jsonOut(['error' => 'No encontrado'], 404);
+    jsonOut(clienteRow($row));
+  }
+
   if (!empty($_GET['nombre'])) {
     $stmt = $pdo->prepare("SELECT * FROM clientes WHERE LOWER(nombre) = LOWER(?)");
     $stmt->execute([$_GET['nombre']]);
