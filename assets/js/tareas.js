@@ -797,7 +797,9 @@ async function _verificarContratoCliente(nombreCliente, area) {
   try {
     const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombreCliente)}`);
     const c = await res.json();
+    console.log('[Contrato] cliente:', nombreCliente, '| area:', area, '| resp:', c);
     const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
+    console.log('[Contrato] tieneContrato:', tieneContrato, '| contrato_area:', c?.contrato_area, '| horas:', c?.contrato_horas_mes);
     if (tieneContrato) {
       // Mostrar selector con opciones evento y contrato
       elGrp.style.display = '';
@@ -985,6 +987,12 @@ function onClienteInput() {
     return;
   }
   clienteSuggestTimer = setTimeout(() => buscarClientesAlegra(q), 300);
+  // También verificar contrato mientras el usuario escribe (con debounce propio)
+  clearTimeout(window._contratoTimer);
+  window._contratoTimer = setTimeout(() => {
+    const area = document.getElementById('f-area')?.value;
+    if (['it','if'].includes(area)) _verificarContratoCliente(q, area);
+  }, 600);
 }
 
 async function buscarClientesAlegra(q) {
@@ -1375,7 +1383,6 @@ async function saveTask() {
 function deleteTask() {
   if (!editingId||!confirm('¿Eliminar esta tarea?')) return;
   const id = editingId;
-  tasks=tasks.filter(t=>t.id!==id);
   save(); closeModal(); render();
   syncDelete(id);
 }
