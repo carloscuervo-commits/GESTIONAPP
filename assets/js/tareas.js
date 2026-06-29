@@ -577,7 +577,7 @@ function renderAlertasFueraSitio() {
 }
 
 function setArea(a) {
-  if (currentUser && currentUser.perfil === 'tecnico' && !['it','if'].includes(a)) return; // técnicos solo ven IT/IF
+  if (currentUser && currentUser.perfil === 'tecnico' && !['it','if','agenda'].includes(a)) return; // técnicos solo ven IT/IF/Agenda
   currentArea=a;
   // Limpiar filtros al cambiar de área
   ['search','f-estado','f-responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -588,7 +588,8 @@ function setArea(a) {
   const isInformes   = a === 'informes';
   const isUsuarios   = a === 'usuarios';
   const isClientes   = a === 'clientes';
-  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes;
+  const isAgenda     = a === 'agenda';
+  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes || isAgenda;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -598,6 +599,7 @@ function setArea(a) {
   document.getElementById('informes-view').style.display    = isInformes   ? 'block' : 'none';
   document.getElementById('usuarios-view').style.display    = isUsuarios   ? 'block' : 'none';
   document.getElementById('clientes-view').style.display    = isClientes   ? 'block' : 'none';
+  document.getElementById('agenda-view').style.display      = isAgenda     ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -610,6 +612,7 @@ function setArea(a) {
   else if (isInformes)  { renderInformesView(); }
   else if (isUsuarios)  { renderUsuariosView(); }
   else if (isClientes)  { cargarClientes(); }
+  else if (isAgenda)    { iniciarAgenda(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.

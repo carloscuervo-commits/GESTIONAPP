@@ -6,6 +6,20 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: agenda semanal por técnico (2026-06-29)** — pendiente de deploy:
+
+  ### Archivos nuevos/modificados
+  - **`assets/js/agenda.js`** (nuevo, v=20260629a): módulo completo de agenda semanal.
+    - Técnico: lista Lun–Sáb con sus tareas del día (filtra `tasks` por `fechaProg`/`diasProg`/`team`).
+    - Admin: chips selector de técnicos (todos activos por defecto); si hay ≤1 tec seleccionado → vista lista; si ≥2 → grid comparativo por columnas.
+    - Funciones: `iniciarAgenda()`, `renderAgendaSemanal()`, `_agendaNavSemana(delta)`, `_agendaToggleTec(id)`.
+    - Usa `tasks` (array ya cargado en memoria) — no hace fetch extra.
+    - Click en card → `openModal(t.id)`.
+  - **`tareas-equipo.html`**: tab `📅 Agenda` (`data-area="agenda"`), `#agenda-view` div, `<script src="assets/js/agenda.js?v=20260629a">`. Versión tareas.js bumpeada a `?v=20260629i`.
+  - **`assets/js/tareas.js`** (`?v=20260629i`): `setArea()` maneja `isAgenda`; técnicos pueden acceder a 'agenda' además de 'it'/'if'.
+
+  ### No requiere migración SQL — usa campos existentes.
+
 - **feat: tipo_tarea contrato de horas (2026-06-29)** — pendiente de deploy:
 
   ### Migración SQL (ejecutar en phpMyAdmin ANTES del deploy)
