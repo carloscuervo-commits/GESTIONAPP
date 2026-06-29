@@ -6,6 +6,35 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: notificaciones push Web Push (2026-06-29)** — pendiente de deploy + setup manual:
+
+  ### Archivos nuevos
+  - **`sw.js`** (raíz): Service Worker — maneja evento `push` y `notificationclick`. Scope `/ginno/`.
+  - **`assets/js/push.js`**: Registra SW, suscribe al usuario con clave VAPID pública, envía suscripción al backend. Banner de activación aparece automáticamente tras login si permisos no otorgados aún.
+  - **`backend/api/push_subscribe.php`**: POST guarda suscripción (upsert por endpoint), DELETE la elimina.
+  - **`backend/lib/webpush.php`**: Enviador VAPID + cifrado aes128gcm (RFC 8291/8292) en PHP puro — sin Composer ni dependencias externas. Requiere PHP 7.3+ con openssl y curl.
+  - **`backend/cron/recordatorio_visita.php`**: Cron job (cada 15 min) — busca tareas con `fechaProg=hoy` y `horaProg` entre +45min y +75min desde ahora, envía push a técnicos asignados. Borra suscripciones expiradas (HTTP 410).
+  - **`backend/config/push_config.example.php`**: Plantilla con las claves VAPID generadas. El archivo real (`push_config.php`) se crea manualmente en el servidor — no va en git.
+  - **`db/010_push_subscriptions.sql`**: Tabla `push_subscriptions`.
+  - **`Ginno_Push_Setup.pdf`**: Instrucciones completas de configuración primera vez (SQL, config, cron, activación por técnico, troubleshooting).
+
+  ### Claves VAPID (generadas para este proyecto)
+  - **PUBLIC**: `BPOMS5YqvRClLy9u4d6-cUcQoqrn7SHyfiv1ZHrpKSPtDNIRfHGggk55O3AK6Oz8burhlxRQuSho0gSXqWc20uA`
+  - **PRIVATE**: `XucVmxA0geLi0mMpF2ldqCKRIkPf-idN69G5oJGm8Tg` ⚠️ solo en servidor
+  - No cambiar las claves después del primer deploy (los técnicos ya suscritos quedarían inválidos).
+
+  ### Setup requerido ANTES de que funcione
+  1. Ejecutar `db/010_push_subscriptions.sql` en phpMyAdmin
+  2. Crear `backend/config/push_config.php` en el servidor (ver ejemplo)
+  3. Deploy (incluye `sw.js` — nuevo en `.cpanel.yml`)
+  4. Configurar cron job en cPanel (cada 15 min)
+  5. Cada técnico activa una vez desde su celular
+
+  ### Modificados
+  - `.cpanel.yml`: agrega `sw.js` al deploy
+  - `tareas-equipo.html`: agrega `push.js?v=20260629a`, bump `app.js?v=20260629b`
+  - `assets/js/app.js`: llama `iniciarPush()` al terminar `iniciarApp()`
+
 - **feat: registro rápido de factura + limpieza modal "por facturar" (2026-06-29)** — pendiente de deploy:
 
   - **Tarjeta kanban**: botón naranja `🧾 Registrar factura` en tarjetas IT/IF `realizado` y Admin `por-facturar` sin factura. Popup inline con input → Enter o botón guarda factura y mueve a `facturado` automáticamente. "Buscar en Alegra" abre el modal completo.

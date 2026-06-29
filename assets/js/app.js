@@ -75,6 +75,8 @@ async function iniciarApp(){
   iniciarAlarmaChecker();
   iniciarAutoSync();
   setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
+  // Iniciar push después de autenticar (fire-and-forget)
+  if (typeof iniciarPush === 'function') iniciarPush();
 }
 
 // pageshow dispara tanto en carga normal como al restaurar desde bfcache.
