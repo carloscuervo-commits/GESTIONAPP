@@ -800,6 +800,7 @@ function _aplicarResultadoContrato(c, area) {
 // Verificar contrato por alegra_id (al seleccionar del dropdown de Alegra).
 // Si el cliente aún no tiene alegra_id en la BD, hace fallback por nombre.
 async function _verificarContratoCliente(alegraId, area, nombre = null) {
+  console.log('[Contrato] por id:', alegraId, 'area:', area, 'nombre:', nombre);
   const elGrp = document.getElementById('grp-tipo-tarea');
   if (!elGrp || !['it','if'].includes(area) || !alegraId || !API_BASE) {
     if (elGrp) elGrp.style.display = 'none';
@@ -809,9 +810,11 @@ async function _verificarContratoCliente(alegraId, area, nombre = null) {
   try {
     const res = await fetch(`${API_BASE}/clientes.php?alegra_id=${encodeURIComponent(alegraId)}`);
     const c = await res.json();
+    console.log('[Contrato] resp id:', c);
     if (c.error && nombre) return _verificarContratoClientePorNombre(nombre, area);
     _aplicarResultadoContrato(c, area);
-  } catch {
+  } catch(e) {
+    console.log('[Contrato] error id:', e);
     elGrp.style.display = 'none';
     const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
   }
@@ -819,6 +822,7 @@ async function _verificarContratoCliente(alegraId, area, nombre = null) {
 
 // Verificar contrato por nombre (al editar tarea existente o cambiar área).
 async function _verificarContratoClientePorNombre(nombre, area) {
+  console.log('[Contrato] por nombre:', nombre, 'area:', area);
   const elGrp = document.getElementById('grp-tipo-tarea');
   if (!elGrp || !['it','if'].includes(area) || !nombre || !API_BASE) {
     if (elGrp) elGrp.style.display = 'none';
@@ -828,8 +832,10 @@ async function _verificarContratoClientePorNombre(nombre, area) {
   try {
     const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombre)}`);
     const c = await res.json();
+    console.log('[Contrato] resp nombre:', c);
     _aplicarResultadoContrato(c, area);
-  } catch {
+  } catch(e) {
+    console.log('[Contrato] error nombre:', e);
     elGrp.style.display = 'none';
     const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
   }
