@@ -780,18 +780,19 @@ function updateFormForArea() {
 }
 
 // Lógica compartida para mostrar/ocultar el selector tipo_tarea dado el objeto cliente.
-function _aplicarResultadoContrato(c, area) {
+function _aplicarResultadoContrato(c, area, mostrarConfirm = false) {
   const elGrp  = document.getElementById('grp-tipo-tarea');
   const selTipo = document.getElementById('f-tipo-tarea');
-  console.log('[Contrato] aplicar:', {elGrp: !!elGrp, selTipo: !!selTipo, contrato_area: c?.contrato_area, horas: c?.contrato_horas_mes, area});
   if (!elGrp || !selTipo) return;
   const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
-  console.log('[Contrato] tieneContrato:', tieneContrato, '| display antes:', elGrp.style.display);
   if (tieneContrato) {
     elGrp.style.display = 'block';
-    console.log('[Contrato] display después:', elGrp.style.display, '| offsetParent:', elGrp.offsetParent);
     if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
-    actualizarInfoContrato(c);
+    if (mostrarConfirm) {
+      _mostrarConfirmContrato(c, area);
+    } else {
+      actualizarInfoContrato(c);
+    }
   } else {
     elGrp.style.display = 'none';
     selTipo.value = 'evento';
@@ -800,10 +801,60 @@ function _aplicarResultadoContrato(c, area) {
   }
 }
 
+// Popup de confirmación: ¿crear como visita de contrato?
+function _mostrarConfirmContrato(c, area) {
+  let popup = document.getElementById('contrato-confirm-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'contrato-confirm-popup';
+    popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)';
+    document.body.appendChild(popup);
+  }
+  const areaLabel = area.toUpperCase();
+  const horas = c.contrato_horas_mes;
+  popup.innerHTML = `
+    <div style="background:var(--card-bg,#fff);border-radius:16px;padding:28px 24px;max-width:340px;width:92%;
+                box-shadow:0 12px 40px rgba(0,0,0,0.22);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">📋</div>
+      <div style="font-weight:700;font-size:16px;color:var(--text);margin-bottom:6px">
+        Cliente con contrato ${areaLabel}
+      </div>
+      <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:18px">
+        ${horas}h contratadas este mes
+      </div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:22px">
+        ¿Crear esta tarea como <strong>visita de contrato</strong>?
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="_confirmarTipoContrato(true)"
+          style="flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;
+                 background:#169BBC;color:#fff;font-weight:600;font-size:14px">
+          ✓ Sí, contrato
+        </button>
+        <button onclick="_confirmarTipoContrato(false)"
+          style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border,#e5e7eb);
+                 cursor:pointer;background:transparent;color:var(--text);font-weight:600;font-size:14px">
+          ✗ No, evento
+        </button>
+      </div>
+    </div>`;
+  popup.style.display = 'flex';
+}
+
+function _confirmarTipoContrato(esContrato) {
+  const popup = document.getElementById('contrato-confirm-popup');
+  if (popup) popup.style.display = 'none';
+  const selTipo = document.getElementById('f-tipo-tarea');
+  if (selTipo) {
+    selTipo.value = esContrato ? 'contrato' : 'evento';
+    // Actualizar info de horas si es contrato
+    if (esContrato) onTipoTareaChange();
+  }
+}
+
 // Verificar contrato por alegra_id (al seleccionar del dropdown de Alegra).
 // Si el cliente aún no tiene alegra_id en la BD, hace fallback por nombre.
 async function _verificarContratoCliente(alegraId, area, nombre = null) {
-  console.log('[Contrato] por id:', alegraId, 'area:', area, 'nombre:', nombre);
   const elGrp = document.getElementById('grp-tipo-tarea');
   if (!elGrp || !['it','if'].includes(area) || !alegraId || !API_BASE) {
     if (elGrp) elGrp.style.display = 'none';
@@ -813,11 +864,9 @@ async function _verificarContratoCliente(alegraId, area, nombre = null) {
   try {
     const res = await fetch(`${API_BASE}/clientes.php?alegra_id=${encodeURIComponent(alegraId)}`);
     const c = await res.json();
-    console.log('[Contrato] resp id:', c);
-    if (c.error && nombre) return _verificarContratoClientePorNombre(nombre, area);
-    _aplicarResultadoContrato(c, area);
-  } catch(e) {
-    console.log('[Contrato] error id:', e);
+    if (c.error && nombre) return _verificarContratoClientePorNombre(nombre, area, true);
+    _aplicarResultadoContrato(c, area, true);
+  } catch {
     elGrp.style.display = 'none';
     const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
   }
@@ -825,7 +874,6 @@ async function _verificarContratoCliente(alegraId, area, nombre = null) {
 
 // Verificar contrato por nombre (al editar tarea existente o cambiar área).
 async function _verificarContratoClientePorNombre(nombre, area) {
-  console.log('[Contrato] por nombre:', nombre, 'area:', area);
   const elGrp = document.getElementById('grp-tipo-tarea');
   if (!elGrp || !['it','if'].includes(area) || !nombre || !API_BASE) {
     if (elGrp) elGrp.style.display = 'none';
@@ -835,10 +883,8 @@ async function _verificarContratoClientePorNombre(nombre, area) {
   try {
     const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombre)}`);
     const c = await res.json();
-    console.log('[Contrato] resp nombre:', c);
     _aplicarResultadoContrato(c, area);
-  } catch(e) {
-    console.log('[Contrato] error nombre:', e);
+  } catch {
     elGrp.style.display = 'none';
     const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
   }
@@ -1168,7 +1214,7 @@ function renderSeguimientoSection(t, estadoOverride) {
     : 'Nota final (motivo de rechazo / aprobación, opcional)';
 }
 
-function closeModal() { document.getElementById('modal').classList.remove('open'); editingId=null; selectedTeam=[]; }
+function closeModal() { document.getElementById('modal').classList.remove('open'); editingId=null; selectedTeam=[]; const cp=document.getElementById('contrato-confirm-popup'); if(cp) cp.style.display='none'; }
 
 async function saveTask() {
   const titulo  = document.getElementById('f-titulo').value.trim();
