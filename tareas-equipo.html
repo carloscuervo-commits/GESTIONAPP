@@ -65,6 +65,7 @@
   <button class="area-tab" data-area="usuarios" id="tab-usuarios" onclick="setArea('usuarios')" style="display:none">👥 Usuarios</button>
   <button class="area-tab" data-area="clientes" id="tab-clientes" onclick="setArea('clientes')" style="display:none">🏢 Clientes</button>
   <button class="area-tab" data-area="agenda" id="tab-agenda" onclick="setArea('agenda')">📅 Agenda</button>
+  <button class="area-tab" data-area="transportes" id="tab-transportes" onclick="setArea('transportes')" style="display:none">🚗 Transportes</button>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -132,6 +133,7 @@
 <!-- CLIENTES VIEW -->
 <div id="clientes-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="agenda-view" style="display:none;padding:16px 20px 30px"></div>
+<div id="transportes-view" style="display:none;padding:16px 20px 30px"></div>
 
 <!-- CARTERA MODAL -->
 <div class="cartera-modal-overlay" id="cartera-modal">
@@ -444,6 +446,7 @@
       </div>
     </div>
     <div id="modal-acciones-rapidas" style="display:none;padding:12px 0 4px;flex-direction:column;gap:8px"></div>
+    <div id="modal-transporte-btn" style="display:none;padding:0 0 8px"></div>
     <div id="modal-historial-visitas" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-delete" id="btn-delete" onclick="deleteTask()" style="display:none">🗑 Eliminar</button>
@@ -686,8 +689,8 @@
 
 
 <script src="assets/js/core.js?v=20260629c"></script>
-<script src="assets/js/auth.js?v=20260624c"></script>
-<script src="assets/js/tareas.js?v=20260629n"></script>
+<script src="assets/js/auth.js?v=20260629a"></script>
+<script src="assets/js/tareas.js?v=20260629p"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260629a"></script>
@@ -697,6 +700,7 @@
 <script src="assets/js/clientes.js?v=20260629b"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
+<script src="assets/js/transportes.js?v=20260629b"></script>
 <script src="assets/js/app.js?v=20260629b"></script>
 </body>
 </html>

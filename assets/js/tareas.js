@@ -590,8 +590,9 @@ function setArea(a) {
   const isInformes   = a === 'informes';
   const isUsuarios   = a === 'usuarios';
   const isClientes   = a === 'clientes';
-  const isAgenda     = a === 'agenda';
-  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes || isAgenda;
+  const isAgenda      = a === 'agenda';
+  const isTransportes = a === 'transportes';
+  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes || isAgenda || isTransportes;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -601,7 +602,8 @@ function setArea(a) {
   document.getElementById('informes-view').style.display    = isInformes   ? 'block' : 'none';
   document.getElementById('usuarios-view').style.display    = isUsuarios   ? 'block' : 'none';
   document.getElementById('clientes-view').style.display    = isClientes   ? 'block' : 'none';
-  document.getElementById('agenda-view').style.display      = isAgenda     ? 'block' : 'none';
+  document.getElementById('agenda-view').style.display      = isAgenda      ? 'block' : 'none';
+  document.getElementById('transportes-view').style.display = isTransportes  ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -614,7 +616,8 @@ function setArea(a) {
   else if (isInformes)  { renderInformesView(); }
   else if (isUsuarios)  { renderUsuariosView(); }
   else if (isClientes)  { cargarClientes(); }
-  else if (isAgenda)    { iniciarAgenda(); }
+  else if (isAgenda)       { iniciarAgenda(); }
+  else if (isTransportes) { iniciarTransportes(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.
@@ -677,6 +680,11 @@ function _ejecutarArchivar(id, motivo) {
     : t);
   save(); render();
   syncEstado(id);
+  // Verificar transporte (IT/IF en sitio al archivar)
+  const tarch = tasks.find(x => x.id === id);
+  if (tarch && ['it','if'].includes(tarch.area) && tarch.modalidad === 'en_sitio') {
+    _transportesCheckTarea(id);
+  }
 }
 
 function confirmarMotivoNoFactura(motivo) {
@@ -1039,6 +1047,17 @@ function openModal(id, preArea, preEstado) {
       histDiv.style.display = 'block';
     } else {
       histDiv.style.display = 'none';
+    }
+  }
+
+  // ── Botón de transporte (solo tarea existente IT/IF facturada/archivada) ──
+  const transpBtn = document.getElementById('modal-transporte-btn');
+  if (transpBtn) {
+    transpBtn.style.display = 'none';
+    transpBtn.innerHTML = '';
+    if (t && ['it','if'].includes(t.area) && ['facturado','archivado'].includes(t.estado) &&
+        typeof _transpActualizarBotonModal === 'function') {
+      _transpActualizarBotonModal(t.id);
     }
   }
 
@@ -1417,6 +1436,12 @@ async function saveTask() {
   save(); closeModal(); render();
   await syncTask(task, isNew);
   extraTasks.forEach(et => syncTask(et, true));
+
+  // Verificar transporte (IT/IF en sitio al facturar o archivar)
+  if (['it','if'].includes(area) && task.modalidad === 'en_sitio' &&
+      ['facturado','archivado'].includes(task.estado)) {
+    _transportesCheckTarea(task.id);
+  }
 
   // Subir cotización (.docx) si se seleccionó un archivo
   const fCotFile = document.getElementById('f-cotizacion-file');

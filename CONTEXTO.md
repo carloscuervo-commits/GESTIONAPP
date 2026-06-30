@@ -6,6 +6,54 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: transporte_estado en visita_participantes + botón manual en modal (2026-06-29)** — pendiente de deploy:
+
+  - **Migración SQL**: `db/014_transporte_estado_participante.sql` — `ALTER TABLE visita_participantes ADD COLUMN transporte_estado ENUM('pendiente','registrado','no_aplica') NULL DEFAULT NULL`. Ejecutar DESPUÉS de `013_transportes.sql`.
+  - **3 estados por participante**:
+    - `NULL` — legacy (visita anterior a este sistema)
+    - `pendiente` — visita ocurrió, transporte no procesado aún
+    - `registrado` — se creó registro en `transportes`
+    - `no_aplica` — no califica: tarea fue remota o cliente sin valor_transporte
+  - **`transportes.php`** ampliado:
+    - `GET ?pendientes_tarea=X` → `{ pendientes: N }` (participantes con estado NULL o pendiente).
+    - `POST` → además de crear el registro, actualiza `visita_participantes SET transporte_estado='registrado'`.
+    - `PUT ?marcar_no_aplica=1` + body `{tarea_id}` → marca todos los participantes pendientes de la tarea como `no_aplica`.
+  - **`transportes.js`**: `_transportesCheckTarea` ahora marca `no_aplica` automáticamente si la tarea no califica (remota o cliente sin valor). Agrega `_transpMarcarNoAplica(tareaId)` y `_transpActualizarBotonModal(tareaId)`.
+  - **Botón en modal**: `#modal-transporte-btn` (div nuevo en `tareas-equipo.html`). `openModal()` llama `_transpActualizarBotonModal(id)` para tareas IT/IF facturadas/archivadas. Botón naranja "🚗 Registrar transporte (N)" visible solo si hay participantes pendientes; desaparece después de registrar.
+  - **Versiones**: `tareas.js?v=20260629p`, `transportes.js?v=20260629b`.
+
+- **feat: módulo transportes por pagar (2026-06-29)** — pendiente de deploy:
+
+  ### Reglas de negocio
+  - Solo aplica a tarjetas IT/IF con `modalidad = 'en_sitio'` cuyo cliente tenga `valor_transporte > 0`.
+  - Se genera **un registro por check-in real** en `visita_participantes` (tareas multi-día → un transporte por día visitado).
+  - Cada técnico que participó en la visita recibe su propio registro.
+  - El popup aparece al **facturar** (cambio a `facturado`) o **archivar** la tarea.
+  - UNIQUE KEY en `participante_id` previene duplicados si el popup se activa más de una vez.
+
+  ### Migración SQL (ejecutar en phpMyAdmin ANTES del deploy)
+  `db/013_transportes.sql` — crea tabla `transportes`:
+  ```
+  id, tarea_id, participante_id (UNIQUE), tecnico_id, cliente, tarea_titulo,
+  fecha, check_in, check_out, valor, estado ENUM(pendiente/pagado/no_aprobado)
+  ```
+
+  ### Archivos nuevos
+  - **`backend/api/transportes.php`**: GET (filtros: tecnico_id, desde, hasta, estado), POST (crea registros por tarea_id), PUT (actualiza estado a pagado/no_aprobado).
+  - **`assets/js/transportes.js?v=20260629a`**: popup de aviso (`_transportesCheckTarea`, `_transportesMostrarPopup`, `_transportesRegistrar`) + vista admin (`iniciarTransportes`, `renderTransportesView`, tabla por técnico, filtros, acciones).
+
+  ### Archivos modificados
+  - **`assets/js/tareas.js?v=20260629o`**: hook en `saveTask()` y `_ejecutarArchivar()` que llaman `_transportesCheckTarea(id)` cuando se cumplen las condiciones. `setArea()` maneja `isTransportes` y llama `iniciarTransportes()`.
+  - **`assets/js/auth.js?v=20260629a`**: `aplicarPermisosUI()` oculta `#tab-transportes` para técnicos.
+  - **`tareas-equipo.html`**: tab `🚗 Transportes` (id=`tab-transportes`, solo admin), div `#transportes-view`, script `transportes.js`.
+  - ⚠️ **Patrón de truncación auth.js**: el Edit tool truncó `auth.js` al agregar la línea de `tabTransportes`. Se reparó con Python. Para futuras ediciones de `auth.js` usar Python str.replace() como con `tareas.js`.
+
+  ### Vista admin
+  - Filtros: técnico, rango de fechas, toggle Pendientes/Archivados.
+  - Pendientes: total general en verde, tabla por técnico con subtotal, columnas fecha/cliente·tarea/check-in→check-out/duración/valor/acciones.
+  - Acciones: ✅ Pagar → estado=`pagado` | ❌ No autorizar → estado=`no_aprobado`. Ambas archivan el registro (desaparece de pendientes, visible en Archivados).
+  - Archivados: misma tabla con badge de estado en lugar de botones.
+
 - **feat: valor_transporte por trayecto en clientes (2026-06-29)** — pendiente de deploy:
 
   - Nuevo campo `valor_transporte DECIMAL(10,0) NULL` en tabla `clientes`. Guarda el valor en pesos que se le paga al técnico por trayecto cuando visita ese cliente en sitio. Base para cálculos futuros de liquidación de transporte.
