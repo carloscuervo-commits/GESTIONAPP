@@ -101,11 +101,7 @@ function _imagenesOnDrop(e) {
 document.addEventListener('paste', function (e) {
   const modal = document.getElementById('modal');
   if (!modal || !modal.classList.contains('open')) return;
-  if (!_imgTareaId) return;
-  // Evitar interceptar paste en inputs de texto
-  const tag = document.activeElement?.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
+  // Para imágenes pegadas desde el portapapeles, incluso en el campo descripción
   const items = Array.from(e.clipboardData?.items || []);
   const imageFiles = items
     .filter(item => item.type.startsWith('image/'))
