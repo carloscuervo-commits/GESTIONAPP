@@ -769,6 +769,9 @@ function updateFormForArea() {
   if (elCot) elCot.style.display = area==='comercial' ? '' : 'none';
   const elTeam = document.getElementById('grp-team');
   if (elTeam) elTeam.style.display = area==='comercial' ? 'none' : '';
+  // Modalidad visita: solo para IT/IF
+  const elModalidad = document.getElementById('grp-modalidad');
+  if (elModalidad) elModalidad.style.display = itIf ? '' : 'none';
   // Tipo de tarea: inicialmente oculto — se muestra solo si el cliente tiene contrato
   const elTipoTarea = document.getElementById('grp-tipo-tarea');
   if (elTipoTarea) elTipoTarea.style.display = 'none';
@@ -1148,7 +1151,9 @@ function seleccionarFacturaAlegra(i) {
 
 function toggleFacturaField(estado) {
   const esPorFacturar = estado === 'realizado' || estado === 'por-facturar';
-  const showReporte   = ['programado','realizado','facturado','archivado'].includes(estado) && !esPorFacturar;
+  const area = document.getElementById('f-area')?.value || '';
+  const itIf = ['it','if'].includes(area);
+  const showReporte   = itIf; // visible en todos los estados IT/IF
   const showFactura   = ['facturado','archivado','por-facturar','realizado'].includes(estado);
   document.getElementById('grupo-reporte').style.display  = showReporte  ? 'flex'  : 'none';
   document.getElementById('grupo-factura').style.display  = showFactura  ? 'flex'  : 'none';
@@ -1241,7 +1246,7 @@ async function saveTask() {
 
   // Si una tarjeta operativa "En ejecución" recibe el reporte del servicio
   // (texto y/o archivo adjunto), preguntar si se quiere mover a "Por facturar"
-  if (['it','if'].includes(area) && estado === 'programado') {
+  if (['it','if'].includes(area) && ['solicitud','programado'].includes(estado)) {
     const fRepFileCheck = document.getElementById('f-reporte-file');
     const tieneArchivo = fRepFileCheck && fRepFileCheck.files && fRepFileCheck.files[0];
     if (tieneArchivo) {

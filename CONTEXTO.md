@@ -6,6 +6,17 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: adjunto de reporte visible en pendientes + flujo directo solicitud→por facturar (2026-06-29)** — pendiente de deploy:
+
+  - **Cambio de flujo**: las tareas IT/IF pueden gestionarse directamente desde Pendientes hasta Por facturar, sin pasar por En ejecución. "En ejecución" queda para proyectos multi-día que requieren programación explícita.
+  - **`#grupo-reporte` (adjuntar archivo)** ahora visible para TODOS los estados IT/IF (solicitud, programado, realizado, facturado, archivado). Antes solo aparecía en programado/facturado/archivado.
+  - **`toggleFacturaField`** en `tareas.js`: lee `f-area` del formulario; si es IT/IF, `showReporte = true` siempre.
+  - **Auto-prompt "¿Mover a Por facturar?"**: antes solo se mostraba si el estado actual era `programado`. Ahora también aplica desde `solicitud` — si se adjunta un archivo en una tarea pendiente, pregunta si se quiere mover directo a Por facturar.
+  - La validación de estado `realizado` (requiere archivo o reporte Ginno) no cambió.
+  - **Archivos**: `tareas.js?v=20260629n`. Sin cambios de backend ni SQL.
+
+
+
 - **feat: festivos Colombia en conteo de días multi-día (2026-06-29)** — pendiente de deploy:
 
   - **Problema**: `fechaProgFin`, `diaActualEnProg` y `diasHabilesDesde` en `core.js` solo saltaban sábados y domingos. `_agendaTareasDelDia` en `agenda.js` calculaba el fin de rango sin saltarlos tampoco.

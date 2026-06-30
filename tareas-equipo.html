@@ -338,9 +338,9 @@
             style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;background:var(--card);color:var(--text)">
         </div>
       </div>
-      <div class="form-group full" id="grupo-reporte" style="display:none">
+      <div class="form-group full" id="grp-modalidad" style="display:none">
         <label>📍 Modalidad de la visita</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;
                         padding:7px 14px;border-radius:20px;border:1px solid var(--border);
                         background:var(--card-bg,var(--surface-1));user-select:none">
@@ -352,7 +352,9 @@
             <input type="radio" name="f-modalidad" value="remoto" id="f-modalidad-remoto"> 💻 Remoto
           </label>
         </div>
-        <label style="margin-top:10px">📎 Adjuntar archivo del reporte (PDF, fotos, etc.)</label>
+      </div>
+      <div class="form-group full" id="grupo-reporte" style="display:none">
+        <label>📎 Adjuntar archivo del reporte (PDF, fotos, etc.)</label>
         <input type="file" id="f-reporte-file" style="font-size:13px">
         <div id="reporte-archivo-info" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
       </div>
@@ -681,7 +683,7 @@
 
 <script src="assets/js/core.js?v=20260629c"></script>
 <script src="assets/js/auth.js?v=20260624c"></script>
-<script src="assets/js/tareas.js?v=20260629l"></script>
+<script src="assets/js/tareas.js?v=20260629n"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260629a"></script>
