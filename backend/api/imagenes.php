@@ -2,22 +2,52 @@
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
 
+// Capturar cualquier error fatal y devolverlo como JSON
+set_exception_handler(function($e) {
+  jsonOut(['error' => $e->getMessage()], 500);
+});
+
 $pdo    = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
 $dir = __DIR__ . '/../uploads/imagenes';
 if (!is_dir($dir)) {
-  mkdir($dir, 0700, true);
+  if (!mkdir($dir, 0755, true)) {
+    jsonOut(['error' => 'No se pudo crear el directorio de imágenes'], 500);
+  }
 }
 
 // Tipos de imagen permitidos
-$MIME_PERMITIDOS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
 $EXT_MIME = [
-  'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
-  'png' => 'image/png',  'gif'  => 'image/gif',
-  'webp'=> 'image/webp', 'heic' => 'image/heic',
-  'heif'=> 'image/heif',
+  'jpg'  => 'image/jpeg',
+  'jpeg' => 'image/jpeg',
+  'png'  => 'image/png',
+  'gif'  => 'image/gif',
+  'webp' => 'image/webp',
+  'heic' => 'image/heic',
+  'heif' => 'image/heif',
 ];
+$MIME_PERMITIDOS = array_values(array_unique($EXT_MIME));
+
+// Detectar MIME de forma robusta: finfo → mime_content_type → extensión
+function detectarMime($tmpPath, $ext, $EXT_MIME) {
+  // 1. finfo (más confiable)
+  if (function_exists('finfo_open')) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    if ($finfo) {
+      $mime = finfo_file($finfo, $tmpPath);
+      finfo_close($finfo);
+      if ($mime && $mime !== 'application/octet-stream') return $mime;
+    }
+  }
+  // 2. mime_content_type como fallback
+  if (function_exists('mime_content_type')) {
+    $mime = mime_content_type($tmpPath);
+    if ($mime && $mime !== 'application/octet-stream') return $mime;
+  }
+  // 3. Inferir desde extensión del archivo
+  return $EXT_MIME[$ext] ?? 'application/octet-stream';
+}
 
 // --------------------------------------------------------------
 // GET /imagenes.php?tarea_id=X   → lista de imágenes de la tarea
@@ -61,7 +91,6 @@ if ($method === 'GET') {
 // --------------------------------------------------------------
 // POST /imagenes.php
 // multipart/form-data: campos "tarea_id" y "file" (imagen)
-// Sube la imagen a backend/uploads/imagenes/{id}.{ext}
 // --------------------------------------------------------------
 if ($method === 'POST') {
   $tareaId = $_POST['tarea_id'] ?? null;
@@ -72,36 +101,62 @@ if ($method === 'POST') {
   $stmt->execute([$tareaId]);
   if (!$stmt->fetch()) jsonOut(['error' => 'Tarea no encontrada'], 404);
 
-  if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-    jsonOut(['error' => 'No se recibió el archivo'], 400);
+  if (!isset($_FILES['file'])) {
+    jsonOut(['error' => 'No se recibió ningún archivo'], 400);
+  }
+  $uploadError = $_FILES['file']['error'];
+  if ($uploadError !== UPLOAD_ERR_OK) {
+    $msgs = [
+      UPLOAD_ERR_INI_SIZE   => 'El archivo supera upload_max_filesize en php.ini',
+      UPLOAD_ERR_FORM_SIZE  => 'El archivo supera MAX_FILE_SIZE del formulario',
+      UPLOAD_ERR_PARTIAL    => 'El archivo se subió parcialmente',
+      UPLOAD_ERR_NO_FILE    => 'No se seleccionó ningún archivo',
+      UPLOAD_ERR_NO_TMP_DIR => 'Falta la carpeta temporal de PHP',
+      UPLOAD_ERR_CANT_WRITE => 'No se pudo escribir en disco',
+      UPLOAD_ERR_EXTENSION  => 'Una extensión de PHP detuvo la subida',
+    ];
+    jsonOut(['error' => $msgs[$uploadError] ?? "Error de subida PHP: $uploadError"], 400);
   }
 
-  // Validar tipo MIME real (no confiar solo en la extensión)
-  $tmpPath = $_FILES['file']['tmp_name'];
-  $mime    = mime_content_type($tmpPath);
-  if (!in_array($mime, $MIME_PERMITIDOS)) {
-    jsonOut(['error' => 'Tipo de archivo no permitido: ' . $mime], 400);
-  }
-
+  $tmpPath        = $_FILES['file']['tmp_name'];
   $nombreOriginal = $_FILES['file']['name'];
+
+  // Extensión desde nombre
   $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
   $ext = preg_replace('/[^a-z0-9]/', '', $ext);
+  if ($ext === '') $ext = 'jpg';
+
+  // Detectar MIME
+  $mime = detectarMime($tmpPath, $ext, $EXT_MIME);
+
+  // Si el MIME no está permitido, rechazar
+  if (!in_array($mime, $MIME_PERMITIDOS)) {
+    // Último recurso: si la extensión es conocida, confiar en ella
+    if (!array_key_exists($ext, $EXT_MIME)) {
+      jsonOut(['error' => "Tipo no permitido: $mime (ext: $ext)"], 400);
+    }
+    // Extensión conocida pero MIME raro → aceptar con MIME de la extensión
+    $mime = $EXT_MIME[$ext];
+  }
+
+  // Si la extensión no coincide con el MIME, inferir extensión correcta
   if (!array_key_exists($ext, $EXT_MIME)) {
-    // Inferir extensión desde MIME
     $mimeToExt = array_flip(array_unique($EXT_MIME));
     $ext = $mimeToExt[$mime] ?? 'jpg';
   }
 
-  // Calcular orden (último + 1)
-  $stmt = $pdo->prepare("SELECT COALESCE(MAX(orden), -1) + 1 AS sig FROM tarea_imagenes WHERE tarea_id = ?");
+  // Calcular orden
+  $stmt = $pdo->prepare(
+    "SELECT COALESCE(MAX(orden), -1) + 1 AS sig FROM tarea_imagenes WHERE tarea_id = ?"
+  );
   $stmt->execute([$tareaId]);
   $orden = (int)($stmt->fetch()['sig'] ?? 0);
 
-  $id     = bin2hex(random_bytes(16));
+  $id      = bin2hex(random_bytes(16));
   $destino = $dir . '/' . $id . '.' . $ext;
 
   if (!move_uploaded_file($tmpPath, $destino)) {
-    jsonOut(['error' => 'No se pudo guardar la imagen'], 500);
+    jsonOut(['error' => 'No se pudo guardar la imagen en el servidor'], 500);
   }
 
   $pdo->prepare(
@@ -109,19 +164,19 @@ if ($method === 'POST') {
   )->execute([$id, $tareaId, $nombreOriginal, $ext, $orden]);
 
   jsonOut([
-    'ok'    => true,
+    'ok'     => true,
     'imagen' => [
-      'id'             => $id,
-      'nombre_original'=> $nombreOriginal,
-      'ext'            => $ext,
-      'orden'          => $orden,
-      'created_at'     => date('Y-m-d H:i:s'),
+      'id'              => $id,
+      'nombre_original' => $nombreOriginal,
+      'ext'             => $ext,
+      'orden'           => $orden,
+      'created_at'      => date('Y-m-d H:i:s'),
     ],
   ]);
 }
 
 // --------------------------------------------------------------
-// DELETE /imagenes.php?id=X  → elimina la imagen
+// DELETE /imagenes.php?id=X
 // --------------------------------------------------------------
 if ($method === 'DELETE') {
   $id = preg_replace('/[^a-f0-9]/i', '', $_GET['id'] ?? '');
