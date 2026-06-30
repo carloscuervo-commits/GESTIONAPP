@@ -184,6 +184,7 @@ function taskCard(t) {
     ${t.fecha?`<div class="task-date${venc?' vencida':''}">${venc?'⚠️ ':'📅 '}Límite: ${t.fecha}${t.tiempo?` · ⏱ ${esc(t.tiempo)}`:''}</div>`:(t.tiempo?`<div class="task-date">⏱ ${esc(t.tiempo)}</div>`:'')}
     ${t.recursos?`<div class="task-date">🔧 ${esc(t.recursos.slice(0,45))}${t.recursos.length>45?'...':''}</div>`:''}
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
+    ${t.modalidad?`<div class="task-date" style="color:#6366f1">${t.modalidad==='en_sitio'?'🏢 En sitio':'💻 Remoto'}</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
     ${((['it','if'].includes(t.area) && t.estado==='realizado') || (t.area==='admin' && t.estado==='por-facturar')) && !t.factura ? `<button class="btn-archivar" style="background:#d97706;color:#fff" onclick="_abrirRegistroFacturaRapido('${t.id}',event)">🧾 Registrar factura</button>` : ''}
     ${(!t.factura && t.motivoNoFactura)?`<div class="task-date" style="color:#0D3B40;font-size:12px;font-weight:600">📋 Sin factura: ${esc(t.motivoNoFactura)}</div>`:''}
@@ -956,7 +957,7 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('f-treal').value=t?.tiempoReal||'';
   document.getElementById('f-recursos').value=t?.recursos||'';
   document.getElementById('f-notas').value=t?.notas||'';
-  document.getElementById('f-reporte').value=t?.reporte||'';
+  const _modVal = t?.modalidad||''; ['f-modalidad-sitio','f-modalidad-remoto'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=(el.value===_modVal);});
   document.getElementById('f-factura').value=t?.factura||'';
   document.getElementById('f-labor-admin').value=t?.laborAdmin||'';
   // Tipo de tarea — pre-cargar valor guardado, luego verificar contrato del cliente
@@ -1234,7 +1235,7 @@ async function saveTask() {
   const fechaProg = document.getElementById('f-fechaprog').value;
   const diasProg  = parseInt(document.getElementById('f-dias-prog')?.value) || 1;
   const horaProg  = document.getElementById('f-hora-prog')?.value || '08:00';
-  const reporte = document.getElementById('f-reporte').value.trim();
+  const modalidad = document.querySelector('input[name="f-modalidad"]:checked')?.value || null;
   const factura = document.getElementById('f-factura').value.trim();
   if (!titulo) { alert('El título es obligatorio'); return; }
 
@@ -1243,8 +1244,8 @@ async function saveTask() {
   if (['it','if'].includes(area) && estado === 'programado') {
     const fRepFileCheck = document.getElementById('f-reporte-file');
     const tieneArchivo = fRepFileCheck && fRepFileCheck.files && fRepFileCheck.files[0];
-    if (reporte || tieneArchivo) {
-      if (confirm('Agregaste el reporte del servicio. ¿Deseas mover esta tarjeta a "Por facturar"?')) {
+    if (tieneArchivo) {
+      if (confirm('Adjuntaste un archivo de reporte. ¿Deseas mover esta tarjeta a "Por facturar"?')) {
         estado = 'realizado';
         document.getElementById('f-est').value = estado;
       }
@@ -1261,8 +1262,8 @@ async function saveTask() {
       const tieneArchivo = (fRepFile?.files?.[0]) || prevTask?.reporteArchivo;
       const tieneReporteGinno = editingId && (typeof borradoresActivos !== 'undefined') &&
         (borradoresActivos[editingId] || []).some(r => ['borrador','completado','enviado'].includes(r.estado));
-      if (!reporte && !tieneArchivo && !tieneReporteGinno) {
-        alert('Para marcar como Por facturar debes ingresar el reporte del servicio, adjuntar un archivo o crear un reporte de visita desde Ginno');
+      if (!tieneArchivo && !tieneReporteGinno) {
+        alert('Para marcar como Por facturar debes adjuntar un archivo o crear un reporte de visita desde Ginno');
         return;
       }
     }
@@ -1316,7 +1317,7 @@ async function saveTask() {
     tiempoReal: document.getElementById('f-treal').value.trim(),
     recursos: document.getElementById('f-recursos').value.trim(),
     notas: document.getElementById('f-notas').value.trim(),
-    reporte,
+    modalidad,
     factura,
     updatedAt: now,
     createdAt: prev?.createdAt || now,
@@ -1359,7 +1360,7 @@ async function saveTask() {
       tiempoReal: '',
       recursos: '',
       notas: '',
-      reporte: '',
+      modalidad: null,
       factura: '',
       updatedAt: now,
       createdAt: now,
@@ -1390,7 +1391,7 @@ async function saveTask() {
       tiempoReal: '',
       recursos: '',
       notas: '',
-      reporte: '',
+      modalidad: null,
       factura: '',
       updatedAt: now,
       createdAt: now,

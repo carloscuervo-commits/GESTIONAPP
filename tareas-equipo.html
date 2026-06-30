@@ -339,9 +339,20 @@
         </div>
       </div>
       <div class="form-group full" id="grupo-reporte" style="display:none">
-        <label>📝 Reporte del servicio *</label>
-        <textarea id="f-reporte" placeholder="Describe el trabajo realizado, novedades, materiales usados... (también puedes indicar que se adjuntó PDF o fotos)" style="min-height:80px"></textarea>
-        <label style="margin-top:8px">📎 Adjuntar archivo del reporte (PDF, fotos, etc.)</label>
+        <label>📍 Modalidad de la visita</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;
+                        padding:7px 14px;border-radius:20px;border:1px solid var(--border);
+                        background:var(--card-bg,var(--surface-1));user-select:none">
+            <input type="radio" name="f-modalidad" value="en_sitio" id="f-modalidad-sitio"> 🏢 En sitio
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;
+                        padding:7px 14px;border-radius:20px;border:1px solid var(--border);
+                        background:var(--card-bg,var(--surface-1));user-select:none">
+            <input type="radio" name="f-modalidad" value="remoto" id="f-modalidad-remoto"> 💻 Remoto
+          </label>
+        </div>
+        <label style="margin-top:10px">📎 Adjuntar archivo del reporte (PDF, fotos, etc.)</label>
         <input type="file" id="f-reporte-file" style="font-size:13px">
         <div id="reporte-archivo-info" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
       </div>
@@ -668,9 +679,9 @@
 </div>
 
 
-<script src="assets/js/core.js?v=20260629b"></script>
+<script src="assets/js/core.js?v=20260629c"></script>
 <script src="assets/js/auth.js?v=20260624c"></script>
-<script src="assets/js/tareas.js?v=20260629k"></script>
+<script src="assets/js/tareas.js?v=20260629l"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260629a"></script>
