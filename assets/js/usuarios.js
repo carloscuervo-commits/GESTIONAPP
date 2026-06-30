@@ -247,9 +247,9 @@ async function _bitCargarHorarioModal(uid) {
     const data = await res.json();
     if (data && !data.error) {
       _umHorario = {
-        lun: data.lun, mar: data.mar, mie: data.mie,
-        jue: data.jue, vie: data.vie, sab: data.sab, dom: data.dom,
-        vigente_desde: data.vigente_desde,
+        lun: data.h_lun, mar: data.h_mar, mie: data.h_mie,
+        jue: data.h_jue, vie: data.h_vie, sab: data.h_sab, dom: data.h_dom,
+        vigente_desde: data.horario_desde,
       };
     }
   } catch (_) {}
@@ -314,6 +314,8 @@ function _umToggleDia(key) {
 }
 
 async function _umGuardarHorario(uid) {
+  // Guardia: solo guardar si el uid corresponde al usuario que está en el modal
+  if (!uid || uid !== _editandoUsuarioId) return;
   const dias = ['lun','mar','mie','jue','vie','sab','dom'];
   const payload = { vigente_desde: document.getElementById('umh-vigente')?.value || new Date().toISOString().split('T')[0] };
   dias.forEach(d => {
