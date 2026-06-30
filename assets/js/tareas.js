@@ -1061,6 +1061,9 @@ function openModal(id, preArea, preEstado) {
     }
   }
 
+  // ── Imágenes adjuntas ──────────────────────────────────────────────────────
+  if (typeof _imagenesCargar === 'function') _imagenesCargar(t?.id || null);
+
   document.getElementById('modal').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),50);
 }

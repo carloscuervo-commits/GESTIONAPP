@@ -4,7 +4,25 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
-## Estado actual (última actualización: 2026-06-29)
+## Estado actual (última actualización: 2026-06-30)
+
+- **feat: imágenes adjuntas en tareas (2026-06-30)** — pendiente de deploy:
+
+  - Zona de imágenes en el modal de tarea, justo debajo del campo Descripción (`#grp-imagenes`). Visible para todos los tipos de tarea.
+  - **Fuentes de carga**: clic para seleccionar archivos, drag & drop, o **pegar (Ctrl+V)** desde portapapeles.
+  - **Thumbnails**: miniaturas 80×80 con botón ✕ para eliminar individualmente.
+  - **Lightbox**: clic en thumbnail abre imagen en grande con navegación ‹ › entre imágenes de la misma tarea.
+  - Para tareas nuevas (sin guardar), muestra aviso "Guarda la tarea antes de agregar imágenes".
+  - **Migración SQL**: `db/015_tarea_imagenes.sql` — crea tabla `tarea_imagenes` (`id CHAR(32) PK`, `tarea_id`, `nombre_original`, `ext`, `orden`, `created_at`, INDEX en `tarea_id`). Ejecutar en phpMyAdmin.
+  - **Archivos físicos**: `backend/uploads/imagenes/{id}.{ext}`. Validación de MIME real en el servidor.
+  - **Archivos nuevos**:
+    - `backend/api/imagenes.php`: `GET ?tarea_id=X` (lista), `GET ?id=X&src=1` (sirve imagen), `POST` multipart (sube), `DELETE ?id=X` (elimina).
+    - `assets/js/imagenes.js?v=20260630a`: módulo completo (`_imagenesCargar`, `_imagenesRenderizar`, `_imagenesSubirArchivos`, `_imagenesEliminar`, `_imagenesLightbox`, listener de paste).
+  - **Archivos modificados**:
+    - `tareas-equipo.html`: `<div id="grp-imagenes">` tras `#grp-desc` en modal; `<script src="assets/js/imagenes.js?v=20260630a">` antes de `transportes.js`.
+    - `assets/js/tareas.js?v=20260629p`: en `openModal()`, llama `_imagenesCargar(t?.id || null)` antes de abrir el modal.
+
+
 
 - **feat: transporte_estado en visita_participantes + botón manual en modal (2026-06-29)** — pendiente de deploy:
 
