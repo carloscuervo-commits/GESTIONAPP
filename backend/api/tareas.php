@@ -69,7 +69,7 @@ if ($method === 'POST') {
      tiempo_estimado, tiempo_real, recursos, notas, reporte, modalidad, factura, motivo_no_factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
      solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'],
     in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento',
