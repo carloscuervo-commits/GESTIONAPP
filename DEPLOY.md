@@ -41,3 +41,27 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - Cualquier archivo nuevo de backend que deba llegar a producción tiene que estar listado en `.cpanel.yml`, si no, el deploy "tendrá éxito" pero el archivo no se copiará.
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
+
+## Archivos nuevos pendientes de agregar a `.cpanel.yml`
+
+Los siguientes archivos creados el `2026-06-30` deben estar listados en `.cpanel.yml`:
+
+**Módulo Bitácora (Opción B — diseño final):**
+- `backend/api/horario.php`
+- `backend/api/bitacora.php`
+- `backend/cron/bitacora_deficit.php`
+- `assets/js/bitacora.js`
+- `db/016_usuarios_horario_cols.sql`
+- `db/017_bitacora_usuario.sql`
+
+**Módulo Imágenes (mismo día):**
+- `backend/api/imagenes.php`
+- `assets/js/imagenes.js`
+- `db/015_tarea_imagenes.sql`
+
+**Pasos adicionales para el deploy de Bitácora:**
+1. Ejecutar `db/016_usuarios_horario_cols.sql` en phpMyAdmin (agrega columnas h_lun…h_dom y horario_desde a la tabla usuarios).
+2. Ejecutar `db/017_bitacora_usuario.sql` en phpMyAdmin (crea tabla bitacora_usuario).
+3. Configurar el cron en cPanel:
+   `0 23 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/bitacora_deficit.php > /dev/null 2>&1`
+4. En la app: ir a Usuarios → editar cada técnico → configurar horario contratado.

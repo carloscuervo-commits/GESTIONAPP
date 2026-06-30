@@ -108,6 +108,9 @@ function abrirModalUsuario(id) {
   document.getElementById('um-pin').value         = '';
   document.getElementById('um-pin-confirm').value = '';
 
+  // Cargar horario si el usuario ya existe
+  _bitCargarHorarioModal(id);
+
   const tienePin = u?.tiene_pin == 1;
   document.getElementById('um-pin-status').innerHTML = tienePin
     ? '🔑 Este usuario ya tiene un PIN. Para cambiarlo escribe uno nuevo abajo (deja en blanco para no cambiarlo).'
@@ -211,6 +214,10 @@ async function guardarUsuario() {
     const data = await res.json();
     if (data.error) { alert('⚠️ ' + data.error); return; }
 
+    // Guardar horario si hay configuración
+    if (_editandoUsuarioId || esNuevo) {
+      await _umGuardarHorario(id);
+    }
     cerrarModalUsuario();
     await renderUsuariosView(); // refresh list
     await loadTeam();           // refresh TEAM global para avatars/pickers
@@ -218,6 +225,121 @@ async function guardarUsuario() {
   } catch (e) {
     console.error(e);
     alert('No se pudo guardar. Revisa la conexión.');
+  }
+}
+
+// ─── Horario semanal en modal de usuario ─────────────────────────────────────
+
+let _umHorario = {};  // estado temporal mientras el modal está abierto
+
+async function _bitCargarHorarioModal(uid) {
+  const cont = document.getElementById('um-horario-cont');
+  if (!cont) return;
+  _umHorario = {};
+
+  if (!uid) {
+    _bitRenderHorarioModal();
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${API_BASE}/horario.php?usuario_id=${encodeURIComponent(uid)}`);
+    const data = await res.json();
+    if (data && !data.error) {
+      _umHorario = {
+        lun: data.lun, mar: data.mar, mie: data.mie,
+        jue: data.jue, vie: data.vie, sab: data.sab, dom: data.dom,
+        vigente_desde: data.vigente_desde,
+      };
+    }
+  } catch (_) {}
+  _bitRenderHorarioModal();
+}
+
+function _bitRenderHorarioModal() {
+  const cont = document.getElementById('um-horario-cont');
+  if (!cont) return;
+
+  const dias = [
+    { key:'lun', label:'Lun' }, { key:'mar', label:'Mar' },
+    { key:'mie', label:'Mié' }, { key:'jue', label:'Jue' },
+    { key:'vie', label:'Vie' }, { key:'sab', label:'Sáb' },
+    { key:'dom', label:'Dom' },
+  ];
+
+  const checkboxes = dias.map(d => {
+    const tiene = _umHorario[d.key] !== null && _umHorario[d.key] !== undefined;
+    const horas = tiene ? _umHorario[d.key] : '';
+    return `
+      <div style="display:flex;align-items:center;gap:6px;min-width:130px">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:600;width:38px">
+          <input type="checkbox" id="umh-chk-${d.key}" ${tiene ? 'checked' : ''}
+                 onchange="_umToggleDia('${d.key}')" style="cursor:pointer">
+          ${d.label}
+        </label>
+        <input type="number" id="umh-h-${d.key}"
+               value="${tiene ? horas : ''}"
+               min="0.5" max="24" step="0.5"
+               placeholder="0"
+               ${tiene ? '' : 'disabled'}
+               style="width:58px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;
+                      font-size:13px;background:${tiene ? 'var(--card)' : 'var(--bg)'}">
+        <span style="font-size:11px;color:var(--text-muted)">h</span>
+      </div>`;
+  }).join('');
+
+  const vigente = _umHorario.vigente_desde || new Date().toISOString().split('T')[0];
+
+  cont.innerHTML = `
+    <div style="font-weight:600;font-size:13px;color:var(--text-muted);margin-bottom:10px">
+      ⏱️ Horario contratado (marcar días y horas por día)
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      ${checkboxes}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Vigente desde:</label>
+      <input type="date" id="umh-vigente" value="${vigente}"
+             style="font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card)">
+    </div>`;
+}
+
+function _umToggleDia(key) {
+  const chk = document.getElementById(`umh-chk-${key}`);
+  const inp = document.getElementById(`umh-h-${key}`);
+  if (!chk || !inp) return;
+  inp.disabled   = !chk.checked;
+  inp.style.background = chk.checked ? 'var(--card)' : 'var(--bg)';
+  if (!chk.checked) inp.value = '';
+}
+
+async function _umGuardarHorario(uid) {
+  const dias = ['lun','mar','mie','jue','vie','sab','dom'];
+  const payload = { vigente_desde: document.getElementById('umh-vigente')?.value || new Date().toISOString().split('T')[0] };
+  dias.forEach(d => {
+    const chk = document.getElementById(`umh-chk-${d}`);
+    const inp = document.getElementById(`umh-h-${d}`);
+    if (chk && chk.checked && inp && inp.value !== '') {
+      payload[d] = parseFloat(inp.value);
+    } else {
+      payload[d] = null;
+    }
+  });
+
+  // Solo guardar si al menos un día está configurado o si hay horario previo
+  const tieneDias = dias.some(d => payload[d] !== null);
+  if (!tieneDias) return;  // Sin horario configurado, no guardar
+
+  try {
+    const res  = await fetch(`${API_BASE}/horario.php?usuario_id=${encodeURIComponent(uid)}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+  } catch (e) {
+    console.error('[Horario] Error guardando:', e);
   }
 }
 

@@ -66,6 +66,7 @@
   <button class="area-tab" data-area="clientes" id="tab-clientes" onclick="setArea('clientes')" style="display:none">🏢 Clientes</button>
   <button class="area-tab" data-area="agenda" id="tab-agenda" onclick="setArea('agenda')">📅 Agenda</button>
   <button class="area-tab" data-area="transportes" id="tab-transportes" onclick="setArea('transportes')" style="display:none">🚗 Transportes</button>
+  <button class="area-tab" data-area="bitacora" id="tab-bitacora" onclick="setArea('bitacora')" style="display:none">📋 Bitácora</button>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -134,6 +135,7 @@
 <div id="clientes-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="agenda-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="transportes-view" style="display:none;padding:16px 20px 30px"></div>
+<div id="bitacora-view" style="display:none;padding:16px 20px 30px"></div>
 
 <!-- CARTERA MODAL -->
 <div class="cartera-modal-overlay" id="cartera-modal">
@@ -255,6 +257,12 @@
             placeholder="Nuevo PIN (4 dígitos)" style="flex:1;min-width:140px;letter-spacing:4px;font-size:16px">
           <input type="password" id="um-pin-confirm" maxlength="4" inputmode="numeric" pattern="\d{4}" autocomplete="new-password"
             placeholder="Confirmar PIN" style="flex:1;min-width:140px;letter-spacing:4px;font-size:16px">
+        </div>
+      </div>
+      <!-- Horario contratado (para bitácora) -->
+      <div class="form-group full">
+        <div id="um-horario-cont" style="border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--bg)">
+          <div style="font-size:12px;color:var(--text-muted)">Cargando horario…</div>
         </div>
       </div>
     </div>
@@ -703,6 +711,7 @@
 <script src="assets/js/push.js?v=20260629b"></script>
 <script src="assets/js/imagenes.js?v=20260630a"></script>
 <script src="assets/js/transportes.js?v=20260629b"></script>
+<script src="assets/js/bitacora.js?v=20260630a"></script>
 <script src="assets/js/app.js?v=20260629b"></script>
 </body>
 </html>

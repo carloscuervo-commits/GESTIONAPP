@@ -180,8 +180,15 @@ function aplicarPermisosUI() {
   if (tabClientes) tabClientes.style.display = esTecnico ? 'none' : '';
   const tabTransportes = document.getElementById('tab-transportes');
   if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
+  const tabBitacora = document.getElementById('tab-bitacora');
+  if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
 
   const badge = document.getElementById('user-badge');
   if (badge) badge.textContent = `${currentUser.nombre.split(' ')[0]} · ${esTecnico ? 'Técnico' : 'Admin'}`;
+
+  // Alerta de déficit en bitácora (solo admin)
+  if (!esTecnico && typeof bitacoraCheckDashboard === 'function') {
+    bitacoraCheckDashboard();
+  }
 }
 // ===================== FIN AUTENTICACIÓN =====================

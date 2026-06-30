@@ -6,6 +6,40 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-30)
 
+- **feat: módulo Bitácora de técnicos (2026-06-30)** — pendiente de deploy:
+
+  Control de horario contratado vs horas reales de campo, con alerta en el dashboard y justificaciones del admin.
+
+  ### Diseño (Opción B — implementado)
+  - Horario semanal guardado en columnas `h_lun…h_dom DECIMAL(4,2) NULL` + `horario_desde DATE` directamente en tabla `usuarios` (NULL = no trabaja ese día).
+  - Nueva tabla `bitacora_usuario` (una fila por técnico+día hábil). Cron inserta/actualiza solo **ayer** cada noche.
+  - `estado` ENUM: `ok` | `deficit_sin_nota` | `deficit_con_nota`.
+  - Dashboard cuenta `COUNT(*) WHERE estado='deficit_sin_nota'` por técnico → muestra banner con "X días pendientes" hasta que el admin justifique todos.
+  - Vista bitácora: itera técnicos × días hábiles del rango. Días con fila en `bitacora_usuario` usan datos pre-calculados; días sin fila (hoy o anteriores al primer cron) calculan horas en tiempo real desde `visita_participantes`.
+  - Admin escribe nota de justificación por día; estado pasa a `deficit_con_nota`. Puede borrar la nota (vuelve a `deficit_sin_nota` si sigue en déficit).
+  - Visitas sin check-out: "en curso", no cuentan en horas.
+  - Tolerancia: 3 min (0.05 h). `horas_real >= horas_esp - 0.05` → `ok`.
+  - Cron command (cPanel, sin correos): `0 23 * * * /usr/bin/php /home/tu-usuario/public_html/ginno/backend/cron/bitacora_deficit.php > /dev/null 2>&1`
+
+  ### Migraciones SQL (ejecutar en phpMyAdmin)
+  - `db/016_usuarios_horario_cols.sql` — `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS h_lun…h_dom DECIMAL(4,2) NULL, horario_desde DATE NULL`.
+  - `db/017_bitacora_usuario.sql` — tabla `bitacora_usuario` (`id CHAR(32) PK`, `tecnico_id`, `fecha DATE`, `horas_real DECIMAL(5,2)`, `horas_esp DECIMAL(4,2)`, `estado ENUM(...)`, `nota TEXT`, `admin_id`, `updated_at`, UNIQUE `(tecnico_id, fecha)`).
+
+  ### Archivos nuevos
+  - `backend/api/horario.php` — `GET ?usuario_id=X` (lee h_lun…h_dom, horario_desde de usuarios), `PUT ?usuario_id=X` (UPDATE usuarios SET h_lun=?…).
+  - `backend/api/bitacora.php` — `GET ?dashboard=1` (JOIN bitacora_usuario+usuarios WHERE estado='deficit_sin_nota', GROUP BY tecnico); `GET ?desde=&hasta=` (retorna `{tecnicos, dias, visitas}`); `POST` (guarda nota; si fila existe: UPDATE estado='deficit_con_nota'; si no: INSERT con horas_esp del horario del técnico); `DELETE ?tecnico_id&fecha` (borra nota, restaura estado).
+  - `backend/cron/bitacora_deficit.php` — zero output; procesa solo AYER; detecta festivos Colombia (implementación PHP interna); ON DUPLICATE KEY UPDATE preserva `deficit_con_nota` si sigue en déficit.
+  - `assets/js/bitacora.js?v=20260630a` — `renderBitacoraView()`, `_bitCargar()`, `_bitRenderTabla()`, `_bitRowBg()`, `_bitBadge()`, `_bitNotaCell()`, `_bitAbrirNota()`, `_bitGuardarNota()`, `_bitBorrarNota()`, `bitacoraCheckDashboard()`, `_bitDiasHabiles()`, `_fmtH()`.
+
+  ### Archivos modificados
+  - `assets/js/usuarios.js` — modal de usuario: sección "Horario contratado" con checkboxes por día + input horas + vigente_desde. Funciones nuevas: `_bitCargarHorarioModal`, `_bitRenderHorarioModal`, `_umToggleDia`, `_umGuardarHorario`.
+  - `assets/js/tareas.js` — `setArea()`: agrega `isBitacora`, muestra/oculta `#bitacora-view`, llama `renderBitacoraView()`.
+  - `assets/js/auth.js` — oculta `#tab-bitacora` para técnicos; llama `bitacoraCheckDashboard()` para admins al iniciar sesión.
+  - `tareas-equipo.html` — tab `📋 Bitácora` (id=`tab-bitacora`, solo admin), div `#bitacora-view`, div `#um-horario-cont` en modal de usuario, `<script src="assets/js/bitacora.js?v=20260630a">`.
+
+  ### COLLATE
+  - `bitacora_usuario` usa `utf8mb4_general_ci`. Todos los JOIN con `visita_participantes` (unicode_ci) llevan `COLLATE utf8mb4_general_ci` en ambos lados del ON.
+
 - **feat: imágenes adjuntas en tareas (2026-06-30)** — pendiente de deploy:
 
   - Zona de imágenes en el modal de tarea, justo debajo del campo Descripción (`#grp-imagenes`). Visible para todos los tipos de tarea.
