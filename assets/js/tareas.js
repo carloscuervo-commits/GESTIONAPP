@@ -783,6 +783,9 @@ function updateFormForArea() {
   // Modalidad visita: solo para IT/IF
   const elModalidad = document.getElementById('grp-modalidad');
   if (elModalidad) elModalidad.style.display = itIf ? '' : 'none';
+  // Avisar cliente: solo para IT/IF
+  const elAvisar = document.getElementById('grp-avisar-cliente');
+  if (elAvisar) elAvisar.style.display = itIf ? '' : 'none';
   // Tipo de tarea: inicialmente oculto — se muestra solo si el cliente tiene contrato
   const elTipoTarea = document.getElementById('grp-tipo-tarea');
   if (elTipoTarea) elTipoTarea.style.display = 'none';
@@ -987,6 +990,8 @@ function openModal(id, preArea, preEstado) {
   }
   const elChk = document.getElementById('f-incluye-prog');
   if (elChk) elChk.checked = !!(t?.incluyeProg);
+  const chkAvisar = document.getElementById('f-avisar-cliente');
+  if (chkAvisar) chkAvisar.checked = t?.avisarCliente !== false;
   document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
   toggleFacturaField(defaultEstado);
   const faInfo = document.getElementById('facturas-alegra-info');
@@ -1327,6 +1332,7 @@ async function saveTask() {
   const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
   const incluyeProg = area === 'admin' ? !!(document.getElementById('f-incluye-prog')?.checked) : false;
   const tipoTarea = ['it','if'].includes(area) ? (document.getElementById('f-tipo-tarea')?.value || 'evento') : 'evento';
+  const avisarCliente = ['it','if'].includes(area) ? !!(document.getElementById('f-avisar-cliente')?.checked) : false;
 
   // Si técnico crea una nueva tarea, asignarse automáticamente
   let teamFinal = [...selectedTeam];
@@ -1355,7 +1361,7 @@ async function saveTask() {
     enviadaAt: estado==='enviada' ? (prev?.enviadaAt || now) : prev?.enviadaAt || null,
     programadoAt: estado==='programado' ? (prev?.programadoAt || now) : prev?.programadoAt || null,
     seguimientoFecha, seguimientoHistorial,
-    laborAdmin, solicitudComercial, incluyeProg, tipoTarea,
+    laborAdmin, solicitudComercial, incluyeProg, tipoTarea, avisarCliente,
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
     cotizacionDocx: prev?.cotizacionDocx || null,

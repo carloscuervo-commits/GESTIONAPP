@@ -102,7 +102,21 @@ function abrirModalUsuario(id) {
   document.getElementById('um-nombre').value    = u?.nombre   || '';
   document.getElementById('um-iniciales').value = u?.iniciales || '';
   document.getElementById('um-email').value     = u?.email     || '';
+  document.getElementById('um-cedula').value    = u?.cedula    || '';
   document.getElementById('um-rol').value       = u?.rol       || '';
+  // Foto: mostrar preview si existe
+  const fotoPreview = document.getElementById('um-foto-preview');
+  if (fotoPreview) {
+    if (u?.foto) {
+      fotoPreview.innerHTML = `<img src="${API_BASE}/foto_tecnico.php?usuario_id=${encodeURIComponent(u.id)}&cb=${Date.now()}"
+        style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+        <button type="button" onclick="_umEliminarFoto('${u.id}')"
+          style="display:block;font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer;margin-top:4px">
+          🗑️ Eliminar foto</button>`;
+    } else {
+      fotoPreview.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Sin foto</span>';
+    }
+  }
   document.getElementById('um-perfil').value    = u?.perfil    || 'tecnico';
   document.getElementById('um-activo').checked  = u ? u.activo == 1 : true;
   document.getElementById('um-pin').value         = '';
@@ -197,7 +211,8 @@ async function guardarUsuario() {
     if (pin !== pinConf)      { alert('Los PINs no coinciden'); return; }
   }
 
-  const payload = { nombre, iniciales, email: email || null, rol: rol || null, perfil, color };
+  const cedula = document.getElementById('um-cedula').value.trim();
+  const payload = { nombre, iniciales, email: email || null, cedula: cedula || null, rol: rol || null, perfil, color };
   if (!esNuevo) payload.activo = activo;
   if (esNuevo)  payload.id = id;
   if (pin)      payload.pin = pin;
@@ -214,6 +229,15 @@ async function guardarUsuario() {
     const data = await res.json();
     if (data.error) { alert('⚠️ ' + data.error); return; }
 
+    // Subir foto si hay archivo seleccionado
+    const fotoFile = document.getElementById('um-foto-file');
+    if (fotoFile && fotoFile.files && fotoFile.files[0]) {
+      const fd = new FormData();
+      fd.append('usuario_id', id);
+      fd.append('foto', fotoFile.files[0]);
+      await fetch(`${API_BASE}/foto_tecnico.php`, { method: 'POST', body: fd });
+      fotoFile.value = '';
+    }
     // Guardar horario si hay configuración
     if (_editandoUsuarioId || esNuevo) {
       await _umGuardarHorario(id);
@@ -226,6 +250,13 @@ async function guardarUsuario() {
     console.error(e);
     alert('No se pudo guardar. Revisa la conexión.');
   }
+}
+
+async function _umEliminarFoto(uid) {
+  if (!confirm('¿Eliminar la foto de este técnico?')) return;
+  await fetch(`${API_BASE}/foto_tecnico.php?usuario_id=${encodeURIComponent(uid)}`, { method: 'DELETE' });
+  await renderUsuariosView();
+  if (_editandoUsuarioId === uid) abrirModalUsuario(uid);
 }
 
 // ─── Horario semanal en modal de usuario ─────────────────────────────────────

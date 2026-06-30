@@ -67,7 +67,17 @@ foreach ($data as $c) {
         $addr = (string)$c['address'];
       }
     }
-    $out[] = ['id' => $c['id'], 'name' => $c['name'], 'address' => $addr];
+    // Extraer email (puede ser string o array de objetos {address:...})
+    $email = null;
+    if (!empty($c['email'])) {
+      if (is_array($c['email'])) {
+        $email = $c['email'][0]['address'] ?? ($c['email'][0] ?? null);
+        if (is_array($email)) $email = null;
+      } else {
+        $email = (string)$c['email'];
+      }
+    }
+    $out[] = ['id' => $c['id'], 'name' => $c['name'], 'address' => $addr, 'email' => $email];
   }
 }
 

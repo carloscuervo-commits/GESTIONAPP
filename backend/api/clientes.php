@@ -71,12 +71,13 @@ if ($method === 'POST') {
 
   $id = bin2hex(random_bytes(16));
   $pdo->prepare("INSERT INTO clientes
-    (id, nombre, direccion, lat, lng, radio_metros, plazo_factura_dias, alegra_id,
+    (id, nombre, email, direccion, lat, lng, radio_metros, plazo_factura_dias, alegra_id,
      contrato_area, contrato_horas_mes, valor_transporte)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     ->execute([
       $id,
       $d['nombre'],
+      $d['email']                   ?? null,
       $d['direccion']               ?? null,
       isset($d['lat'])              ? (float)$d['lat']               : null,
       isset($d['lng'])              ? (float)$d['lng']               : null,
@@ -110,6 +111,7 @@ if ($method === 'PUT') {
 
   $pdo->prepare("UPDATE clientes SET
     nombre              = ?,
+    email               = ?,
     direccion           = ?,
     lat                 = ?,
     lng                 = ?,
@@ -122,6 +124,7 @@ if ($method === 'PUT') {
     WHERE id = ?")
     ->execute([
       $d['nombre']             ?? $prev['nombre'],
+      array_key_exists('email', $d)     ? $d['email']     : $prev['email'],
       array_key_exists('direccion', $d) ? $d['direccion'] : $prev['direccion'],
       array_key_exists('lat', $d)       ? (isset($d['lat']) ? (float)$d['lat'] : null) : $prev['lat'],
       array_key_exists('lng', $d)       ? (isset($d['lng']) ? (float)$d['lng'] : null) : $prev['lng'],

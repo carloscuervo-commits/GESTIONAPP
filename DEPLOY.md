@@ -46,6 +46,23 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 
 Los siguientes archivos creados el `2026-06-30` deben estar listados en `.cpanel.yml`:
 
+**Módulo aviso por correo al cliente:**
+- `backend/api/foto_tecnico.php`
+- `backend/cron/recordatorio_visita_email.php`
+- `db/018_clientes_email.sql`
+- `db/019_usuarios_cedula_foto.sql`
+- `db/020_tareas_avisar_cliente.sql`
+- `backend/uploads/fotos/` (directorio — agregar mkdir en .cpanel.yml)
+
+**Pasos adicionales para el deploy del aviso por correo:**
+1. Ejecutar `db/018_clientes_email.sql` en phpMyAdmin.
+2. Ejecutar `db/019_usuarios_cedula_foto.sql` en phpMyAdmin.
+3. Ejecutar `db/020_tareas_avisar_cliente.sql` en phpMyAdmin.
+4. Configurar el cron en cPanel:
+   `0 18 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/recordatorio_visita_email.php > /dev/null 2>&1`
+5. En la app: editar cada técnico (Usuarios) → agregar cédula y foto.
+6. En la app: completar email de los clientes que ya existen (los nuevos se auto-populan desde Alegra).
+
 **Módulo Bitácora (Opción B — diseño final):**
 - `backend/api/horario.php`
 - `backend/api/bitacora.php`

@@ -68,8 +68,8 @@ if ($method === 'POST') {
     (id, titulo, descripcion, area, estado, tipo_tarea, cliente, fecha_programacion, hora_programacion, dias_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, modalidad, factura, motivo_no_factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
-     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog, avisar_cliente)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'],
     in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento',
@@ -83,6 +83,7 @@ if ($method === 'POST') {
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $d['cotizacionDocx'] ?? null,
     empty($d['incluyeProg']) ? 0 : 1,
+    isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : 1,
   ]);
 
   if (!empty($d['team'])) {
@@ -137,7 +138,7 @@ if ($method === 'PUT') {
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, modalidad=?, factura=?, motivo_no_factura=?,
     realizado_en=?, enviada_en=?, programado_en=?, seguimiento_fecha=?, seguimiento_historial=?,
     solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?,
-    alerta_retraso_enviada=?
+    avisar_cliente=?, alerta_retraso_enviada=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado,
@@ -150,7 +151,9 @@ if ($method === 'PUT') {
     $realizadoEn, $enviadaEn, $programadoEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx,
-    empty($d['incluyeProg']) ? 0 : 1, $alertaRetraso, $id,
+    empty($d['incluyeProg']) ? 0 : 1,
+    isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : (int)($prev['avisar_cliente'] ?? 1),
+    $alertaRetraso, $id,
   ]);
 
   // Reasignar equipo

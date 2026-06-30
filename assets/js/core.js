@@ -20,6 +20,7 @@ function taskToApi(t) {
     reporteArchivo: t.reporteArchivo || null,
     incluyeProg: t.incluyeProg ? 1 : 0,
     tipoTarea: t.tipoTarea || 'evento',
+    avisarCliente: t.avisarCliente !== false ? 1 : 0,
   };
 }
 
@@ -42,6 +43,7 @@ function apiToTask(r) {
     reporteArchivo: r.reporte_archivo || null,
     incluyeProg: r.incluye_prog == 1,
     tipoTarea: r.tipo_tarea || 'evento',
+    avisarCliente: r.avisar_cliente == null ? true : r.avisar_cliente == 1,
   };
 }
 

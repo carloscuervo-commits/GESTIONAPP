@@ -40,6 +40,7 @@ function _seleccionarCmIdx(i) {
   document.getElementById('cm-nombre').value    = c.name;
   document.getElementById('cm-alegra-id').value = c.id || '';
   if (c.address) document.getElementById('cm-direccion').value = c.address;
+  if (c.email)   { const e = document.getElementById('cm-email'); if (e) e.value = c.email; }
   _actualizarLinkMaps();
   _ocultarCmSuggestions();
 }
@@ -117,6 +118,7 @@ function abrirModalCliente(id = null) {
 
   document.getElementById('cliente-modal-titulo').textContent = c ? `Editar: ${c.nombre}` : 'Nuevo cliente';
   document.getElementById('cm-nombre').value    = c?.nombre    || '';
+  document.getElementById('cm-email').value     = c?.email     || '';
   document.getElementById('cm-direccion').value = c?.direccion || '';
   document.getElementById('cm-radio').value     = c?.radio_metros        ?? 200;
   document.getElementById('cm-plazo').value     = c?.plazo_factura_dias  ?? 8;
@@ -209,6 +211,7 @@ async function guardarCliente() {
 
   const body = {
     nombre,
+    email:              document.getElementById('cm-email')?.value.trim() || null,
     direccion:          document.getElementById('cm-direccion').value.trim() || null,
     lat:                latRaw ? parseFloat(latRaw)  : null,
     lng:                lngRaw ? parseFloat(lngRaw)  : null,

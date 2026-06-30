@@ -6,6 +6,46 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-30)
 
+- **feat: aviso por correo al cliente (2026-06-30)** — pendiente de deploy:
+
+  Envía un correo HTML al cliente el día anterior a una visita IT/IF programada.
+
+  ### Condiciones de envío
+  - Área IT o IF, `fecha_programacion = mañana`, `avisar_cliente = 1`
+  - Al menos un técnico asignado (`tarea_equipo`)
+  - Cliente tiene `email` registrado en tabla `clientes`
+
+  ### Campos nuevos
+  - `clientes.email VARCHAR(255) NULL` — auto-poblado al crear/seleccionar cliente desde Alegra; editable en modal de cliente.
+  - `usuarios.cedula VARCHAR(20) NULL` y `usuarios.foto VARCHAR(255) NULL` — datos del técnico, aparecen en el correo.
+  - `tareas.avisar_cliente TINYINT(1) NOT NULL DEFAULT 1` — checkbox en tarjetas IT/IF (marcado por defecto).
+
+  ### Correo
+  - Asunto: "📅 Visita programada para mañana {fecha} — Grupo Innovate"
+  - Incluye: nombre del servicio, descripción (si la hay), fecha larga en español, hora, foto/nombre/cédula de cada técnico asignado.
+  - Contacto para cancelar: soporte@innovate.com.co / 317 645 2811
+  - Foto del técnico servida desde `backend/api/foto_tecnico.php?usuario_id=X`
+
+  ### Migraciones SQL
+  - `db/018_clientes_email.sql` — `ALTER TABLE clientes ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL AFTER nombre`
+  - `db/019_usuarios_cedula_foto.sql` — `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cedula VARCHAR(20) NULL, ADD COLUMN IF NOT EXISTS foto VARCHAR(255) NULL`
+  - `db/020_tareas_avisar_cliente.sql` — `ALTER TABLE tareas ADD COLUMN IF NOT EXISTS avisar_cliente TINYINT(1) NOT NULL DEFAULT 1 AFTER tipo_tarea`
+
+  ### Archivos nuevos
+  - `backend/api/foto_tecnico.php` — GET sirve foto (MIME correcto), POST sube (jpg/png/webp → `backend/uploads/fotos/{uid}.{ext}`), DELETE elimina.
+  - `backend/cron/recordatorio_visita_email.php` — cron 6pm; cero output. Cron command: `0 18 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/recordatorio_visita_email.php > /dev/null 2>&1`
+
+  ### Archivos modificados
+  - `backend/api/alegra_contactos.php` — extrae email del contacto Alegra (soporta string o array de objetos con `.address`).
+  - `backend/api/clientes.php` — INSERT y UPDATE incluyen `email`.
+  - `backend/api/usuarios.php` — GET devuelve `cedula` y `foto`; INSERT y UPDATE incluyen `cedula`.
+  - `backend/api/tareas.php` — INSERT y UPDATE incluyen `avisar_cliente` (default 1).
+  - `assets/js/core.js` — `taskToApi`/`apiToTask` incluyen `avisarCliente`.
+  - `assets/js/clientes.js` — auto-rellena `email` al seleccionar/crear desde Alegra; carga y guarda email en modal.
+  - `assets/js/usuarios.js` — modal incluye `cedula`, foto upload/preview/eliminar.
+  - `assets/js/tareas.js` — checkbox `#f-avisar-cliente` visible en IT/IF; se carga en `openModal()` y se lee en `saveTask()`.
+  - `tareas-equipo.html` — campo email en modal cliente; checkbox avisar cliente en formulario de tarea; campos cedula/foto en modal usuario.
+
 - **feat: módulo Bitácora de técnicos (2026-06-30)** — pendiente de deploy:
 
   Control de horario contratado vs horas reales de campo, con alerta en el dashboard y justificaciones del admin.

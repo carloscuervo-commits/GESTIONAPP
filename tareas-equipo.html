@@ -227,6 +227,24 @@
         <label>Correo electrónico</label>
         <input type="email" id="um-email" placeholder="usuario@innovate.com.co" autocomplete="off">
       </div>
+      <div class="form-group">
+        <label>Cédula</label>
+        <input type="text" id="um-cedula" placeholder="ej: 1234567890" autocomplete="off">
+      </div>
+      <!-- Foto del técnico -->
+      <div class="form-group full">
+        <label>Foto del técnico</label>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div id="um-foto-preview" style="display:flex;flex-direction:column;align-items:center">
+            <span style="font-size:12px;color:var(--text-muted)">Sin foto</span>
+          </div>
+          <div>
+            <input type="file" id="um-foto-file" accept="image/jpeg,image/png,image/webp"
+              style="font-size:12px;color:var(--text-muted)">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">JPG, PNG o WEBP · máx 5 MB · se guarda al guardar el usuario</div>
+          </div>
+        </div>
+      </div>
       <!-- Rol descriptivo -->
       <div class="form-group">
         <label>Cargo / rol descriptivo</label>
@@ -348,6 +366,12 @@
           <input type="time" id="f-hora-prog" value="08:00"
             style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;background:var(--card);color:var(--text)">
         </div>
+      </div>
+      <div class="form-group full" id="grp-avisar-cliente" style="display:none">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="f-avisar-cliente" checked style="width:16px;height:16px;cursor:pointer">
+          <span style="font-size:13px">📧 Avisar al cliente por correo el día anterior a la visita</span>
+        </label>
       </div>
       <div class="form-group full" id="grp-modalidad" style="display:none">
         <label>📍 Modalidad de la visita</label>
@@ -617,6 +641,10 @@
         <div id="cm-nombre-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;
           background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:0 0 8px 8px;
           box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:600;max-height:200px;overflow-y:auto"></div>
+      </div>
+      <div>
+        <label class="form-label">Correo electrónico</label>
+        <input class="form-input" id="cm-email" type="email" placeholder="contacto@cliente.com" autocomplete="off">
       </div>
       <div>
         <label class="form-label">Dirección</label>

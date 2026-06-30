@@ -31,7 +31,7 @@ function requireAdmin($pdo) {
 // --------------------------------------------------------------
 if ($method === 'GET') {
   $stmt = $pdo->query(
-    "SELECT id, nombre, iniciales, color, rol, email, perfil, activo,
+    "SELECT id, nombre, iniciales, color, rol, email, cedula, foto, perfil, activo,
             (pin_hash IS NOT NULL) AS tiene_pin
      FROM usuarios
      ORDER BY activo DESC, nombre ASC"
@@ -74,16 +74,17 @@ if ($method === 'POST') {
   }
 
   $stmt = $pdo->prepare(
-    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, perfil, pin_hash, activo)
-     VALUES (?,?,?,?,?,?,?,?,1)"
+    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo)
+     VALUES (?,?,?,?,?,?,?,?,?,1)"
   );
   $stmt->execute([
     $id,
     $nombre,
     $iniciales,
     $d['color']  ?? '#94a3b8',
-    ($d['rol']   ?? null) ?: null,
-    ($d['email'] ?? null) ?: null,
+    ($d['rol']    ?? null) ?: null,
+    ($d['email']  ?? null) ?: null,
+    ($d['cedula'] ?? null) ?: null,
     in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : 'tecnico',
     $pin_hash,
   ]);
@@ -124,8 +125,9 @@ if ($method === 'PUT') {
   $nombre    = trim($d['nombre'] ?? $prev['nombre']);
   $iniciales = strtoupper(trim($d['iniciales'] ?? $prev['iniciales']));
   $color     = $d['color']  ?? $prev['color'];
-  $rol       = array_key_exists('rol', $d)   ? (($d['rol']   ?? '') ?: null) : $prev['rol'];
-  $email     = array_key_exists('email', $d) ? (($d['email'] ?? '') ?: null) : $prev['email'];
+  $rol       = array_key_exists('rol', $d)    ? (($d['rol']    ?? '') ?: null) : $prev['rol'];
+  $email     = array_key_exists('email', $d)  ? (($d['email']  ?? '') ?: null) : $prev['email'];
+  $cedula    = array_key_exists('cedula', $d) ? (($d['cedula'] ?? '') ?: null) : $prev['cedula'];
   $perfil    = in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : $prev['perfil'];
   $activo    = isset($d['activo']) ? (int)$d['activo'] : (int)$prev['activo'];
 
@@ -134,10 +136,10 @@ if ($method === 'PUT') {
 
   $stmt = $pdo->prepare(
     "UPDATE usuarios
-     SET nombre=?, iniciales=?, color=?, rol=?, email=?, perfil=?, pin_hash=?, activo=?
+     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?
      WHERE id=?"
   );
-  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $perfil, $pin_hash, $activo, $id]);
+  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $id]);
 
   jsonOut(['ok' => true]);
 }
