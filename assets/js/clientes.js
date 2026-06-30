@@ -134,6 +134,10 @@ function abrirModalCliente(id = null) {
 
   _actualizarLinkMaps();
 
+  // Transporte
+  const inpTransporte = document.getElementById('cm-transporte');
+  if (inpTransporte) inpTransporte.value = c?.valor_transporte != null ? c.valor_transporte : '';
+
   // Contrato
   const selArea = document.getElementById('cm-contrato-area');
   const inpHoras = document.getElementById('cm-contrato-horas');
@@ -213,6 +217,7 @@ async function guardarCliente() {
     alegra_id:          document.getElementById('cm-alegra-id').value.trim() || null,
     contrato_area:      contratoArea || null,
     contrato_horas_mes: contratoArea && contratoHoras !== '' ? parseFloat(contratoHoras) || null : null,
+    valor_transporte:   (() => { const v = document.getElementById('cm-transporte')?.value; return v !== '' && v != null ? parseInt(v) || null : null; })(),
   };
 
   if (body.lat !== null && isNaN(body.lat)) { alert('Latitud inválida.'); return; }

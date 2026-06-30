@@ -6,6 +6,15 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ## Estado actual (última actualización: 2026-06-29)
 
+- **feat: valor_transporte por trayecto en clientes (2026-06-29)** — pendiente de deploy:
+
+  - Nuevo campo `valor_transporte DECIMAL(10,0) NULL` en tabla `clientes`. Guarda el valor en pesos que se le paga al técnico por trayecto cuando visita ese cliente en sitio. Base para cálculos futuros de liquidación de transporte.
+  - **Migración SQL**: `db/012_valor_transporte.sql` — ejecutar en phpMyAdmin ANTES del deploy.
+  - **Backend**: `clientes.php` — `clienteRow` castea a int; POST INSERT y PUT UPDATE incluyen el campo.
+  - **Frontend**: modal de clientes tiene nuevo input `#cm-transporte` (número, step 1000, COP). El grid radio/plazo se amplió a 3 columnas para acomodar el campo.
+  - **Archivos**: `clientes.js?v=20260629b`, `tareas-equipo.html` (HTML modal).
+  - El campo está disponible en el objeto de cliente devuelto por `GET /clientes.php`. Los cálculos de liquidación de transporte serán un paso posterior.
+
 - **feat: adjunto de reporte visible en pendientes + flujo directo solicitud→por facturar (2026-06-29)** — pendiente de deploy:
 
   - **Cambio de flujo**: las tareas IT/IF pueden gestionarse directamente desde Pendientes hasta Por facturar, sin pasar por En ejecución. "En ejecución" queda para proyectos multi-día que requieren programación explícita.

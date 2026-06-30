@@ -14,7 +14,8 @@ function clienteRow($row) {
   $row['plazo_factura_dias'] = (int)($row['plazo_factura_dias'] ?? 8);
   if ($row['lat'] !== null) $row['lat'] = (float)$row['lat'];
   if ($row['lng'] !== null) $row['lng'] = (float)$row['lng'];
-  if ($row['contrato_horas_mes'] !== null) $row['contrato_horas_mes'] = (float)$row['contrato_horas_mes'];
+  if ($row['contrato_horas_mes']  !== null) $row['contrato_horas_mes']  = (float)$row['contrato_horas_mes'];
+  if ($row['valor_transporte']    !== null) $row['valor_transporte']    = (int)$row['valor_transporte'];
   return $row;
 }
 
@@ -71,8 +72,8 @@ if ($method === 'POST') {
   $id = bin2hex(random_bytes(16));
   $pdo->prepare("INSERT INTO clientes
     (id, nombre, direccion, lat, lng, radio_metros, plazo_factura_dias, alegra_id,
-     contrato_area, contrato_horas_mes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+     contrato_area, contrato_horas_mes, valor_transporte)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     ->execute([
       $id,
       $d['nombre'],
@@ -84,6 +85,7 @@ if ($method === 'POST') {
       $d['alegra_id']               ?? null,
       $d['contrato_area']           ?? null,
       isset($d['contrato_horas_mes']) ? (float)$d['contrato_horas_mes'] : null,
+      isset($d['valor_transporte'])   ? (int)$d['valor_transporte']   : null,
     ]);
 
   $stmt = $pdo->prepare("SELECT * FROM clientes WHERE id = ?");
@@ -115,7 +117,8 @@ if ($method === 'PUT') {
     plazo_factura_dias  = ?,
     alegra_id           = ?,
     contrato_area       = ?,
-    contrato_horas_mes  = ?
+    contrato_horas_mes  = ?,
+    valor_transporte    = ?
     WHERE id = ?")
     ->execute([
       $d['nombre']             ?? $prev['nombre'],
@@ -127,6 +130,7 @@ if ($method === 'PUT') {
       array_key_exists('alegra_id', $d)          ? $d['alegra_id']                     : $prev['alegra_id'],
       array_key_exists('contrato_area', $d)       ? $d['contrato_area']                : $prev['contrato_area'],
       array_key_exists('contrato_horas_mes', $d)  ? (isset($d['contrato_horas_mes']) ? (float)$d['contrato_horas_mes'] : null) : $prev['contrato_horas_mes'],
+      array_key_exists('valor_transporte', $d)    ? (isset($d['valor_transporte']) ? (int)$d['valor_transporte'] : null) : $prev['valor_transporte'],
       $id,
     ]);
 
