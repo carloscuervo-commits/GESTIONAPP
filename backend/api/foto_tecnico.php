@@ -50,8 +50,18 @@ if ($method === 'POST') {
   } elseif (function_exists('mime_content_type')) {
     $mime = mime_content_type($file['tmp_name']);
   }
+  // Normalizar MIME (algunos sistemas retornan 'image/jpg' en vez de 'image/jpeg')
+  if ($mime === 'image/jpg') $mime = 'image/jpeg';
   $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!$mime || !in_array($mime, $allowed)) jsonOut(['error' => 'Solo se permiten imágenes JPG, PNG o WEBP'], 400);
+  if (!$mime || !in_array($mime, $allowed)) {
+    // Fallback: confiar en la extensión del archivo original
+    $origExt = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $extToMime = ['jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png','webp'=>'image/webp'];
+    if (!isset($extToMime[$origExt])) {
+      jsonOut(['error' => 'Solo se permiten imágenes JPG, PNG o WEBP'], 400);
+    }
+    $mime = $extToMime[$origExt];
+  }
 
   $extMap = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
   $ext    = $extMap[$mime];
