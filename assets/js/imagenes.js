@@ -124,6 +124,7 @@ async function _imagenesSubirArchivos(files) {
   if (prog) prog.textContent = `Subiendo ${files.length} imagen${files.length !== 1 ? 'es' : ''}…`;
 
   let subidas = 0;
+  let primerError = '';
   for (const file of files) {
     try {
       const fd = new FormData();
@@ -135,21 +136,33 @@ async function _imagenesSubirArchivos(files) {
         _imgData.push(data.imagen);
         subidas++;
       } else if (data.error) {
+        if (!primerError) primerError = data.error;
         console.error('[Imágenes] Error del servidor:', data.error);
       }
     } catch (e) {
+      if (!primerError) primerError = e.message;
       console.error('[Imágenes] Error subiendo archivo:', e);
     }
   }
 
-  if (prog) {
-    prog.textContent = subidas
-      ? `✓ ${subidas} imagen${subidas !== 1 ? 'es' : ''} agregada${subidas !== 1 ? 's' : ''}`
-      : '⚠ No se pudo subir ninguna imagen';
-    setTimeout(() => { if (prog) prog.textContent = ''; }, 3000);
-  }
-
+  // Re-render primero para tener el nuevo DOM
   _imagenesRenderizar();
+
+  // Luego mostrar mensaje en el elemento recién creado
+  const progNuevo = document.getElementById('img-upload-progress');
+  if (progNuevo) {
+    if (subidas > 0) {
+      progNuevo.textContent = `✓ ${subidas} imagen${subidas !== 1 ? 'es' : ''} agregada${subidas !== 1 ? 's' : ''}`;
+      progNuevo.style.color = '';
+    } else {
+      progNuevo.textContent = primerError ? `⚠ Error: ${primerError}` : '⚠ No se pudo subir la imagen';
+      progNuevo.style.color = '#ef4444';
+    }
+    setTimeout(() => {
+      const p = document.getElementById('img-upload-progress');
+      if (p) { p.textContent = ''; p.style.color = ''; }
+    }, 5000);
+  }
 }
 
 // ─── Eliminar ─────────────────────────────────────────────────────────────────
