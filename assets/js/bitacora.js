@@ -451,20 +451,7 @@ function _bitDiasHabiles(desde, hasta) {
       ? esDiaHabil(cur)
       : (cur.getDay() !== 0 && cur.getDay() !== 6);
     if (ok) dias.push(cur.toISOString().split('T')[0]);
-    cur.setDate(cur.getDate() + 1);  }
-  return dias;
-}
-
-function _fmtH(h) {
-  if (h === null || h === undefined) return '0h';
-  const abs  = Math.abs(h);
-  const sign = h < 0 ? '-' : '';
-  const hh   = Math.floor(abs);
-  const mm   = Math.round((abs - hh) * 60);
-  return mm === 0 ? `${sign}${hh}h` : `${sign}${hh}h ${mm}m`;
-}
-// ===================== FIN MÓDULO BITÁCORA =====================
-
+    cur.setDate(cur.getDate() + 1);
   }
   return dias;
 }
