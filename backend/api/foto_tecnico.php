@@ -24,12 +24,8 @@ if ($method === 'GET') {
   if (!file_exists($path)) jsonOut(['error' => 'Archivo no encontrado'], 404);
 
   $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-  $mime = match($ext) {
-    'jpg','jpeg' => 'image/jpeg',
-    'png'        => 'image/png',
-    'webp'       => 'image/webp',
-    default      => 'application/octet-stream',
-  };
+  $mimeMap = ['jpg'=>'image/jpeg','jpeg'=>'image/jpeg','png'=>'image/png','webp'=>'image/webp'];
+  $mime = $mimeMap[$ext] ?? 'application/octet-stream';
   header('Content-Type: ' . $mime);
   header('Cache-Control: public, max-age=86400');
   readfile($path);
@@ -45,13 +41,20 @@ if ($method === 'POST') {
   $file = $_FILES['foto'];
   if ($file['error'] !== UPLOAD_ERR_OK) jsonOut(['error' => 'Error al subir archivo'], 400);
 
-  // Validar MIME real
-  $finfo = new finfo(FILEINFO_MIME_TYPE);
-  $mime  = $finfo->file($file['tmp_name']);
+  // Validar MIME real (finfo con fallback a mime_content_type)
+  $mime = null;
+  if (function_exists('finfo_open')) {
+    $fi   = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($fi, $file['tmp_name']);
+    finfo_close($fi);
+  } elseif (function_exists('mime_content_type')) {
+    $mime = mime_content_type($file['tmp_name']);
+  }
   $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!in_array($mime, $allowed)) jsonOut(['error' => 'Solo se permiten imágenes JPG, PNG o WEBP'], 400);
+  if (!$mime || !in_array($mime, $allowed)) jsonOut(['error' => 'Solo se permiten imágenes JPG, PNG o WEBP'], 400);
 
-  $ext      = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime];
+  $extMap = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+  $ext    = $extMap[$mime];
   $filename = $uid . '.' . $ext;
   $dest     = $uploadDir . $filename;
 
