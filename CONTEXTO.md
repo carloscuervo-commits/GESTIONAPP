@@ -487,11 +487,12 @@ Ver sección "Roadmap / arquitectura objetivo" para la estructura destino confor
 ### `.cpanel.yml` — qué se despliega
 
 ```yaml
-DEPLOYPATH=/home/innovate/public_html/gestion/
+DEPLOYPATH=/home/innovate/public_html/ginno/
 - tareas-equipo.html -> DEPLOYPATH
 - assets/css/* -> DEPLOYPATH/assets/css/
 - backend/lib/* -> DEPLOYPATH/backend/lib/
 - backend/api/* -> DEPLOYPATH/backend/api/
+- backend/cron/* -> DEPLOYPATH/backend/cron/
 - (mkdir) backend/uploads/ -> DEPLOYPATH/backend/uploads/
 - db/* -> DEPLOYPATH/db/
 ```
@@ -505,7 +506,7 @@ DEPLOYPATH=/home/innovate/public_html/gestion/
 2. **Modo local / modo servidor con un solo flag**: la constante `API_BASE` en `tareas-equipo.html` decide el modo:
 - Si está vacía → la app usa `localStorage` (`STORAGE_KEY = 'cowork_tareas_v4'`), útil para pruebas sin backend.
 - Si tiene una URL → todas las operaciones (`load`, `syncTask`, `syncDelete`, `syncEstado`) hablan con `backend/api/tareas.php`.
-En producción: `API_BASE = 'https://grupoinnovate.com/gestion/backend/api'` (hardcoded).
+En producción: `API_BASE = 'https://grupoinnovate.com/ginno/backend/api'` (hardcoded).
 
 3. **Modelo de datos por "área"**: cada tarea (`tareas`) pertenece a un área (`it`, `if`, `admin`, `comercial`) y tiene su propio flujo de estados (`AREA_FLOWS` en el frontend):
 - IT / IF: `solicitud → programado → realizado → facturado` (+ `archivado`)
@@ -525,7 +526,7 @@ El historial de seguimientos (`seguimiento_historial`) se guarda como JSON (text
 
 7. **Helpers backend centralizados en `backend/lib/db.php`**: `applyCors()` (CORS abierto `*` + maneja `OPTIONS`), `jsonOut($data, $code)` (responde JSON y `exit`), `jsonInput()` (lee body JSON), `getDB()` (PDO singleton con `ERRMODE_EXCEPTION`, `FETCH_ASSOC`, `EMULATE_PREPARES=false`). Todos los endpoints nuevos deben `require_once __DIR__ . '/../lib/db.php'` y empezar con `applyCors()`. Configs sensibles (`config.php`, `config_alegra.php`, y los que se agreguen como `config_mail.php`/`config_whatsapp.php`) viven en `backend/config/`, gitignored.
 
-8. **IDs de tareas**: UUID generado en el frontend (`crypto.randomUUID()` o similar) o con `bin2hex(random_bytes(16))` en el backend si no viene `id`. Columna `CHAR(36)`.
+8. **IDs de tareas**: cadena alfanumérica larga generada por el frontend (ej. `mr20a1xnts1p6qzt4db`, ~19 chars), con codificación basada en tiempo (similar a ULID). Columna `VARCHAR(36)` aprox. **La UI muestra solo los primeros 4 caracteres en mayúscula con prefijo `#`** (ej. `#MQ9J` corresponde al ID `mq9j...` en BD). Al buscar una tarea por su código de display, usar `WHERE id LIKE 'mq9j%'` (primeros 4 chars en minúscula), nunca igualdad exacta con el código display.
 
 9. **Trazabilidad de cambios de estado**: cada cambio de `estado` en una tarea se registra en `tarea_historial` vía `registrarHistorial()` (no se registra si el estado no cambió).
 

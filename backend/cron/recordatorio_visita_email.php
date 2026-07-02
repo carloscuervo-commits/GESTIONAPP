@@ -72,15 +72,15 @@ try {
         $fotoUrl = GINNO_URL . '/backend/api/foto_tecnico.php?usuario_id=' . urlencode($tec['id']);
       }
       $fotoTag = $fotoUrl
-        ? "<img src=\"{$fotoUrl}\" alt=\"{$tec['nombre']}\" style=\"width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;display:block;margin-bottom:6px\">"
-        : "<div style=\"width:64px;height:64px;border-radius:50%;background:#cbd5e1;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px\">👤</div>";
+        ? "<img src=\"{$fotoUrl}\" alt=\"" . htmlspecialchars($tec['nombre']) . "\" style=\"width:110px;height:auto;display:block;margin-bottom:8px;border:1px solid #169BBC\">"
+        : "<div style=\"width:110px;height:140px;background:#D6F3F4;border:1px solid #169BBC;display:table-cell;text-align:center;vertical-align:middle;font-size:44px;margin-bottom:8px\">👤</div>";
 
-      $cedulaLine = $tec['cedula'] ? "<div style=\"color:#64748b;font-size:12px\">Cédula: " . htmlspecialchars($tec['cedula']) . "</div>" : '';
+      $cedulaLine = $tec['cedula'] ? "<div style=\"font-size:12px;color:#888888\">Cédula: " . htmlspecialchars($tec['cedula']) . "</div>" : '';
 
       $tecHtml .= "
-        <div style=\"display:inline-block;text-align:center;margin:8px 16px 8px 0;vertical-align:top\">
+        <div style=\"display:inline-block;text-align:center;margin:8px 20px 8px 0;vertical-align:top\">
           {$fotoTag}
-          <div style=\"font-weight:600;font-size:14px;color:#1e293b\">" . htmlspecialchars($tec['nombre']) . "</div>
+          <div style=\"font-weight:700;font-size:14px;color:#1A1A1A\">" . htmlspecialchars($tec['nombre']) . "</div>
           {$cedulaLine}
         </div>";
     }
@@ -88,9 +88,9 @@ try {
     $descripcionHtml = '';
     if (!empty($tarea['descripcion'])) {
       $descripcionHtml = "
-        <tr>
-          <td style=\"padding:6px 0;color:#64748b;font-size:13px;width:130px\">Descripción</td>
-          <td style=\"padding:6px 0;font-size:13px;color:#1e293b\">" . nl2br(htmlspecialchars($tarea['descripcion'])) . "</td>
+        <tr style=\"background:#ffffff\">
+          <td style=\"padding:7px 14px;color:#0D3B40;font-size:13px;font-weight:600;width:100px\">Descripción</td>
+          <td style=\"padding:7px 14px;font-size:13px;color:#1A1A1A\">" . nl2br(htmlspecialchars($tarea['descripcion'])) . "</td>
         </tr>";
     }
 
@@ -98,76 +98,83 @@ try {
 <!DOCTYPE html>
 <html lang=\"es\">
 <head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>
-<body style=\"margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif\">
-  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f1f5f9;padding:32px 0\">
+<body style=\"margin:0;padding:0;background:#f0f0f0;font-family:Arial,Helvetica,sans-serif\">
+  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f0f0f0;padding:32px 0\">
     <tr><td align=\"center\">
-      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)\">
+      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#ffffff\">
 
         <!-- Cabecera -->
         <tr>
-          <td style=\"background:#1e40af;padding:28px 32px;text-align:center\">
-            <div style=\"color:#ffffff;font-size:22px;font-weight:700\">Grupo Innovate</div>
-            <div style=\"color:#bfdbfe;font-size:14px;margin-top:4px\">Aviso de visita programada</div>
+          <td style=\"background:#0D3B40;padding:24px 32px 20px;text-align:center\">
+            <div style=\"font-size:22px;font-weight:700;color:#169BBC;letter-spacing:1px\">INNOVATE</div>
+            <div style=\"font-size:12px;color:#D6F3F4;margin-top:2px\">Grupo Innovate SAS</div>
+            <div style=\"height:2px;background:#169BBC;width:48px;margin:12px auto 10px\"></div>
+            <div style=\"font-size:13px;color:#D6F3F4\">Aviso de visita programada</div>
           </td>
         </tr>
 
         <!-- Saludo -->
         <tr>
-          <td style=\"padding:28px 32px 0\">
-            <p style=\"margin:0;font-size:15px;color:#1e293b\">
+          <td style=\"padding:24px 32px 0\">
+            <p style=\"margin:0;font-size:14px;color:#1A1A1A\">
               Estimado cliente <strong>" . htmlspecialchars($tarea['cliente_nombre']) . "</strong>,
             </p>
-            <p style=\"margin:12px 0 0;font-size:14px;color:#475569;line-height:1.6\">
-              Le informamos que tiene programada una visita de <strong>{$areaLabel}</strong> para el día de mañana.
-              A continuación encontrará los detalles:
+            <p style=\"margin:10px 0 0;font-size:13px;color:#555555;line-height:1.6\">
+              Tiene programada una visita de <strong style=\"color:#1A1A1A\">{$areaLabel}</strong> para el día de mañana.
             </p>
           </td>
         </tr>
 
         <!-- Datos de la visita -->
         <tr>
-          <td style=\"padding:20px 32px\">
-            <div style=\"background:#f8fafc;border-radius:8px;padding:20px;border:1px solid #e2e8f0\">
-              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">
-                <tr>
-                  <td style=\"padding:6px 0;color:#64748b;font-size:13px;width:130px\">Servicio</td>
-                  <td style=\"padding:6px 0;font-size:13px;color:#1e293b;font-weight:600\">" . htmlspecialchars($tarea['titulo']) . "</td>
-                </tr>
-                {$descripcionHtml}
-                <tr>
-                  <td style=\"padding:6px 0;color:#64748b;font-size:13px\">Fecha</td>
-                  <td style=\"padding:6px 0;font-size:13px;color:#1e293b\">{$fechaFormateada}</td>
-                </tr>
-                <tr>
-                  <td style=\"padding:6px 0;color:#64748b;font-size:13px\">Hora</td>
-                  <td style=\"padding:6px 0;font-size:13px;color:#1e293b\">{$horaFormateada}</td>
-                </tr>
-              </table>
+          <td style=\"padding:18px 32px 0\">
+            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;border:1px solid #169BBC\">
+              <tr style=\"background:#0D3B40\">
+                <th colspan=\"2\" style=\"padding:8px 14px;text-align:left;font-size:12px;color:#ffffff;font-weight:700;letter-spacing:0.5px\">DETALLE DE LA VISITA</th>
+              </tr>
+              <tr style=\"background:#D6F3F4\">
+                <td style=\"padding:7px 14px;color:#0D3B40;font-size:13px;font-weight:600;width:100px\">Servicio</td>
+                <td style=\"padding:7px 14px;font-size:13px;color:#1A1A1A;font-weight:700\">" . htmlspecialchars($tarea['titulo']) . "</td>
+              </tr>
+              {$descripcionHtml}
+              <tr style=\"background:#D6F3F4\">
+                <td style=\"padding:7px 14px;color:#0D3B40;font-size:13px;font-weight:600\">Fecha</td>
+                <td style=\"padding:7px 14px;font-size:13px;color:#1A1A1A\">{$fechaFormateada}</td>
+              </tr>
+              <tr style=\"background:#ffffff\">
+                <td style=\"padding:7px 14px;color:#0D3B40;font-size:13px;font-weight:600\">Hora</td>
+                <td style=\"padding:7px 14px;font-size:13px;color:#1A1A1A\">{$horaFormateada} <span style=\"color:#888888;font-size:12px\">(aprox.)</span></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Nota hora aproximada -->
+        <tr>
+          <td style=\"padding:14px 32px 0\">
+            <div style=\"padding:10px 14px;background:#FFF4E0;border-left:3px solid #F29206\">
+              <span style=\"font-size:12px;color:#555555;line-height:1.5\">La hora indicada es aproximada y puede variar según las condiciones de tráfico o clima del día. Le agradecemos su comprensión.</span>
             </div>
           </td>
         </tr>
 
         <!-- Técnicos -->
         <tr>
-          <td style=\"padding:0 32px 20px\">
-            <div style=\"font-size:14px;font-weight:600;color:#1e293b;margin-bottom:12px\">
-              Técnico(s) asignado(s):
-            </div>
-            <div>
-              {$tecHtml}
-            </div>
+          <td style=\"padding:18px 32px 0\">
+            <div style=\"font-size:13px;font-weight:700;color:#0D3B40;border-bottom:2px solid #169BBC;padding-bottom:6px;margin-bottom:14px\">TÉCNICO(S) ASIGNADO(S)</div>
+            <div>{$tecHtml}</div>
           </td>
         </tr>
 
         <!-- Contacto para cancelar -->
         <tr>
-          <td style=\"padding:0 32px 28px\">
-            <div style=\"background:#eff6ff;border-radius:8px;padding:16px;border-left:4px solid #3b82f6\">
-              <div style=\"font-size:13px;color:#1e40af;font-weight:600;margin-bottom:4px\">¿Necesita cancelar o reprogramar?</div>
-              <div style=\"font-size:13px;color:#1e293b\">
-                📧 <a href=\"mailto:soporte@innovate.com.co\" style=\"color:#1e40af\">soporte@innovate.com.co</a>
-                &nbsp;&nbsp;|&nbsp;&nbsp;
-                📞 <a href=\"tel:+573176452811\" style=\"color:#1e40af\">317 645 2811</a>
+          <td style=\"padding:18px 32px 24px\">
+            <div style=\"background:#D6F3F4;border:1px solid #169BBC;padding:12px 16px\">
+              <div style=\"font-size:13px;color:#0D3B40;font-weight:700;margin-bottom:6px\">¿Necesita cancelar o reprogramar?</div>
+              <div style=\"font-size:13px;color:#555555\">
+                ✉ <a href=\"mailto:soporte@innovate.com.co\" style=\"color:#169BBC;text-decoration:none\">soporte@innovate.com.co</a>
+                &nbsp;·&nbsp;
+                ☎ <a href=\"tel:+573176452811\" style=\"color:#169BBC;text-decoration:none\">317 645 2811</a>
               </div>
             </div>
           </td>
@@ -175,10 +182,9 @@ try {
 
         <!-- Pie -->
         <tr>
-          <td style=\"background:#f8fafc;padding:16px 32px;text-align:center;border-top:1px solid #e2e8f0\">
-            <div style=\"font-size:12px;color:#94a3b8\">
-              Este es un mensaje automático de Grupo Innovate · No responda a este correo
-            </div>
+          <td style=\"background:#0D3B40;border-top:2px solid #169BBC;padding:12px 32px;text-align:center\">
+            <div style=\"font-size:11px;color:#9ecfd2\">Cra. 30 #6-06 Of. 501 · Cali · 317 649 0590</div>
+            <div style=\"font-size:11px;color:#6fa8ad;margin-top:2px\">Mensaje automático · No responda a este correo</div>
           </td>
         </tr>
 
