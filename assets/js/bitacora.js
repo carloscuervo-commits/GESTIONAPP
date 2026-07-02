@@ -3,6 +3,9 @@
 // Los días pasados usan datos precalculados de bitacora_usuario (cron noche).
 // El día de hoy se calcula en tiempo real desde visita_participantes.
 
+// Datos del último check de déficit — leídos por renderDashboard() en tareas.js
+let _bitDeficitData = [];
+
 let _bitData      = null;   // { tecnicos, dias, visitas }
 let _bitDesde     = null;
 let _bitHasta     = null;
@@ -406,37 +409,13 @@ async function bitacoraCheckDashboard() {
   try {
     const res  = await fetch(`${API_BASE}/bitacora.php?dashboard=1`);
     const data = await res.json();
-
-    if (!Array.isArray(data) || !data.length) {
-      document.getElementById('bit-deficit-banner')?.remove();
-      return;
+    _bitDeficitData = Array.isArray(data) ? data : [];
+    // Eliminar banner legacy si quedó de versión anterior
+    document.getElementById('bit-deficit-banner')?.remove();
+    // Refrescar dashboard si está visible
+    if (typeof currentView !== 'undefined' && currentView === 'dashboard') {
+      renderDashboard();
     }
-
-    const nombres = data.map(t =>
-      `<span style="background:${t.color||'#94a3b8'};color:#fff;border-radius:99px;
-             padding:2px 10px;font-size:12px;font-weight:700">${esc(t.iniciales)}</span>
-       ${esc(t.nombre)} <span style="font-size:11px;color:#78350f">(${t.dias_pendientes} día${t.dias_pendientes>1?'s':''})</span>`
-    ).join(' &nbsp;·&nbsp; ');
-
-    let banner = document.getElementById('bit-deficit-banner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'bit-deficit-banner';
-      const ref = document.getElementById('alertas-retraso-banner');
-      if (ref) ref.after(banner);
-      else document.body.prepend(banner);
-    }
-
-    banner.innerHTML = `
-      <div style="background:#fef3c7;border-bottom:2px solid #fde68a;
-                  padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:15px">⚠️</span>
-        <span style="font-size:13px;font-weight:600;color:#92400e">Horas pendientes de justificar:</span>
-        <span style="font-size:13px;color:#78350f">${nombres}</span>
-        <button class="btn-save"
-                style="margin-left:auto;font-size:12px;padding:4px 12px;background:#d97706"
-                onclick="setArea('bitacora')">Ver bitácora</button>
-      </div>`;
   } catch (_) {}
 }
 

@@ -532,6 +532,16 @@ El historial de seguimientos (`seguimiento_historial`) se guarda como JSON (text
 
 10. **Tarjeta de tarea simplificada para IT/IF**: el modal "Nueva Tarea"/edición tiene orden de campos fijo (Cliente → Título → Descripción → Equipo asignado → Área/Estado/...) para todas las áreas. Cuando `area` es `it` o `if`, `updateFormForArea()` oculta además `grp-fecha` (fecha límite), `grp-tiempo`, `grp-treal`, `grp-recursos` y `grp-notas` (todos con `id` asignado para poder ocultarlos). El **equipo asignado** ya no usa chips seleccionables tipo toggle: `buildTeamPicker()` ahora renderiza los miembros ya asignados como chips con botón "✕" para quitar (`toggleTeamChip`), más un `<select>` "+ Agregar técnico..." con los miembros disponibles que al elegir uno lo agrega (`addTeamMember`). Esto aplica a todas las áreas, no solo IT/IF.
 
+## Glosario de avisos (terminología oficial)
+
+| Término | Qué es | Implementación |
+|---------|--------|----------------|
+| **alarma** | Aviso sonoro con popup en pantalla | `alarma.js` — modal `#alarma-modal`, beep Web Audio API. Corre a las 4 PM lunes-viernes, solo admin. |
+| **alerta** | Aviso en la parte inferior del dashboard, dentro de la "Zona de alertas" | `renderDashboard()` — "Realizados sin facturar", "Cotizaciones sin seguimiento", "Pendientes sin programar". |
+| **banner alerta** | Franja horizontal fija en la parte superior de la pantalla | `#alertas-retraso-banner` (técnico tardío), `#bit-deficit-banner` (déficit bitácora). Se insertan sobre el contenido principal. |
+
+Cuando el usuario use estos términos, interpretarlos con esta definición exacta y no intercambiarlos.
+
 ## Convenciones de código
 
 - **PHP**:

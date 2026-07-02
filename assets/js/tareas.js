@@ -420,7 +420,7 @@ function renderDashboard() {
       </div>
     </div>`;
 
-  if (allAlerts.length || sinProgAlerts.length || sinCotizarAlerts.length || comT.some(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); })) {
+  if (allAlerts.length || sinProgAlerts.length || sinCotizarAlerts.length || comT.some(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); }) || (typeof _bitDeficitData !== 'undefined' && _bitDeficitData.length)) {
     html += `<div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:10px">🔔 Zona de alertas</div>`;
   }
 
@@ -499,6 +499,27 @@ function renderDashboard() {
             ${tag}
           </div>`;
         }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 5. Bitácora: horas sin justificar
+  if (typeof _bitDeficitData !== 'undefined' && _bitDeficitData.length) {
+    const nombres = _bitDeficitData.map(t =>
+      `<span style="background:${t.color||'#94a3b8'};color:#fff;border-radius:99px;
+             padding:2px 8px;font-size:11px;font-weight:700">${esc(t.iniciales)}</span>
+       ${esc(t.nombre.split(' ')[0])} <span style="font-size:11px;color:#D6F3F4">(${t.dias_pendientes} día${t.dias_pendientes>1?'s':''})</span>`
+    ).join(' &nbsp;·&nbsp; ');
+    html += `<div style="background:#0D3B40;border:1px solid #169BBC;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#D6F3F4;margin-bottom:6px">📋 Horas sin justificar en bitácora</div>
+          <div style="font-size:13px;color:#fff">${nombres}</div>
+        </div>
+        <button class="btn-save" onclick="setArea('bitacora')"
+          style="font-size:12px;padding:4px 14px;background:#169BBC;border:none;white-space:nowrap">
+          Ver bitácora
+        </button>
       </div>
     </div>`;
   }
