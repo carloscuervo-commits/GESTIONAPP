@@ -309,6 +309,9 @@ function setView(v) {
     document.getElementById('usuarios-view').style.display = 'none';
     document.getElementById('clientes-view').style.display = 'none';
     document.getElementById('informes-view').style.display = 'none';
+    document.getElementById('agenda-view').style.display = 'none';
+    document.getElementById('transportes-view').style.display = 'none';
+    document.getElementById('bitacora-view').style.display = 'none';
     document.querySelector('.filters').style.display = 'none';
     document.querySelector('.btn-add').style.display = 'inline-flex';
     document.getElementById('btn-kanban').style.display = '';
