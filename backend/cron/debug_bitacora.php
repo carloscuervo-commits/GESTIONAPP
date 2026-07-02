@@ -75,7 +75,7 @@ foreach ($tecnicos as $tec) {
   $stmtVis = $pdo->prepare(
     "SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, vp.check_in, vp.check_out)), 0) AS minutos
      FROM visita_participantes vp
-     WHERE vp.tecnico_id COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+     WHERE vp.tecnico_id = ?
        AND DATE(vp.check_in) = ?
        AND vp.check_out IS NOT NULL"
   );
