@@ -7,8 +7,8 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - Repo local: `D:\OneDrive\INNOVATE\GESTIONAPP`
 - Repo remoto: `https://github.com/carloscuervo-commits/GESTIONAPP.git` (rama `main`)
 - Servidor: cPanel en `https://grupoinnovate.com:2083`, cuenta `innovate`
-- App en producción: `https://grupoinnovate.com/gestion/tareas-equipo.html`
-- El deploy copia archivos según `.cpanel.yml` a `/home/innovate/public_html/gestion/`
+- App en producción: `https://grupoinnovate.com/ginno/tareas-equipo.html`
+- El deploy copia archivos según `.cpanel.yml` a `/home/innovate/public_html/ginno/`
 
 ## Pasos del deploy
 
@@ -31,7 +31,7 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
    - Esperar el mensaje "The deployment ... is complete."
 
 4. **Verificación**
-   - Abrir/recargar `https://grupoinnovate.com/gestion/tareas-equipo.html?cb=<numero único>` (usar un parámetro de cache-busting nuevo cada vez, cPanel/navegador cachea).
+   - Abrir/recargar `https://grupoinnovate.com/ginno/tareas-equipo.html?cb=<numero único>` (usar un parámetro de cache-busting nuevo cada vez, cPanel/navegador cachea).
    - Verificar visualmente que el cambio esperado esté presente (ej. abrir "Nueva Tarea", revisar campos, etc.)
 
 ## Notas importantes

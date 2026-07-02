@@ -34,7 +34,7 @@ try {
     SELECT t.id, t.titulo, t.descripcion, t.fecha_programacion, t.hora_programacion,
            t.area, c.email AS cliente_email, t.cliente AS cliente_nombre
     FROM tareas t
-    JOIN clientes c ON c.nombre = t.cliente COLLATE utf8mb4_general_ci
+    JOIN clientes c ON c.nombre COLLATE utf8mb4_general_ci = t.cliente COLLATE utf8mb4_general_ci
     WHERE t.area IN ('it','if')
       AND t.fecha_programacion = ?
       AND t.avisar_cliente = 1
