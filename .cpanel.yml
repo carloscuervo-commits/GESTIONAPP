@@ -20,5 +20,8 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/backend/uploads/reportes
     - /bin/mkdir -p $DEPLOYPATH/backend/uploads/reporte_fotos
     - /bin/mkdir -p $DEPLOYPATH/backend/uploads/reporte_pdf
+    - /bin/mkdir -p $DEPLOYPATH/backend/cron
+    - /bin/cp -r backend/cron/. $DEPLOYPATH/backend/cron/
+    - /bin/mkdir -p $DEPLOYPATH/backend/uploads/fotos
     - /bin/mkdir -p $DEPLOYPATH/db
     - /bin/cp -r db/. $DEPLOYPATH/db/
