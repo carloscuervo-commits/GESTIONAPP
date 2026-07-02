@@ -775,13 +775,39 @@ function renderFormularioReporte() {
 }
 
 // ----------------- Fotos -----------------
+// Comprime una imagen antes de subirla: máx 1920px, JPEG calidad 80%.
+// Devuelve un Blob JPEG. Si el archivo no es imagen, lo devuelve sin cambios.
+function _comprimirImagen(file) {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) { resolve(file); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 1920;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.80);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 async function subirFotos(seccionId, files) {
   if (!files || !files.length) return;
   for (const file of files) {
+    const comprimida = await _comprimirImagen(file);
     const fd = new FormData();
     fd.append('reporteId', reporteActual.id);
     fd.append('seccionId', seccionId);
-    fd.append('file', file);
+    fd.append('file', comprimida, file.name.replace(/\.[^.]+$/, '.jpg'));
     try {
       const res = await fetch(`${API_BASE}/reporte_foto.php`, { method: 'POST', body: fd });
       const data = await res.json();

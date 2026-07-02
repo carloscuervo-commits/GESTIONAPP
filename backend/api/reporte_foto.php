@@ -17,8 +17,14 @@ if ($method === 'POST') {
   $seccionId = $_POST['seccionId'] ?? null;
   if (!$reporteId || !$seccionId) jsonOut(['error' => 'reporteId y seccionId son requeridos'], 400);
 
-  if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-    jsonOut(['error' => 'No se recibió el archivo (campo "file")'], 400);
+  if (!isset($_FILES['file'])) {
+    jsonOut(['error' => 'No se recibió el archivo. Verifica que la foto no sea demasiado grande (máx. 20 MB).'], 400);
+  }
+  if ($_FILES['file']['error'] === UPLOAD_ERR_INI_SIZE || $_FILES['file']['error'] === UPLOAD_ERR_FORM_SIZE) {
+    jsonOut(['error' => 'La foto es demasiado grande. Usa una imagen de menor resolución.'], 400);
+  }
+  if ($_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+    jsonOut(['error' => 'Error al recibir el archivo (código ' . $_FILES['file']['error'] . ').'], 400);
   }
 
   $stmt = $pdo->prepare("SELECT id FROM reportes WHERE id = ?");
