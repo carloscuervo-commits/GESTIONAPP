@@ -374,7 +374,7 @@ function generarProgramacion(fechaISO) {
   grupos.forEach(g => {
     const tecnicos = g.team.map(nombreCorto).join(', ');
     out += `\n👷 ${tecnicos || 'Sin asignar'}\n`;
-    g.tasks.forEach(t => {
+    g.tasks.slice().sort((a,b) => (a.horaProg||'99:99').localeCompare(b.horaProg||'99:99')).forEach(t => {
       out += `📍 ${t.cliente || 'Sin cliente'}${t.horaProg ? `  🕗 ${t.horaProg}` : ''}\n`;
       if (t.desc) out += `📝 ${t.desc}\n`;
       out += `🔧 ${t.titulo}\n`;
