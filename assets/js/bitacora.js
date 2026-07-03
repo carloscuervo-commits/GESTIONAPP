@@ -374,8 +374,7 @@ async function _bitGuardarNota(tecId, fecha) {
   const texto = document.getElementById('bit-nota-texto')?.value?.trim();
   if (!texto) { alert('La nota no puede estar vacía'); return; }
 
-  const sesion  = JSON.parse(localStorage.getItem('sesion') || '{}');
-  const adminId = sesion.id || '';
+  const adminId = currentUser?.id || '';
 
   try {
     const res  = await fetch(`${API_BASE}/bitacora.php`, {
