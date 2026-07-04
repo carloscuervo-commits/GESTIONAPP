@@ -82,3 +82,10 @@ Los siguientes archivos creados el `2026-06-30` deben estar listados en `.cpanel
 3. Configurar el cron en cPanel:
    `0 23 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/bitacora_deficit.php > /dev/null 2>&1`
 4. En la app: ir a Usuarios → editar cada técnico → configurar horario contratado.
+
+**Mejoras bitácora + fix tabs (2026-07-04) — sin migraciones SQL nuevas:**
+- `assets/css/app.css`: colores activos para tabs agenda/usuarios/clientes/transportes/bitacora.
+- `backend/api/bitacora.php`: devuelve `pausas` en el GET por rango.
+- `backend/cron/bitacora_deficit.php`: descuenta pausas del cálculo de horas; corregido bug `$y-07-04`.
+- `assets/js/bitacora.js?v=20260704a`: horario detallado con pausas, columna Observaciones.
+- `tareas-equipo.html`: bump `bitacora.js` a `?v=20260704a`.

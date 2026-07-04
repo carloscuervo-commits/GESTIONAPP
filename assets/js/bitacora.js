@@ -103,7 +103,7 @@ function _bitRenderTabla() {
   const cont = document.getElementById('bit-tabla-cont');
   if (!cont || !_bitData) return;
 
-  const { tecnicos, dias, visitas } = _bitData;
+  const { tecnicos, dias, visitas, pausas } = _bitData;
   const hoy = new Date().toISOString().split('T')[0];
 
   // Índice rápido: dias precalculados → tecnico_id → fecha → fila
@@ -127,6 +127,13 @@ function _bitRenderTabla() {
   const horCol = [
     'h_dom','h_lun','h_mar','h_mie','h_jue','h_vie','h_sab'
   ];
+
+  // Índice pausas: participante_id → [pausa,...]
+  const pausasIdx = {};
+  (pausas || []).forEach(p => {
+    if (!pausasIdx[p.participante_id]) pausasIdx[p.participante_id] = [];
+    pausasIdx[p.participante_id].push(p);
+  });
 
   const diasHabiles = _bitDiasHabiles(_bitDesde, _bitHasta);
   const tecsFiltrados = tecnicos.filter(t => !_bitTecFiltro || t.id === _bitTecFiltro);
@@ -187,7 +194,9 @@ function _bitRenderTabla() {
         // Calcular en tiempo real (hoy o día sin fila en BD aún)
         vsDay.forEach(v => {
           if (!v.check_out) { hayEnCurso = true; return; }
-          horasReal += (new Date(v.check_out) - new Date(v.check_in)) / 3600000;
+          const grossMins = (new Date(v.check_out) - new Date(v.check_in)) / 60000;
+          const pausaMins = v.mins_pausa ? parseInt(v.mins_pausa) : 0;
+          horasReal += Math.max(0, grossMins - pausaMins) / 60;
         });
         if (!hayEnCurso) {
           totalReal += horasReal;
@@ -209,16 +218,18 @@ function _bitRenderTabla() {
             <td style="padding:8px 10px;font-size:12px;color:var(--text-muted)">—</td>
             <td style="padding:8px 10px;font-size:12px;text-align:right;color:var(--text-muted)">0h</td>
             <td style="padding:8px 10px;font-size:12px">${_bitBadge(horasReal, horasEsp, hayEnCurso, estado)}</td>
+            <td style="padding:8px 10px;font-size:12px"></td>
             <td style="padding:8px 10px;font-size:12px">${_bitNotaCell(tec.id, fecha, nota, adminNombre, estado)}</td>
           </tr>`);
       } else {
         // Filas de visitas del día
         vsDay.forEach((v, idx) => {
           const esUltima  = idx === vsDay.length - 1;
-          const horaIn    = v.check_in  ? v.check_in.split(' ')[1].slice(0,5)   : '—';
-          const horaOut   = v.check_out ? v.check_out.split(' ')[1].slice(0,5)  : '<span style="color:#f59e0b;font-weight:600">en curso</span>';
-          const minutos   = v.check_out ? (new Date(v.check_out) - new Date(v.check_in)) / 60000 : null;
-          const hStr      = minutos !== null ? _fmtH(minutos / 60) : '—';
+          const vPausas   = pausasIdx[v.participante_id] || [];
+          const grossMins = v.check_out ? (new Date(v.check_out) - new Date(v.check_in)) / 60000 : null;
+          const pausaMins = v.mins_pausa ? parseInt(v.mins_pausa) : 0;
+          const netMins   = grossMins !== null ? Math.max(0, grossMins - pausaMins) : null;
+          const hStr      = netMins !== null ? _fmtH(netMins / 60) : '—';
 
           filas.push(`
             <tr style="background:${esUltima ? _bitRowBg(estado, nota) : 'transparent'}">
@@ -229,12 +240,13 @@ function _bitRenderTabla() {
                 ${esc(v.cliente || v.titulo || '—')}
                 <div style="font-size:11px;color:var(--text-muted)">${esc(v.titulo || '')}</div>
               </td>
-              <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${horaIn} → ${horaOut}</td>
+              <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${_bitHorarioCell(v, vPausas)}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right">${hStr}</td>
               ${esUltima ? `
                 <td style="padding:6px 10px;font-size:12px">${_bitBadge(horasReal, horasEsp, hayEnCurso, estado)}</td>
+                <td style="padding:6px 10px;font-size:12px">${_bitObsCell(v, vPausas)}</td>
                 <td style="padding:6px 10px;font-size:12px">${_bitNotaCell(tec.id, fecha, nota, adminNombre, estado)}</td>
-              ` : '<td></td><td></td>'}
+              ` : `<td></td><td style="padding:6px 10px;font-size:12px">${_bitObsCell(v, vPausas)}</td><td></td>`}
             </tr>`);
         });
       }
@@ -272,6 +284,7 @@ function _bitRenderTabla() {
                 <th style="padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--text-muted)">Horario</th>
                 <th style="padding:8px 10px;text-align:right;font-weight:600;font-size:11px;color:var(--text-muted)">Horas</th>
                 <th style="padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--text-muted)">Estado</th>
+                <th style="padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--text-muted)">Observaciones</th>
                 <th style="padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--text-muted)">Nota</th>
               </tr>
             </thead>
@@ -282,6 +295,40 @@ function _bitRenderTabla() {
   });
 
   cont.innerHTML = html || '<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">Sin datos para el rango seleccionado.</div>';
+}
+
+
+// ─── Horario detallado (inicio, pausa(s), fin) ────────────────────────────────
+
+function _bitHorarioCell(v, pausas) {
+  const horaIn  = v.check_in  ? v.check_in.split(' ')[1].slice(0,5) : '—';
+  const horaOut = v.check_out ? v.check_out.split(' ')[1].slice(0,5)
+                               : '<span style="color:#f59e0b;font-weight:600">en curso</span>';
+  if (!pausas || !pausas.length) {
+    return `${horaIn} → ${horaOut}`;
+  }
+  let html = horaIn;
+  pausas.forEach(p => {
+    const pIn  = p.pausa_inicio ? p.pausa_inicio.split(' ')[1].slice(0,5) : '?';
+    const pOut = p.pausa_fin    ? p.pausa_fin.split(' ')[1].slice(0,5)    : '?';
+    const tip  = p.justificacion ? ` title="${esc(p.justificacion)}"` : '';
+    html += ` <span style="color:#f59e0b"${tip}>⏸${pIn}</span>`;
+    html += ` <span style="color:#4ade80">▶${pOut}</span>`;
+  });
+  html += ` → ${horaOut}`;
+  return html;
+}
+
+// ─── Celda de observaciones automáticas ──────────────────────────────────────
+
+function _bitObsCell(v, pausas) {
+  if (!v.check_out) return '';
+  const grossMins = (new Date(v.check_out) - new Date(v.check_in)) / 60000;
+  const hasPausa  = pausas && pausas.length > 0;
+  if (grossMins > 240 && !hasPausa) {
+    return '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;white-space:nowrap">⚠ Sin pausa registrada</span>';
+  }
+  return '';
 }
 
 // ─── Color de fila ────────────────────────────────────────────────────────────

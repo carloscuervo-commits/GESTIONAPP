@@ -57,14 +57,21 @@ if ($method === 'GET') {
 
   // 3. Detalle de visitas del rango
   $stmtVis = $pdo->prepare(
-    "SELECT vp.tecnico_id,
+    "SELECT vp.id         AS participante_id,
+            vp.tecnico_id,
             vp.check_in,
             vp.check_out,
             t.titulo,
             t.cliente,
             t.area,
             r.id AS reporte_id,
-            r.pdf_archivo
+            r.pdf_archivo,
+            COALESCE((
+              SELECT SUM(TIMESTAMPDIFF(MINUTE, p.pausa_inicio, p.pausa_fin))
+              FROM visita_pausas p
+              WHERE p.participante_id COLLATE utf8mb4_general_ci = vp.id COLLATE utf8mb4_general_ci
+                AND p.pausa_fin IS NOT NULL
+            ), 0) AS mins_pausa
      FROM visita_participantes vp
      JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
      JOIN tareas   t ON t.id COLLATE utf8mb4_general_ci = r.tarea_id   COLLATE utf8mb4_general_ci
@@ -74,7 +81,20 @@ if ($method === 'GET') {
   $stmtVis->execute([$desde, $hasta]);
   $visitas = $stmtVis->fetchAll();
 
-  jsonOut(compact('tecnicos', 'dias', 'visitas'));
+  // 4. Detalle de pausas del rango (para display hora-a-hora en bitácora)
+  $stmtPausas = $pdo->prepare(
+    "SELECT p.participante_id, p.pausa_inicio, p.pausa_fin, p.justificacion
+     FROM visita_pausas p
+     JOIN visita_participantes vp
+          ON vp.id COLLATE utf8mb4_general_ci = p.participante_id COLLATE utf8mb4_general_ci
+     WHERE DATE(vp.check_in) BETWEEN ? AND ?
+       AND p.pausa_fin IS NOT NULL
+     ORDER BY p.pausa_inicio ASC"
+  );
+  $stmtPausas->execute([$desde, $hasta]);
+  $pausas = $stmtPausas->fetchAll();
+
+  jsonOut(compact('tecnicos', 'dias', 'visitas', 'pausas'));
 }
 
 // POST — guardar nota

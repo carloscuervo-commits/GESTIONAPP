@@ -4,6 +4,33 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-04)
+
+- **fix: colores de tabs activos en pestañas sin color (2026-07-04)**
+  - Pestañas `agenda`, `usuarios`, `clientes`, `transportes`, `bitácora` no tenían color de fondo cuando estaban activas → texto blanco sobre fondo transparente = ilegible.
+  - Solución: `assets/css/app.css` — agregadas 5 reglas `.area-tab[data-area="X"].active`:
+    - `agenda` → `#169BBC` (cian marca)
+    - `usuarios` → `#0D3B40` (teal oscuro + borde cian)
+    - `clientes` → `#F29206` (naranja marca)
+    - `transportes` → `#169BBC` (cian marca)
+    - `bitacora` → `#0D3B40` (teal oscuro + borde cian)
+  - Sin cambios de JS ni SQL. Sin bump de caché necesario.
+
+- **feat: bitácora — pausas descontadas, horario detallado, columna Observaciones (2026-07-04)**
+  - **Horas reales ya descuentan pausa de almuerzo**: tanto el cálculo en tiempo real (frontend) como el cron noche (`bitacora_deficit.php`) restan los minutos de `visita_pausas` (pausa completada) de la duración bruta de cada visita.
+  - **Columna Horario muestra detalle**: `check_in ⏸pausa_inicio ▶pausa_fin → check_out`. Múltiples pausas se encadenan. Pausa en amarillo `#f59e0b`, reanuda en verde `#4ade80`. Si no hay pausas: solo `hora_inicio → hora_fin`.
+  - **Columna "Observaciones" nueva**: aparece entre Estado y Nota. Auto-generada: si una visita duró > 4h bruto sin ninguna pausa registrada → badge `⚠ Sin pausa registrada`.
+  - **Fix bug festivosColombia()**: `$y-07-04` (4 de julio) no es festivo colombiano — eliminado de `bitacora_deficit.php`.
+
+  ### Archivos modificados
+  - `backend/api/bitacora.php`: query de visitas agrega `vp.id AS participante_id` y subquery `mins_pausa`; nueva query `stmtPausas` devuelve registros de `visita_pausas`; `jsonOut` ahora retorna `{tecnicos, dias, visitas, pausas}`.
+  - `backend/cron/bitacora_deficit.php`: `stmtVis` resta pausas via subquery; eliminado `$y-07-04` de `festivosColombia()`.
+  - `assets/js/bitacora.js?v=20260704a`: `_bitRenderTabla()` construye `pausasIdx`; resta `mins_pausa` del cálculo real-time; nueva función `_bitHorarioCell(v, pausas)` renderiza horario detallado; nueva función `_bitObsCell(v, pausas)` genera observaciones; tabla agrega columna "Observaciones".
+  - `tareas-equipo.html`: bump `bitacora.js?v=20260703a` → `?v=20260704a`.
+
+  ### COLLATE en pausas
+  - `visita_pausas.participante_id COLLATE utf8mb4_general_ci = vp.id COLLATE utf8mb4_general_ci` en todas las comparaciones (ambas tablas son `unicode_ci`, servidor en `general_ci`).
+
 ## Estado actual (última actualización: 2026-07-03)
 
 - **feat: aviso por correo al cliente (2026-06-30)** — pendiente de deploy:

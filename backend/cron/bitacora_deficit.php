@@ -48,9 +48,17 @@ try {
     $uid      = $tec['tecnico_id'];
     $horasEsp = (float)$tec['horas_esp'];
 
-    // Sumar horas reales de visitas con checkout (descontando pausas si las hubiera)
+    // Sumar horas reales de visitas con checkout restando pausas completadas
     $stmtVis = $pdo->prepare(
-      "SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, vp.check_in, vp.check_out)), 0) AS minutos
+      "SELECT COALESCE(SUM(
+         TIMESTAMPDIFF(MINUTE, vp.check_in, vp.check_out)
+         - COALESCE((
+             SELECT SUM(TIMESTAMPDIFF(MINUTE, p.pausa_inicio, p.pausa_fin))
+             FROM visita_pausas p
+             WHERE p.participante_id COLLATE utf8mb4_general_ci = vp.id COLLATE utf8mb4_general_ci
+               AND p.pausa_fin IS NOT NULL
+           ), 0)
+       ), 0) AS minutos
        FROM visita_participantes vp
        WHERE vp.tecnico_id = ?
          AND DATE(vp.check_in) = ?
@@ -96,7 +104,7 @@ function festivosColombia(string $anio): array {
   };
 
   $y = (int)$anio;
-  $add("$y-01-01"); $add("$y-05-01"); $add("$y-07-04");
+  $add("$y-01-01"); $add("$y-05-01");
   $add("$y-07-20"); $add("$y-08-07"); $add("$y-12-08"); $add("$y-12-25");
   $addNextLunes("$y-01-06"); $addNextLunes("$y-03-19"); $addNextLunes("$y-06-29");
   $addNextLunes("$y-08-15"); $addNextLunes("$y-10-12"); $addNextLunes("$y-11-01");
