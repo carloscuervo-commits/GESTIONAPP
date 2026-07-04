@@ -131,6 +131,14 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
   // equipo que AÚN no han registrado check-in hoy (independientemente de si
   // otros compañeros ya lo hicieron — tarjetas multi-técnico).
   const tardios = []; // { tarea, tecnicoId }
+
+  // No disparar alarmas de tardía en días no hábiles (sábado, domingo, festivos)
+  const _hoyDate = new Date(hoy + 'T00:00:00');
+  if (typeof esDiaHabil === 'function' && !esDiaHabil(_hoyDate)) {
+    if (typeof renderAlertasRetraso === 'function') renderAlertasRetraso();
+    return;
+  }
+
   tasks.forEach(t => {
     if (!['it','if'].includes(t.area)) return;
     if (t.estado !== 'programado') return;

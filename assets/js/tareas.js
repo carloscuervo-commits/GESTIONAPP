@@ -544,7 +544,12 @@ function renderAlertasRetraso() {
   // Recopilar técnicos tardíos: por cada tarea programada, cada técnico del equipo
   // que NO haya hecho check-in hoy (independiente de si otros compañeros ya lo hicieron)
   const tardios = []; // { tarea, tecnicoId }
-  tasks.forEach(t => {
+
+  // No mostrar tardías en días no hábiles (sábado, domingo, festivos)
+  const _hoyDate = new Date(hoy + 'T00:00:00');
+  const _esHabil = typeof esDiaHabil === 'function' ? esDiaHabil(_hoyDate) : true;
+
+  if (_esHabil) tasks.forEach(t => {
     if (!['it','if'].includes(t.area)) return;
     if (t.estado !== 'programado') return;
     if (!(typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy)) return;
