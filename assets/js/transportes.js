@@ -1,12 +1,11 @@
 // ===================== MÓDULO TRANSPORTES =====================
 // Gestión de pagos de transporte a técnicos por visitas en sitio.
-// - Popup de aviso al facturar/archivar una tarea operativa en sitio.
-// - Vista de administrador con filtros, tabla por técnico y acciones.
+// valor = precio unitario por trayecto (snapshot del cliente al registrar)
+// trayectos = 0 | 1 | 2   (2 = ida y vuelta, default)
+// total a pagar = trayectos × valor
 
 // ─── Popup de aviso al cerrar tarjeta ────────────────────────────────────────
 
-// Llamado desde tareas.js después de saveTask() o _ejecutarArchivar()
-// cuando la tarea es IT/IF + modalidad en_sitio + facturada/archivada.
 async function _transportesCheckTarea(taskId) {
   if (!API_BASE || !taskId) return;
   const t = tasks.find(x => x.id === taskId);
@@ -14,7 +13,6 @@ async function _transportesCheckTarea(taskId) {
   if (!['it','if'].includes(t.area)) return;
   if (!['facturado','archivado'].includes(t.estado)) return;
 
-  // Si no fue en sitio → marcar no_aplica y salir
   if (t.modalidad !== 'en_sitio') {
     _transpMarcarNoAplica(taskId);
     return;
@@ -25,7 +23,6 @@ async function _transportesCheckTarea(taskId) {
     const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(t.cliente)}`);
     if (!res.ok) return;
     const cliente = await res.json();
-    // Si el cliente no tiene valor de transporte → marcar no_aplica
     if (!cliente || !cliente.valor_transporte || cliente.valor_transporte <= 0) {
       _transpMarcarNoAplica(taskId);
       return;
@@ -69,10 +66,10 @@ function _transportesMostrarPopup(tareaId, clienteNombre, valor) {
                   color:var(--text)">Transporte por registrar</div>
       <div style="font-size:14px;color:var(--text-muted);text-align:center;
                   margin-bottom:22px;line-height:1.6">
-        El cliente <strong>${esc(clienteNombre)}</strong> tiene un valor de transporte de
+        El cliente <strong>${esc(clienteNombre)}</strong> tiene un valor de
         <strong>$${valor.toLocaleString('es-CO')}</strong> por trayecto.<br>
-        Se crearán registros en el reporte de transportes por pagar
-        para cada visita realizada.
+        Se registrarán transportes por cada visita. La primera del día queda
+        en 2 trayectos (ida y vuelta); visitas adicionales en 0.
       </div>
       <div style="display:flex;gap:10px;justify-content:center">
         <button
@@ -97,9 +94,9 @@ async function _transportesRegistrar(tareaId, popup) {
   if (!API_BASE) return;
   try {
     const res  = await fetch(`${API_BASE}/transportes.php`, {
-      method: 'POST',
+      method : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tarea_id: tareaId }),
+      body   : JSON.stringify({ tarea_id: tareaId }),
     });
     const data = await res.json();
     if (data.error) { alert('Error al registrar transportes: ' + data.error); return; }
@@ -152,12 +149,11 @@ function renderTransportesView() {
     .join('');
 
   el.innerHTML = `
-    <div style="max-width:960px;margin:0 auto">
+    <div style="max-width:1020px;margin:0 auto">
       <h2 style="font-size:18px;font-weight:700;margin-bottom:18px;color:var(--text)">
         🚗 Transportes por pagar
       </h2>
 
-      <!-- Filtros -->
       <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px;align-items:flex-end">
         <div>
           <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Técnico</label>
@@ -191,7 +187,6 @@ function renderTransportesView() {
         </div>
       </div>
 
-      <!-- Contenido dinámico -->
       <div id="tr-contenido">
         <div style="text-align:center;padding:50px;color:var(--text-muted)">Cargando…</div>
       </div>
@@ -204,7 +199,6 @@ async function _transpCargar() {
   const el = document.getElementById('tr-contenido');
   if (!el || !API_BASE) return;
 
-  // Leer valores actuales de los filtros
   _transpFiltros.tecnico_id = document.getElementById('tr-f-tecnico')?.value || '';
   _transpFiltros.desde      = document.getElementById('tr-f-desde')?.value  || '';
   _transpFiltros.hasta      = document.getElementById('tr-f-hasta')?.value  || '';
@@ -216,7 +210,7 @@ async function _transpCargar() {
 
   el.innerHTML = `<div style="text-align:center;padding:50px;color:var(--text-muted)">Cargando…</div>`;
   try {
-    const res  = await fetch(url);
+    const res   = await fetch(url);
     _transpData = await res.json();
     _transpRender(el);
   } catch (e) {
@@ -245,26 +239,22 @@ function _transpRender(el) {
 
   const esPendiente = _transpFiltros.estado === 'pendiente';
 
-  // Agrupar por técnico
+  // Agrupar por técnico y calcular totales (trayectos × valor)
   const porTecnico = {};
   for (const r of _transpData) {
-    const key = r.tecnico_id;
+    const key  = r.tecnico_id;
+    const tot  = (r.trayectos || 0) * (r.valor || 0);
     if (!porTecnico[key]) {
-      porTecnico[key] = {
-        nombre   : r.tecnico_nombre || `Técnico #${key}`,
-        registros: [],
-        total    : 0,
-      };
+      porTecnico[key] = { nombre: r.tecnico_nombre || `Técnico ${key}`, registros: [], total: 0 };
     }
     porTecnico[key].registros.push(r);
-    porTecnico[key].total += r.valor;
+    porTecnico[key].total += tot;
   }
 
-  const totalGeneral = _transpData.reduce((s, r) => s + r.valor, 0);
+  const totalGeneral = _transpData.reduce((s, r) => s + (r.trayectos || 0) * (r.valor || 0), 0);
 
   let html = '';
 
-  // Resumen total (solo pendientes)
   if (esPendiente) {
     html += `
       <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;
@@ -277,13 +267,11 @@ function _transpRender(el) {
       </div>`;
   }
 
-  // Un bloque por técnico
   for (const grp of Object.values(porTecnico)) {
     html += `
       <div style="background:var(--card-bg,#fff);border:1px solid var(--border);
                   border-radius:12px;margin-bottom:18px;overflow:hidden">
 
-        <!-- Encabezado técnico -->
         <div style="display:flex;align-items:center;justify-content:space-between;
                     padding:13px 20px;background:var(--bg,#f8fafc);
                     border-bottom:1px solid var(--border)">
@@ -295,7 +283,6 @@ function _transpRender(el) {
           </span>
         </div>
 
-        <!-- Tabla de visitas -->
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
@@ -304,7 +291,8 @@ function _transpRender(el) {
                 <th style="padding:9px 16px;text-align:left;font-weight:600">Cliente · Tarea</th>
                 <th style="padding:9px 16px;text-align:left;font-weight:600;white-space:nowrap">Check-in / Check-out</th>
                 <th style="padding:9px 16px;text-align:left;font-weight:600;white-space:nowrap">Duración</th>
-                <th style="padding:9px 16px;text-align:right;font-weight:600">Valor</th>
+                <th style="padding:9px 16px;text-align:center;font-weight:600;white-space:nowrap">Trayectos</th>
+                <th style="padding:9px 16px;text-align:right;font-weight:600">Total</th>
                 <th style="padding:9px 16px;text-align:${esPendiente ? 'right' : 'center'};font-weight:600">
                   ${esPendiente ? 'Acción' : 'Estado'}
                 </th>
@@ -314,6 +302,9 @@ function _transpRender(el) {
 
     for (const r of grp.registros) {
       const fecha    = (r.fecha || '').slice(0, 10);
+      const trayecto = r.trayectos ?? 2;
+      const total    = trayecto * (r.valor || 0);
+
       const checkIn  = r.check_in
         ? new Date(r.check_in).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
         : '-';
@@ -328,6 +319,32 @@ function _transpRender(el) {
         duracion = h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
       }
 
+      // Columna trayectos
+      let trayectosHtml;
+      if (esPendiente) {
+        const sel = (v) => trayecto == v ? 'selected' : '';
+        trayectosHtml = `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+            <select onchange="_transpCambiarTrayectos('${r.id}', this.value)"
+              style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;
+                     font-size:12px;background:var(--card-bg,#fff);cursor:pointer;
+                     color:${trayecto === 0 ? 'var(--text-muted)' : 'var(--text)'}">
+              <option value="0" ${sel(0)}>0 — Ya cubierto</option>
+              <option value="1" ${sel(1)}>1 — Solo ida</option>
+              <option value="2" ${sel(2)}>2 — Ida y vuelta</option>
+            </select>
+            ${trayecto === 0
+              ? `<span style="font-size:10px;color:#f59e0b;text-align:center;max-width:110px;line-height:1.3">
+                   ⚠ Transporte ya pagado este día
+                 </span>`
+              : ''}
+          </div>`;
+      } else {
+        const labels = { 0: 'Ya cubierto', 1: 'Solo ida', 2: 'Ida y vuelta' };
+        trayectosHtml = `<span style="font-size:12px;color:var(--text-muted)">${trayecto} — ${labels[trayecto] ?? ''}</span>`;
+      }
+
+      // Columna acción/estado
       let accionHtml = '';
       if (esPendiente) {
         accionHtml = `
@@ -362,8 +379,10 @@ function _transpRender(el) {
                   ${checkIn} → ${checkOut}
                 </td>
                 <td style="padding:12px 16px;color:#169BBC;font-weight:500;white-space:nowrap">${duracion}</td>
-                <td style="padding:12px 16px;text-align:right;font-weight:700;color:var(--text)">
-                  $${r.valor.toLocaleString('es-CO')}
+                <td style="padding:12px 16px;text-align:center">${trayectosHtml}</td>
+                <td style="padding:12px 16px;text-align:right;font-weight:700;
+                           color:${trayecto === 0 ? 'var(--text-muted)' : 'var(--text)'}">
+                  $${total.toLocaleString('es-CO')}
                 </td>
                 <td style="padding:12px 16px;text-align:${esPendiente ? 'right' : 'center'}">
                   ${accionHtml}
@@ -381,6 +400,26 @@ function _transpRender(el) {
   el.innerHTML = html;
 }
 
+async function _transpCambiarTrayectos(id, trayectos) {
+  try {
+    const res = await fetch(`${API_BASE}/transportes.php?id=${id}`, {
+      method : 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ trayectos: parseInt(trayectos) }),
+    });
+    const data = await res.json();
+    if (!data.ok) { alert('Error al actualizar trayectos'); return; }
+
+    const idx = _transpData.findIndex(r => r.id === id);
+    if (idx >= 0) _transpData[idx].trayectos = parseInt(trayectos);
+
+    const el = document.getElementById('tr-contenido');
+    if (el) _transpRender(el);
+  } catch (e) {
+    alert('Error de conexión al actualizar trayectos');
+  }
+}
+
 async function _transpAccion(id, estado) {
   const label = estado === 'pagado' ? 'pagado' : 'no autorizado';
   if (!confirm(`¿Marcar este transporte como ${label}?`)) return;
@@ -394,7 +433,6 @@ async function _transpAccion(id, estado) {
     const data = await res.json();
     if (!data.ok) { alert('Error al actualizar'); return; }
 
-    // Eliminar del array local y re-renderizar sin nuevo fetch
     _transpData = _transpData.filter(r => r.id !== id);
     const el = document.getElementById('tr-contenido');
     if (el) _transpRender(el);
@@ -405,8 +443,6 @@ async function _transpAccion(id, estado) {
 
 // ─── Botón en el modal de tarea ──────────────────────────────────────────────
 
-// Llamado desde openModal() para tareas IT/IF facturadas/archivadas.
-// Muestra u oculta el botón según si hay participantes pendientes de transporte.
 async function _transpActualizarBotonModal(tareaId) {
   const div = document.getElementById('modal-transporte-btn');
   if (!div) return;
