@@ -483,10 +483,10 @@ function _bitDiasHabiles(desde, hasta) {
 
 function _fmtH(h) {
   if (h === null || h === undefined) return '0h';
-  const abs  = Math.abs(h);
-  const sign = h < 0 ? '-' : '';
-  const hh   = Math.floor(abs);
-  const mm   = Math.round((abs - hh) * 60);
+  const sign      = h < 0 ? '-' : '';
+  const totalMins = Math.round(Math.abs(h) * 60); // evita 6h 60m por float
+  const hh        = Math.floor(totalMins / 60);
+  const mm        = totalMins % 60;
   return mm === 0 ? `${sign}${hh}h` : `${sign}${hh}h ${mm}m`;
 }
 // ===================== FIN MÓDULO BITÁCORA =====================
