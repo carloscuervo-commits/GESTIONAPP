@@ -1212,7 +1212,10 @@ async function renderHistorialVisitasModal(tareaId) {
           const checkOut = p.check_out ? p.check_out.substring(11,16) : '';
           // Badge Tardía: solo si la fecha del check_in coincide con la fecha programada
           const fechaCheckIn = p.check_in ? p.check_in.substring(0,10) : null;
-          const esTardia = horaProg && fechaProg && fechaCheckIn === fechaProg && checkIn && checkIn > horaProg.slice(0,5);
+          // Usar snapshot por participante si existe; fallback a valores de la tarea
+          const horaSnap  = p.hora_prog_snap  || horaProg;
+          const fechaSnap = p.fecha_prog_snap || fechaProg;
+          const esTardia = horaSnap && fechaSnap && fechaCheckIn === fechaSnap && checkIn && checkIn > horaSnap.slice(0,5);
           const tardiBadge = esTardia
             ? ' <span style="background:#fef2f2;color:#dc2626;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:700">🕐 Tardía</span>'
             : '';

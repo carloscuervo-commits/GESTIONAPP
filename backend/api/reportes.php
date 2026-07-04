@@ -217,10 +217,14 @@ if ($method === 'POST') {
   $tareaId = $d['tareaId'] ?? null;
   if (!$tareaId) jsonOut(['error' => 'tareaId requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT titulo, cliente, area FROM tareas WHERE id = ?");
+  $stmt = $pdo->prepare("SELECT titulo, cliente, area, fecha_programacion, hora_programacion FROM tareas WHERE id = ?");
   $stmt->execute([$tareaId]);
   $tarea = $stmt->fetch();
   if (!$tarea) jsonOut(['error' => 'Tarea no encontrada'], 404);
+
+  // Snapshot de programación para visita_participantes
+  $snapFecha = $tarea['fecha_programacion'] ?? null;
+  $snapHora  = $tarea['hora_programacion']  ?? null;
 
   $tecnicoId = $d['tecnicoCheckinId'] ?? null;
 
@@ -250,8 +254,8 @@ if ($method === 'POST') {
     }
     // Agregar como participante adicional
     $partId = bin2hex(random_bytes(16));
-    $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng) VALUES (?, ?, ?, ?, ?, ?)")
-      ->execute([$partId, $enCurso['id'], $tecnicoId, $checkInVal, $checkinLat, $checkinLng]);
+    $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng, fecha_prog_snap, hora_prog_snap) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      ->execute([$partId, $enCurso['id'], $tecnicoId, $checkInVal, $checkinLat, $checkinLng, $snapFecha, $snapHora]);
     // Notificar llegada adicional
     try {
       $tecnicoNombre = _nombreTecnico($pdo, $tecnicoId);
@@ -278,8 +282,8 @@ if ($method === 'POST') {
   $pdo->prepare("INSERT INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'en_visita', ?, ?)")
     ->execute([$reporteId, $tareaId, $tecnicoId, $checkInVal]);
   $partId = bin2hex(random_bytes(16));
-  $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng) VALUES (?, ?, ?, ?, ?, ?)")
-    ->execute([$partId, $reporteId, $tecnicoId, $checkInVal, $checkinLat, $checkinLng]);
+  $pdo->prepare("INSERT INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng, fecha_prog_snap, hora_prog_snap) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    ->execute([$partId, $reporteId, $tecnicoId, $checkInVal, $checkinLat, $checkinLng, $snapFecha, $snapHora]);
 
   // Notificación a administrativo (no bloqueante si falla)
   try {
