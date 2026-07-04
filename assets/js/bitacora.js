@@ -383,6 +383,13 @@ function _bitNotaCell(tecId, fecha, nota, adminNombre, estado) {
 
 // ─── Modal de nota ───────────────────────────────────────────────────────────
 
+const _BIT_OPCIONES = [
+  'Vacaciones',
+  'Permiso no remunerado',
+  'Permiso acordado',
+  'Labor terminada',
+];
+
 function _bitAbrirNota(tecId, fecha, notaActual) {
   document.getElementById('bit-nota-modal')?.remove();
 
@@ -390,36 +397,95 @@ function _bitAbrirNota(tecId, fecha, notaActual) {
   const tecNombre = tec ? tec.nombre : tecId;
   const fechaDisp = fecha.split('-').reverse().join('/');
 
+  // Determinar si la nota guardada es una opción predefinida u "Otras"
+  const esOpcion    = _BIT_OPCIONES.includes(notaActual);
+  const esOtras     = notaActual && !esOpcion;
+  const textoOtras  = esOtras ? notaActual : '';
+
+  const radios = _BIT_OPCIONES.map(op => `
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 12px;
+                  border:1px solid ${notaActual === op ? '#169BBC' : 'var(--border)'};
+                  border-radius:8px;background:${notaActual === op ? '#e0f7fa' : 'transparent'};
+                  transition:border-color .15s">
+      <input type="radio" name="bit-nota-opcion" value="${op}"
+             ${notaActual === op ? 'checked' : ''}
+             onchange="_bitOnOpcChange()"
+             style="accent-color:#169BBC;width:15px;height:15px;flex-shrink:0">
+      <span style="font-size:13px">${op}</span>
+    </label>`).join('');
+
   const overlay = document.createElement('div');
   overlay.id = 'bit-nota-modal';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center';
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
   overlay.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:420px;max-width:94vw;
+    <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:440px;max-width:94vw;
                 box-shadow:0 20px 60px rgba(0,0,0,.25)">
-      <div style="font-weight:700;font-size:15px;margin-bottom:4px">Nota de justificación</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">Justificación de ausencia</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
         ${esc(tecNombre)} · ${fechaDisp}
       </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+        ${radios}
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 12px;
+                      border:1px solid ${esOtras ? '#169BBC' : 'var(--border)'};
+                      border-radius:8px;background:${esOtras ? '#e0f7fa' : 'transparent'};
+                      transition:border-color .15s">
+          <input type="radio" name="bit-nota-opcion" value="Otras"
+                 ${esOtras ? 'checked' : ''}
+                 onchange="_bitOnOpcChange()"
+                 style="accent-color:#169BBC;width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:13px">Otras</span>
+        </label>
+      </div>
+
       <textarea id="bit-nota-texto"
-                style="width:100%;min-height:100px;font-size:13px;border:1px solid var(--border);
-                       border-radius:8px;padding:10px;font-family:inherit;resize:vertical;box-sizing:border-box"
-                placeholder="Ej: capacitación externa, incapacidad, día libre acordado…">${esc(notaActual)}</textarea>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-        ${notaActual ? `<button class="btn-cancel" onclick="_bitBorrarNota('${esc(tecId)}','${fecha}')">Eliminar nota</button>` : ''}
+                style="width:100%;min-height:80px;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;resize:vertical;box-sizing:border-box;display:none"
+                placeholder="Describe el motivo…">${esc(textoOtras)}</textarea>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        ${notaActual ? `<button class="btn-cancel" onclick="_bitBorrarNota('${esc(tecId)}','${fecha}')">Eliminar</button>` : ''}
         <button class="btn-cancel" onclick="document.getElementById('bit-nota-modal').remove()">Cancelar</button>
         <button class="btn-save" onclick="_bitGuardarNota('${esc(tecId)}','${fecha}')">Guardar</button>
       </div>
     </div>`;
 
   document.body.appendChild(overlay);
-  setTimeout(() => document.getElementById('bit-nota-texto')?.focus(), 60);
+
+  // Mostrar/ocultar textarea según selección inicial
+  _bitOnOpcChange();
+}
+
+function _bitOnOpcChange() {
+  const opcion  = document.querySelector('input[name="bit-nota-opcion"]:checked');
+  const textarea = document.getElementById('bit-nota-texto');
+  if (!textarea) return;
+  const esOtras = opcion?.value === 'Otras';
+  textarea.style.display = esOtras ? 'block' : 'none';
+  // Actualizar estilos de los labels
+  document.querySelectorAll('input[name="bit-nota-opcion"]').forEach(r => {
+    const lbl = r.closest('label');
+    if (!lbl) return;
+    const sel = r.checked;
+    lbl.style.borderColor = sel ? '#169BBC' : 'var(--border)';
+    lbl.style.background  = sel ? '#e0f7fa'  : 'transparent';
+  });
+  if (esOtras) setTimeout(() => textarea.focus(), 30);
 }
 
 async function _bitGuardarNota(tecId, fecha) {
-  const texto = document.getElementById('bit-nota-texto')?.value?.trim();
-  if (!texto) { alert('La nota no puede estar vacía'); return; }
+  const opcion = document.querySelector('input[name="bit-nota-opcion"]:checked');
+  if (!opcion) { alert('Selecciona una opción de justificación'); return; }
+
+  let texto;
+  if (opcion.value === 'Otras') {
+    texto = document.getElementById('bit-nota-texto')?.value?.trim();
+    if (!texto) { alert('Describe el motivo en el campo de texto'); return; }
+  } else {
+    texto = opcion.value;
+  }
 
   const adminId = currentUser?.id || '';
 
@@ -489,4 +555,4 @@ function _fmtH(h) {
   const mm        = totalMins % 60;
   return mm === 0 ? `${sign}${hh}h` : `${sign}${hh}h ${mm}m`;
 }
-// ===================== FIN MÓDULO BITÁCORA =====================
+// =====
