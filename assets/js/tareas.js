@@ -120,6 +120,10 @@ function taskCard(t) {
   const alerta    = alertaFacturacion(t);
   const alertaSeg = alertaSeguimiento(t);
   const ac        = (AREAS[t.area]||{}).color || '#94a3b8';
+  // Incumplida: IT/IF programada cuyo rango de fechas ya pasó sin check-in
+  const _hoyCard    = (typeof _horaBogota === 'function') ? _horaBogota().fecha : new Date().toISOString().substring(0,10);
+  const _finCard    = t.fechaProg ? ((typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg) : null;
+  const esIncumplida = ['it','if'].includes(t.area) && t.estado === 'programado' && _finCard && _finCard < _hoyCard;
   const team      = t.team||[];
   const segColor = (alertaSeg?.tipo==='sin-seguimiento' && alertaSeg.vencido) ? '#ef4444'
     : { 'sin-seguimiento':'#94a3b8', 'pendiente':'#ef4444', 'al-dia':'#10b981' }[alertaSeg?.tipo] || ac;
@@ -127,8 +131,8 @@ function taskCard(t) {
     : { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
   const sinProgramar = ['it','if'].includes(t.area) && t.estado === 'solicitud' && !t.fechaProg;
   const porCotizar   = alertaPorCotizar(t);
-  const borderColor = (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : (porCotizar&&porCotizar.vencido) ? '#ef4444' : alertaSeg ? segColor : ac;
-  const bgAlert     = (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (porCotizar&&porCotizar.vencido) ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
+  const borderColor = esIncumplida ? '#F54927' : (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : (porCotizar&&porCotizar.vencido) ? '#ef4444' : alertaSeg ? segColor : ac;
+  const bgAlert     = esIncumplida ? 'background:#fff3f0;' : (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (porCotizar&&porCotizar.vencido) ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
   const showArchivar = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
                     || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
   let segBadge = '';
@@ -163,6 +167,7 @@ function taskCard(t) {
       ondragend="onDragEnd(event)"
       onclick="openModal('${t.id}')"
       style="border-left:3px solid ${borderColor};${bgAlert}">
+    ${esIncumplida ? `<div style="font-size:11px;font-weight:700;color:#F54927;margin-bottom:4px">⛔ Incumplida — sin check-in el día programado</div>` : ''}
     ${alerta ? `<div style="font-size:11px;font-weight:700;color:${alerta.vencido?'#ef4444':'#92400e'};margin-bottom:4px">🧾 ${alerta.dias} día${alerta.dias===1?'':'s'} hábil${alerta.dias===1?'':'es'} sin facturar</div>` : ''}
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${diasEstadoBadge}
