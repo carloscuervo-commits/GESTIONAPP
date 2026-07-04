@@ -43,6 +43,8 @@ function _bitToolbar() {
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="font-weight:700;font-size:16px;flex-shrink:0">📋 Bitácora de técnicos</div>
       <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap">
+        <button class="btn-cancel" style="padding:4px 10px;font-size:12px" onclick="_bitSetRango('semana')">Última semana</button>
+        <button class="btn-cancel" style="padding:4px 10px;font-size:12px" onclick="_bitSetRango('mes')">Último mes</button>
         <label style="font-size:12px;color:var(--text-muted)">Desde</label>
         <input type="date" id="bit-desde" value="${_bitDesde}"
                style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card)">
@@ -56,6 +58,35 @@ function _bitToolbar() {
         <button class="btn-save" style="padding:6px 14px;font-size:13px" onclick="_bitCargar()">Filtrar</button>
       </div>
     </div>`;
+}
+
+function _bitSetRango(tipo) {
+  const hoy = new Date();
+  let desde, hasta;
+
+  if (tipo === 'semana') {
+    // Lunes → domingo de la semana anterior
+    const diaSemana = (hoy.getDay() + 6) % 7; // 0=lun … 6=dom
+    const lunEsta   = new Date(hoy); lunEsta.setDate(hoy.getDate() - diaSemana);
+    const lunPasada = new Date(lunEsta); lunPasada.setDate(lunEsta.getDate() - 7);
+    const domPasado = new Date(lunPasada); domPasado.setDate(lunPasada.getDate() + 6);
+    desde = lunPasada.toISOString().split('T')[0];
+    hasta = domPasado.toISOString().split('T')[0];
+  } else {
+    // 1ro → último día del mes anterior
+    const primero = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    const ultimo  = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+    desde = primero.toISOString().split('T')[0];
+    hasta = ultimo.toISOString().split('T')[0];
+  }
+
+  _bitDesde = desde;
+  _bitHasta = hasta;
+  const dEl = document.getElementById('bit-desde');
+  const hEl = document.getElementById('bit-hasta');
+  if (dEl) dEl.value = desde;
+  if (hEl) hEl.value = hasta;
+  _bitCargar();
 }
 
 // ─── Carga ───────────────────────────────────────────────────────────────────

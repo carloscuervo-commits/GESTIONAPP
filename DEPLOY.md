@@ -129,7 +129,7 @@ Cron jobs nuevos a configurar en cPanel → Cron Jobs:
 0 17 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/avisos_dia_anterior.php > /dev/null 2>&1
 
 # Avisos de tiempo (30 min antes / 10 min sin check-in) — cada 10 min
-*/10 * * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/avisos_tiempo.php > /dev/null 2>&1
+0,10,20,30,40,50 * * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/avisos_tiempo.php > /dev/null 2>&1
 ```
 
 Archivos nuevos (ya en repo — copiados por .cpanel.yml automáticamente):
