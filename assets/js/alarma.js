@@ -135,6 +135,9 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
     if (!['it','if'].includes(t.area)) return;
     if (t.estado !== 'programado') return;
     if (!(typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy)) return;
+    // Excluir incumplidas (rango completo ya pasó)
+    const fin = (typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg;
+    if (fin < hoy) return;
     if (!t.horaProg || horaActual < t.horaProg) return;
     const checkinHoy = participantesHoy[t.id] || new Set();
     (t.team || []).forEach(uid => {

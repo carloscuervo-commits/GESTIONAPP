@@ -524,6 +524,7 @@ function renderDashboard() {
     </div>`;
   }
 
+  html += '<div id="alertas-incumplidas"></div>';
   html += '<div id="alertas-fuera-sitio"></div>';
   html += '</div>';
   document.getElementById('dashboard-view').innerHTML = html;
@@ -547,6 +548,9 @@ function renderAlertasRetraso() {
     if (!['it','if'].includes(t.area)) return;
     if (t.estado !== 'programado') return;
     if (!(typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy)) return;
+    // Excluir tareas incumplidas (rango completo en el pasado → van a su propia alerta)
+    const fin = (typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg;
+    if (fin < hoy) return;
     if (!t.horaProg || horaActual < t.horaProg) return;
     const checkinHoy = phoy[t.id] || new Set();
     (t.team || []).forEach(uid => {
@@ -554,6 +558,7 @@ function renderAlertasRetraso() {
     });
   });
 
+  renderAlertasIncumplidas();
   if (!tardios.length) { banner.innerHTML = ''; return; }
 
   banner.innerHTML = `
@@ -568,6 +573,49 @@ function renderAlertasRetraso() {
           </span>`;
         }).join('')}
       </div>
+    </div>`;
+}
+
+// --------------------------------------------------------------
+// Alerta de tareas incumplidas — rango de programación pasó sin check-in
+// Aparece primera en la zona de alertas, fondo rojo.
+// Se resuelve: llenando check-in+out, cambiando o borrando la programación.
+// --------------------------------------------------------------
+function renderAlertasIncumplidas() {
+  const el = document.getElementById('alertas-incumplidas');
+  if (!el || !currentUser || currentUser.perfil !== 'admin') return;
+  if (typeof tasks === 'undefined' || typeof fechaProgFin !== 'function') return;
+
+  const { fecha: hoy } = _horaBogota();
+
+  const incumplidas = tasks.filter(t => {
+    if (!['it','if'].includes(t.area)) return false;
+    if (t.estado !== 'programado') return false;
+    if (!t.fechaProg) return false;
+    const fin = fechaProgFin(t) || t.fechaProg;
+    return fin < hoy; // rango completo en el pasado
+  });
+
+  if (!incumplidas.length) { el.innerHTML = ''; return; }
+
+  const items = incumplidas.map(t => {
+    const equipo = (t.team || []).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar';
+    const label  = [t.cliente, t.titulo].filter(Boolean).join(' · ');
+    const fin    = fechaProgFin(t) || t.fechaProg;
+    return `<div onclick="openModal('${t.id}')"
+      style="background:rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid rgba(255,255,255,.3)">
+      <div style="font-weight:700">${esc(label)}</div>
+      <div style="opacity:.9">👤 ${esc(equipo)} · 📅 ${t.fechaProg}${fin !== t.fechaProg ? ' → ' + fin : ''}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:#F54927;color:#fff;padding:12px 20px;border-radius:var(--radius);margin-bottom:8px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">
+        ⛔ Tarea${incumplidas.length>1?'s':''} incumplida${incumplidas.length>1?'s':''} (${incumplidas.length})
+        <span style="font-size:12px;font-weight:400;opacity:.85;margin-left:8px">Sin check-in el día programado</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${items}</div>
     </div>`;
 }
 
