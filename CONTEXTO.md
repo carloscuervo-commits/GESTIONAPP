@@ -4,6 +4,51 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-04 — sesión noche, segunda parte)
+
+### feat: PWA offline — check-in/checkout sin conexión
+
+**Objetivo**: técnico sin señal en sitio cliente puede marcar check-in y checkout; al recuperar señal los datos se sincronizan automáticamente.
+
+**Archivos nuevos:**
+- `assets/js/offline.js` — módulo IIFE con IndexedDB (`ginno-offline-db`, store `cola`):
+  - `offlineInit()` — abre DB, registra listeners `online`/`offline`, escucha mensajes del SW (`SYNC_COMPLETE`)
+  - `offlineEnqueue(url, method, bodyObj)` — guarda request pendiente en IndexedDB con `crypto.randomUUID()` como id
+  - `offlineGetCola()` — devuelve items ordenados cronológicamente
+  - `offlineDeleteItem(id)` — elimina item procesado
+  - `offlineProcesarCola()` — itera la cola secuencialmente, envía cada request, borra los exitosos; llama `cargarVisitasActivas()` y `render()` al terminar
+  - Banner `#offline-banner` (sticky, teal): muestra "📵 Sin conexión" o "⏳ Sincronizando N registro(s)"
+
+**sw.js (reemplazado):**
+- `install` — pre-cachea `tareas-equipo.html`; `skipWaiting()`
+- `activate` — limpia caches viejos; `clients.claim()`
+- `fetch` — Network First para `/backend/api/` GETs (cachea respuestas ok); Cache First para estáticos
+- `sync (ginno-sync)` — lee IndexedDB, procesa cola en orden cronológico, borra exitosos, postMessage `SYNC_COMPLETE` a clientes abiertos
+
+**backend/api/reportes.php (modificado):**
+- POST ahora acepta `$d['id']` como reporteId y `$d['participanteId']` (generados en cliente con `crypto.randomUUID().replace(/-/g,'')`); fallback a `bin2hex(random_bytes(16))` si no vienen
+- INSERTs de `reportes` y `visita_participantes` cambiados a `INSERT IGNORE` para idempotencia en reintentos
+
+**assets/js/reportes.js (modificado):**
+- `ejecutarCheckin(tecnicoId)` — genera `reporteId` y `participanteId` antes del fetch; si `!navigator.onLine` llama `offlineEnqueue` y crea estado local `visitasActivas[tareaId]` con `_offline:true`
+- `finalizarVisitaParticipante.ejecutar(tecnicoId)` — mismo patrón: encola PUT checkout offline, actualiza `participantes[i].check_out` localmente
+
+**assets/js/app.js (modificado):**
+- `iniciarApp()` llama `offlineInit()` al final (fire-and-forget)
+
+**tareas-equipo.html (modificado):**
+- Div `#offline-banner` sticky después de las tabs
+- Scripts `offline.js?v=20260704n` y bump `reportes.js?v=20260704n`, `app.js?v=20260704n`
+
+**Flujo completo:**
+1. App cargada en línea → SW cachea assets y respuestas API
+2. Técnico pierde señal → banner muestra "📵 Sin conexión"
+3. Check-in: genera IDs en cliente → encola en IndexedDB → UI muestra visita activa
+4. Checkout: encola PUT en IndexedDB → UI muestra visita cerrada localmente
+5. Al recuperar señal: `offlineProcesarCola()` envía en orden (check-in antes de checkout) → servidor INSERT IGNORE hace el resto → `cargarVisitasActivas()` sincroniza con datos reales del servidor
+
+---
+
 ## Estado actual (última actualización: 2026-07-04 — sesión noche)
 
 ### feat: módulo Configuración + Avisos a técnicos por correo

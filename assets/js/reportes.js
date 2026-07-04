@@ -386,9 +386,35 @@ async function iniciarVisita(tareaId, event) {
     // Geofencing antes de enviar al servidor
     const geo = await _geofenceCheck(tareaId, 'checkin');
     if (geo === null) return; // técnico canceló
+
+    // Generar IDs en el cliente para soporte offline
+    const reporteId      = crypto.randomUUID().replace(/-/g, '');
+    const participanteId = crypto.randomUUID().replace(/-/g, '');
+    const body = { id: reporteId, participanteId, tareaId, tecnicoCheckinId: tecnicoId };
+    if (geo.lat !== null) { body.lat = geo.lat; body.lng = geo.lng; }
+
+    if (!navigator.onLine && typeof offlineEnqueue === 'function') {
+      // Sin conexión: encolar y actualizar estado local
+      await offlineEnqueue(`${API_BASE}/reportes.php`, 'POST', body);
+      const ahora = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      visitasActivas[tareaId] = {
+        id: reporteId,
+        tarea_id: tareaId,
+        estado: 'en_visita',
+        participantes: [{
+          id: participanteId,
+          tecnico_id: tecnicoId,
+          check_in: ahora,
+          check_out: null,
+          pausas: [],
+        }],
+        _offline: true,
+      };
+      render();
+      return;
+    }
+
     try {
-      const body = { tareaId, tecnicoCheckinId: tecnicoId };
-      if (geo.lat !== null) { body.lat = geo.lat; body.lng = geo.lng; }
       const res = await fetch(`${API_BASE}/reportes.php`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -490,6 +516,25 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       if (geo === null) return; // técnico canceló
       if (geo.lat !== null) { geoLat = geo.lat; geoLng = geo.lng; }
     }
+
+    if (!navigator.onLine && typeof offlineEnqueue === 'function') {
+      // Sin conexión: encolar checkout y actualizar estado local
+      const checkoutBody = { accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng };
+      await offlineEnqueue(`${API_BASE}/reportes.php?id=${visita.id}`, 'PUT', checkoutBody);
+      const ahora = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const partOffline = (visita.participantes || []).find(p => p.id === participanteId);
+      if (partOffline) partOffline.check_out = ahora;
+      const todosTerminaron = (visita.participantes || []).every(p => p.check_out);
+      if (todosTerminaron) {
+        delete visitasActivas[tareaId];
+        if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
+        borradoresActivos[tareaId].push(Object.assign({}, visita, { estado: 'borrador', _offline: true }));
+        _reporteSoloEdicion = false;
+      }
+      render();
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },

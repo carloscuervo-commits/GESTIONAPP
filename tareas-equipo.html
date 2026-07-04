@@ -70,6 +70,9 @@
   <button class="area-tab" data-area="configuracion" id="tab-configuracion" onclick="setArea('configuracion')" style="display:none">⚙️ Configuración</button>
 </div>
 
+<!-- Banner offline: visible solo cuando no hay conexión o hay cola pendiente -->
+<div id="offline-banner" style="display:none;background:#0D3B40;color:#D6F3F4;text-align:center;padding:7px 16px;font-size:13px;font-weight:600;position:sticky;top:0;z-index:300"></div>
+
 <div class="stats" id="stats"></div>
 
 <div class="filters">
@@ -732,7 +735,7 @@
 <script src="assets/js/tareas.js?v=20260704j"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260704f"></script>
+<script src="assets/js/reportes.js?v=20260704n"></script>
 <script src="assets/js/informes.js?v=20260623b"></script>
 <script src="assets/js/alarma.js?v=20260704g"></script>
 <script src="assets/js/usuarios.js?v=20260630b"></script>
@@ -743,6 +746,7 @@
 <script src="assets/js/transportes.js?v=20260704e"></script>
 <script src="assets/js/bitacora.js?v=20260704m"></script>
 <script src="assets/js/configuracion.js?v=20260704k"></script>
-<script src="assets/js/app.js?v=20260629b"></script>
+<script src="assets/js/offline.js?v=20260704n"></script>
+<script src="assets/js/app.js?v=20260704n"></script>
 </body>
 </html>

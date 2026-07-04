@@ -77,6 +77,8 @@ async function iniciarApp(){
   setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
   // Iniciar push después de autenticar (fire-and-forget)
   if (typeof iniciarPush === 'function') iniciarPush();
+  // Iniciar soporte offline (IndexedDB + banner + sync listener)
+  if (typeof offlineInit === 'function') offlineInit();
 }
 
 // pageshow dispara tanto en carga normal como al restaurar desde bfcache.

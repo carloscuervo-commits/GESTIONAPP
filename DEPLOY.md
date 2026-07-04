@@ -146,3 +146,26 @@ Archivos modificados:
 - `assets/js/tareas.js` — setArea: isConfiguracion + renderConfiguracion()
 - `assets/js/auth.js` — mostrar tab-configuracion solo a admins
 - `tareas-equipo.html` — tab ⚙️ Configuración, div configuracion-view, script configuracion.js?v=20260704k
+
+---
+
+**PWA Offline support (2026-07-04 sesión noche):**
+
+Sin migraciones SQL — solo archivos JS/PHP.
+
+Archivos nuevos:
+- `assets/js/offline.js?v=20260704n` — IndexedDB queue (store `cola`), `offlineInit()`, `offlineEnqueue()`, `offlineProcesarCola()`, banner `#offline-banner`
+- (sw.js ya estaba en el repo — ahora reemplazado con versión completa)
+
+Archivos modificados:
+- `sw.js` — agregado: install (pre-cache tareas-equipo.html), fetch (Network First para /backend/api/, Cache First para estáticos), sync (`ginno-sync` → procesa cola IndexedDB)
+- `backend/api/reportes.php` — POST ahora acepta `id` y `participanteId` del cliente; INSERTs cambiados a `INSERT IGNORE` para idempotencia en reintentos
+- `assets/js/reportes.js?v=20260704n` — `ejecutarCheckin`: genera IDs en cliente, detecta `!navigator.onLine` → encola y actualiza estado local; `finalizarVisitaParticipante.ejecutar`: mismo patrón para checkout
+- `assets/js/app.js?v=20260704n` — llama `offlineInit()` al final de `iniciarApp()`
+- `tareas-equipo.html` — banner `#offline-banner` (sticky, teal), scripts `offline.js?v=20260704n` y `app.js?v=20260704n`; bump `reportes.js` a `?v=20260704n`
+
+Comportamiento:
+1. Técnico pierde señal durante una visita
+2. Al hacer check-in/checkout sin conexión: se guarda en IndexedDB, la pantalla se actualiza inmediatamente con estado local
+3. Al recuperar señal: `offlineProcesarCola()` envía los requests en orden cronológico; el servidor usa `INSERT IGNORE` para idempotencia
+4. Background Sync del SW garantiza la sincronización incluso si el técnico cierra la app
