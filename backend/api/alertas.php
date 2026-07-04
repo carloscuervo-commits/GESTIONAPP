@@ -76,6 +76,6 @@ $cuerpo = "
   </div>
 </div>";
 
-$ok = enviarCorreoConAdjunto(['administrativo@innovate.com.co'], $asunto, $cuerpo);
+$ok = enviarCorreoConAdjunto([CORREO_ADMIN_FIJO], $asunto, $cuerpo);
 
 jsonOut(['ok' => true, 'email_enviado' => $ok]);

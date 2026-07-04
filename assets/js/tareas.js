@@ -674,8 +674,9 @@ function setArea(a) {
   const isClientes   = a === 'clientes';
   const isAgenda      = a === 'agenda';
   const isTransportes = a === 'transportes';
-  const isBitacora    = a === 'bitacora';
-  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes || isAgenda || isTransportes || isBitacora;
+  const isBitacora       = a === 'bitacora';
+  const isConfiguracion  = a === 'configuracion';
+  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes || isAgenda || isTransportes || isBitacora || isConfiguracion;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -687,7 +688,8 @@ function setArea(a) {
   document.getElementById('clientes-view').style.display    = isClientes   ? 'block' : 'none';
   document.getElementById('agenda-view').style.display      = isAgenda      ? 'block' : 'none';
   document.getElementById('transportes-view').style.display = isTransportes  ? 'block' : 'none';
-  document.getElementById('bitacora-view').style.display    = isBitacora     ? 'block' : 'none';
+  document.getElementById('bitacora-view').style.display       = isBitacora       ? 'block' : 'none';
+  document.getElementById('configuracion-view').style.display  = isConfiguracion  ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -702,7 +704,8 @@ function setArea(a) {
   else if (isClientes)  { cargarClientes(); }
   else if (isAgenda)       { iniciarAgenda(); }
   else if (isTransportes) { iniciarTransportes(); }
-  else if (isBitacora)    { if (typeof renderBitacoraView === 'function') renderBitacoraView(); }
+  else if (isBitacora)       { if (typeof renderBitacoraView    === 'function') renderBitacoraView(); }
+  else if (isConfiguracion)  { if (typeof renderConfiguracion  === 'function') renderConfiguracion(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.

@@ -182,6 +182,8 @@ function aplicarPermisosUI() {
   if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
+  const tabConfiguracion = document.getElementById('tab-configuracion');
+  if (tabConfiguracion) tabConfiguracion.style.display = esTecnico ? 'none' : '';
 
   const badge = document.getElementById('user-badge');
   if (badge) badge.textContent = `${currentUser.nombre.split(' ')[0]} · ${esTecnico ? 'Técnico' : 'Admin'}`;

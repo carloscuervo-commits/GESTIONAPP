@@ -99,6 +99,38 @@ if ($method === 'POST') {
   }
 
   registrarHistorial($pdo, $id, null, $d['estado'], $d['creadoPor'] ?? null);
+
+  // ── Aviso asignación de tarea ─────────────────────────────────
+  if (!empty($d['team']) && in_array($d['area'] ?? '', ['it', 'if'])) {
+    try {
+      require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+      if (configGet($pdo, 'aviso_asignacion_tarea') === '1') {
+        $tareaArr = [
+          'titulo'             => $d['titulo'],
+          'cliente'            => $d['cliente']    ?? null,
+          'descripcion'        => $d['desc']       ?? null,
+          'fecha_programacion' => $d['fechaProg']  ?? null,
+          'hora_programacion'  => $d['horaProg']   ?? null,
+          'dias_programacion'  => $d['diasProg']   ?? 1,
+          'modalidad'          => $d['modalidad']  ?? null,
+        ];
+        foreach (tecnicosConEmail($pdo, $id) as $tec) {
+          $cuerpo = htmlAvisoTecnico(
+            $tec['nombre'],
+            'tienes una nueva tarea asignada.',
+            htmlTareaInfo($tareaArr)
+          );
+          enviarAvisoTecnico(
+            $tec['email'], $tec['nombre'],
+            '📋 Nueva tarea asignada — ' . ($d['cliente'] ?? $d['titulo']),
+            $cuerpo
+          );
+        }
+      }
+    } catch (Throwable $e) { /* silencioso */ }
+  }
+  // ─────────────────────────────────────────────────────────────
+
   jsonOut(['id' => $id], 201);
 }
 
@@ -109,7 +141,7 @@ if ($method === 'PUT') {
   $id = $_GET['id'] ?? null;
   if (!$id) jsonOut(['error' => 'id requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT estado, realizado_en, enviada_en, programado_en, cotizacion_docx, fecha_programacion, alerta_retraso_enviada FROM tareas WHERE id = ?");
+  $stmt = $pdo->prepare("SELECT estado, realizado_en, enviada_en, programado_en, cotizacion_docx, fecha_programacion, hora_programacion, titulo, descripcion, cliente, area, modalidad, dias_programacion, alerta_retraso_enviada FROM tareas WHERE id = ?");
   $stmt->execute([$id]);
   $prev = $stmt->fetch();
   if (!$prev) jsonOut(['error' => 'No encontrada'], 404);
@@ -164,6 +196,64 @@ if ($method === 'PUT') {
   }
 
   registrarHistorial($pdo, $id, $prev['estado'], $estado, $d['usuarioId'] ?? null);
+
+  // ── Avisos de cambio a técnicos ───────────────────────────────
+  if (in_array($prev['area'] ?? '', ['it', 'if']) && !empty($d['team'])) {
+    try {
+      require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+      $tecnicos = tecnicosConEmail($pdo, $id);
+      if (!empty($tecnicos)) {
+        // Leer estado actualizado para el bloque de info
+        $stmtCurr = $pdo->prepare("SELECT * FROM tareas WHERE id = ?");
+        $stmtCurr->execute([$id]);
+        $curr = $stmtCurr->fetch();
+
+        // Cambio en fecha o hora de programación
+        $cambioFecha = ($nuevaFechaProg !== $prev['fecha_programacion']);
+        $cambioHora  = (($d['horaProg'] ?? '08:00') !== ($prev['hora_programacion'] ?? '08:00'));
+        if (($cambioFecha || $cambioHora) && configGet($pdo, 'aviso_cambio_programacion') === '1') {
+          $extras = '';
+          if ($cambioFecha) $extras .= '<p style="margin:8px 0">📅 <b>Nueva fecha:</b> ' . htmlspecialchars($nuevaFechaProg ?? '—') . '</p>';
+          if ($cambioHora)  $extras .= '<p style="margin:8px 0">🕗 <b>Nueva hora:</b> '  . htmlspecialchars($d['horaProg'] ?? '—') . '</p>';
+          foreach ($tecnicos as $tec) {
+            $cuerpo = htmlAvisoTecnico(
+              $tec['nombre'],
+              'la programación de una de tus tareas cambió.',
+              htmlTareaInfo($curr) . $extras
+            );
+            enviarAvisoTecnico(
+              $tec['email'], $tec['nombre'],
+              '📅 Cambio de programación — ' . ($prev['cliente'] ?? $prev['titulo']),
+              $cuerpo
+            );
+          }
+        }
+
+        // Cambio en título o descripción
+        $cambioTitulo = ($d['titulo'] !== $prev['titulo']);
+        $cambioDesc   = (($d['desc'] ?? null) !== $prev['descripcion']);
+        if (($cambioTitulo || $cambioDesc) && configGet($pdo, 'aviso_cambio_descripcion') === '1') {
+          $extras = '';
+          if ($cambioTitulo) $extras .= '<p style="margin:8px 0">📋 <b>Nuevo título:</b> '      . htmlspecialchars($d['titulo']) . '</p>';
+          if ($cambioDesc)   $extras .= '<p style="margin:8px 0">📝 <b>Nueva descripción:</b> ' . nl2br(htmlspecialchars($d['desc'] ?? '')) . '</p>';
+          foreach ($tecnicos as $tec) {
+            $cuerpo = htmlAvisoTecnico(
+              $tec['nombre'],
+              'una de tus tareas fue modificada.',
+              htmlTareaInfo($curr) . $extras
+            );
+            enviarAvisoTecnico(
+              $tec['email'], $tec['nombre'],
+              '✏️ Tarea modificada — ' . ($prev['cliente'] ?? $prev['titulo']),
+              $cuerpo
+            );
+          }
+        }
+      }
+    } catch (Throwable $e) { /* silencioso */ }
+  }
+  // ─────────────────────────────────────────────────────────────
+
   jsonOut(['ok' => true]);
 }
 

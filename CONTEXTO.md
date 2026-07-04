@@ -4,6 +4,103 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-04 — sesión noche)
+
+### feat: módulo Configuración + Avisos a técnicos por correo
+
+**Propósito**: sección admin-only para activar/desactivar 6 tipos de correo automático a los técnicos.
+
+**Base de datos:**
+- `db/025_configuracion.sql` — tabla `configuracion (clave VARCHAR(60) PK, valor TEXT, updated_at DATETIME)` con 6 filas INSERT IGNORE (todas en `'0'`).
+- `db/026_avisos_enviados.sql` — tabla `avisos_enviados (id CHAR(32) PK, tipo, tecnico_id, tarea_id, fecha DATE, UNIQUE KEY uk_aviso)` para deduplicar envíos de cron.
+
+**Backend — lib:**
+- `backend/lib/avisos_tecnicos.php`: helpers compartidos por `tareas.php` y los crons:
+  - `configGet(PDO, clave)` — lee un valor de `configuracion`.
+  - `tecnicosConEmail(PDO, tareaId)` — devuelve [{id, nombre, email}] del equipo con email registrado.
+  - `enviarAvisoTecnico(email, nombre, asunto, htmlCuerpo)` — wrapper silencioso sobre `enviarCorreoConAdjunto`.
+  - `htmlAvisoTecnico(nombre, intro, contenido)` — HTML con marca Innovate (verde `#0D3B40`, cian `#169BBC`).
+  - `htmlTareaInfo(tarea)` — tabla HTML con datos de la tarea (cliente, título, fecha, hora, modalidad, descripción).
+  - `registrarAvisoEnviado(PDO, tipo, tecnicoId, tareaId, fecha)` — INSERT IGNORE en `avisos_enviados`.
+  - `avisoYaEnviado(PDO, tipo, tecnicoId, tareaId, fecha)` — verificación de duplicado.
+
+**Backend — API:**
+- `backend/api/configuracion.php` — GET: devuelve todos los pares como objeto JSON; POST: upsert de los pares enviados.
+
+**Backend — tareas.php (modificado):**
+- SELECT en PUT ampliado para incluir `hora_programacion, titulo, descripcion, cliente, area, modalidad, dias_programacion`.
+- POST: después de `registrarHistorial`, si `aviso_asignacion_tarea=1` y área es IT/IF, envía email a cada técnico del equipo con correo.
+- PUT: después de `registrarHistorial`, detecta y envía según configuración:
+  - Cambio en `fecha_programacion` o `hora_programacion` → `aviso_cambio_programacion`.
+  - Cambio en `titulo` o `descripcion` → `aviso_cambio_descripcion`.
+  - Todo envuelto en try/catch silencioso para no bloquear la operación principal.
+
+**Cron jobs:**
+- `backend/cron/avisos_dia_anterior.php`: se ejecuta a las 5 p.m. (`0 17 * * *`). Busca tareas IT/IF en estado `programado` para mañana. Agrupa por técnico y envía un correo por técnico con la lista. Usa `registrarAvisoEnviado` con `tarea_id='multiple'` para evitar duplicados por día.
+- `backend/cron/avisos_tiempo.php`: se ejecuta cada 10 min (`*/10 * * * *`). Usa hora Bogotá (`America/Bogota`). Para cada tarea IT/IF programada para hoy:
+  - `aviso_30min_antes`: ventana `horaProg - 30 min ± 5 min`; solo si no hizo check-in.
+  - `aviso_10min_sin_checkin`: ventana `horaProg + 10 min ± 5 min`; solo si no hizo check-in.
+  - Usa `avisoYaEnviado` / `registrarAvisoEnviado` para no repetir.
+
+**Frontend:**
+- `assets/js/configuracion.js?v=20260704k` (nuevo): IIFE que expone `renderConfiguracion()` y `cfgToggle(clave)` globalmente.
+  - `renderConfiguracion()`: fetch a `configuracion.php`, dibuja panel con sección "Avisos a técnicos" y 6 toggle switches.
+  - `cfgToggle(clave)`: actualización optimista del toggle + POST a `configuracion.php`.
+- `assets/js/auth.js`: muestra `tab-configuracion` solo cuando `!esTecnico`.
+- `assets/js/tareas.js`: `isConfiguracion` en `setArea()`; llama `renderConfiguracion()` al entrar.
+- `tareas-equipo.html`: tab `⚙️ Configuración` (id `tab-configuracion`), div `configuracion-view`, `<script src="configuracion.js?v=20260704k">`.
+
+**Los 6 toggles:**
+| Clave | Descripción |
+|-------|-------------|
+| `aviso_asignacion_tarea` | Correo al asignar tarea nueva |
+| `aviso_cambio_programacion` | Correo al cambiar fecha u hora |
+| `aviso_cambio_descripcion` | Correo al editar título o descripción |
+| `aviso_dia_anterior` | Resumen de mañana a las 5 p.m. (cron) |
+| `aviso_30min_antes` | Recordatorio 30 min antes (cron) |
+| `aviso_10min_sin_checkin` | Aviso 10 min sin check-in (cron) |
+
+---
+
+## Estado actual (última actualización: 2026-07-04 — sesión tarde)
+
+### feat: snapshot de programación por participante (anti-retroactividad)
+- **Problema**: cambiar `fecha_programacion`/`hora_programacion` de una tarea afectaba retroactivamente el badge "Tardía" en visitas pasadas.
+- **Solución**: guardar una copia (snapshot) por participante al momento del check-in.
+- **Migración**: `db/024_visita_participantes_prog_snap.sql` — agrega `fecha_prog_snap DATE NULL` y `hora_prog_snap VARCHAR(5) NULL` a `visita_participantes`.
+- **`backend/api/reportes.php`**: SELECT ahora incluye `fecha_programacion, hora_programacion`; variables `$snapFecha`/`$snapHora` definidas tras la consulta; ambos INSERT en `visita_participantes` incluyen las dos columnas nuevas.
+- **`assets/js/reportes.js?v=20260704f`**: badge "Tardía" usa `p.hora_prog_snap || horaProg` y `p.fecha_prog_snap || fechaProg` con fallback para visitas históricas (NULL snap).
+
+### feat: transportes — fix INT→VARCHAR + trayectos
+- **Bug crítico**: `transportes.participante_id` y `tecnico_id` eran INT; los UUIDs se casteaban a 0; todos los registros fallaban silenciosamente. `db/022_fix_transportes_tipos.sql`: DELETE FROM transportes + ALTER a VARCHAR.
+- **`db/023_transportes_trayectos.sql`**: ADD COLUMN `trayectos TINYINT NOT NULL DEFAULT 2` a `transportes`.
+- **Lógica trayectos**: `valor` = precio unitario snapshot del cliente; `trayectos` = 0/1/2 (primera visita del técnico ese día = 2, adicionales = 0); total = `trayectos × valor` calculado en frontend.
+- **`backend/api/transportes.php`** (reescrito completo): COLLATE en JOINs; sin `(int)` casts; PUT maneja `{ trayectos }` y `{ estado }`; GET devuelve `trayectos` como int.
+- **`assets/js/transportes.js?v=20260704e`** (reescrito): columna Trayectos con `<select>` 0/1/2 en pendientes; nota de advertencia para trayectos=0; totales `trayectos × valor`; `_transpCambiarTrayectos()`.
+- **`backend/cron/recalcular_transportes.php`** (nuevo): script one-time para reconstruir histórico de transportes. COLLATE en todos los JOINs. Detecta primera visita del día por técnico (trayectos=2) vs adicionales (trayectos=0).
+
+### feat: bitácora — nota_tipo separado de nota
+- `db/021_bitacora_nota_tipo.sql`: ADD COLUMN `nota_tipo VARCHAR(50) NULL` a `bitacora_usuario`.
+- `backend/api/bitacora.php`: GET devuelve `nota_tipo`; POST requiere `nota_tipo`, acepta `nota` opcional; DELETE limpia ambos.
+- `assets/js/bitacora.js?v=20260704d`: radio buttons para tipo; textarea siempre visible; badge teal para tipo + texto ámbar para nota.
+
+### feat: alarmas — tardía vs incumplida + persistencia localStorage
+- **Tardía** (solo el día de programación, hoy hábil): alarma sonido+popup + banner rojo superior.
+- **Incumplida** (`fechaProgFin < hoy`, tarea sigue en `programado`): alerta naranja `#F54927` en zona de alertas (primera posición, bajo el título "🔔 Zona de alertas"), sin sonido. Desaparece cuando: check-in+out llenado, programación cambiada, o programación borrada.
+- **Tarjeta kanban**: borde izquierdo `#F54927` + fondo `#fff3f0` + badge `⛔ Incumplida — sin check-in el día programado`.
+- **Días no hábiles**: tardía no dispara en sábado, domingo ni festivos colombianos (`esDiaHabil` guard en `alarma.js` y `tareas.js`).
+- **Persistencia**: `_retrasoAlertadas` se guarda en `localStorage` con clave `retraso_alertadas_YYYY-MM-DD`; al recargar la página el popup ya no repite; clave se auto-limpia al día siguiente.
+- **Archivos**: `assets/js/alarma.js?v=20260704g`, `assets/js/tareas.js?v=20260704j`.
+- **Versiones en HTML**: `tareas.js?v=20260704j`, `alarma.js?v=20260704g`, `reportes.js?v=20260704f`.
+
+### Glosario ampliado
+| Término | Definición |
+|---------|-----------|
+| **tardía** | Tarea programada para HOY (hábil) cuya hora pasó y el técnico no hizo check-in. Genera alarma + banner. |
+| **incumplida** | Tarea IT/IF con `estado=programado` y `fechaProgFin < hoy`. Se muestra como alerta naranja en dashboard y marca la tarjeta en el tablero. Se resuelve con check-in+out, cambio de programación, o borrado de programación. |
+
+---
+
 ## Estado actual (última actualización: 2026-07-04)
 
 - **fix: colores de tabs activos en pestañas sin color (2026-07-04)**

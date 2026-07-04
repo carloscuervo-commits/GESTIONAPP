@@ -89,3 +89,60 @@ Los siguientes archivos creados el `2026-06-30` deben estar listados en `.cpanel
 - `backend/cron/bitacora_deficit.php`: descuenta pausas del cálculo de horas; corregido bug `$y-07-04`.
 - `assets/js/bitacora.js?v=20260704a`: horario detallado con pausas, columna Observaciones.
 - `tareas-equipo.html`: bump `bitacora.js` a `?v=20260704a`.
+
+**Transportes fix + trayectos + snapshot programación + incumplidas (2026-07-04 sesión tarde):**
+
+Migraciones SQL a ejecutar en phpMyAdmin (en orden):
+1. `db/021_bitacora_nota_tipo.sql` — ADD COLUMN `nota_tipo` a `bitacora_usuario`
+2. `db/022_fix_transportes_tipos.sql` — DELETE transportes + ALTER participante_id/tecnico_id a VARCHAR
+3. `db/023_transportes_trayectos.sql` — ADD COLUMN `trayectos TINYINT DEFAULT 2` a `transportes`
+4. `db/024_visita_participantes_prog_snap.sql` — ADD COLUMNS `fecha_prog_snap`, `hora_prog_snap` a `visita_participantes`
+
+Script one-time (ejecutar desde terminal cPanel DESPUÉS de las migraciones):
+```
+/usr/bin/php /home/innovate/public_html/ginno/backend/cron/recalcular_transportes.php
+```
+
+Archivos modificados (ya en repo):
+- `backend/api/bitacora.php` — nota_tipo en GET/POST/DELETE
+- `backend/api/reportes.php` — snapshot fecha/hora prog en INSERT visita_participantes
+- `backend/api/transportes.php` — reescrito: sin INT casts, trayectos, COLLATE
+- `backend/cron/recalcular_transportes.php` — nuevo script one-time
+- `assets/js/bitacora.js?v=20260704d` — nota_tipo frontend
+- `assets/js/transportes.js?v=20260704e` — trayectos UI
+- `assets/js/reportes.js?v=20260704f` — snapshot en badge Tardía
+- `assets/js/alarma.js?v=20260704g` — localStorage persistencia + guard días no hábiles + guard incumplidas
+- `assets/js/tareas.js?v=20260704j` — incumplida: alerta dashboard + badge tarjeta + guard días no hábiles
+- `tareas-equipo.html` — bumps de versiones
+
+---
+
+**Módulo Configuración + Avisos a técnicos (2026-07-04 sesión noche):**
+
+Migraciones SQL a ejecutar en phpMyAdmin (en orden):
+1. `db/025_configuracion.sql` — CREATE TABLE `configuracion` (clave→valor, 6 filas iniciales en 0)
+2. `db/026_avisos_enviados.sql` — CREATE TABLE `avisos_enviados` (deduplicar envíos de cron)
+
+Cron jobs nuevos a configurar en cPanel → Cron Jobs:
+```
+# Resumen del día anterior — 5 p.m. hora Colombia
+0 17 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/avisos_dia_anterior.php > /dev/null 2>&1
+
+# Avisos de tiempo (30 min antes / 10 min sin check-in) — cada 10 min
+*/10 * * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/avisos_tiempo.php > /dev/null 2>&1
+```
+
+Archivos nuevos (ya en repo — copiados por .cpanel.yml automáticamente):
+- `db/025_configuracion.sql`
+- `db/026_avisos_enviados.sql`
+- `backend/lib/avisos_tecnicos.php` — helpers: configGet, tecnicosConEmail, htmlAvisoTecnico, etc.
+- `backend/api/configuracion.php` — GET/POST pares clave→valor
+- `backend/cron/avisos_dia_anterior.php` — cron 5pm
+- `backend/cron/avisos_tiempo.php` — cron cada 10 min
+- `assets/js/configuracion.js?v=20260704k` — UI toggles
+
+Archivos modificados:
+- `backend/api/tareas.php` — SELECT ampliado en PUT + hooks aviso_asignacion, aviso_cambio_programacion, aviso_cambio_descripcion
+- `assets/js/tareas.js` — setArea: isConfiguracion + renderConfiguracion()
+- `assets/js/auth.js` — mostrar tab-configuracion solo a admins
+- `tareas-equipo.html` — tab ⚙️ Configuración, div configuracion-view, script configuracion.js?v=20260704k
