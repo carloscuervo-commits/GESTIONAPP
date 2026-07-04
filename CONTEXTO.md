@@ -4,7 +4,7 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
-## Estado actual (última actualización: 2026-06-30)
+## Estado actual (última actualización: 2026-07-03)
 
 - **feat: aviso por correo al cliente (2026-06-30)** — pendiente de deploy:
 
@@ -69,13 +69,14 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
   - `backend/api/horario.php` — `GET ?usuario_id=X` (lee h_lun…h_dom, horario_desde de usuarios), `PUT ?usuario_id=X` (UPDATE usuarios SET h_lun=?…).
   - `backend/api/bitacora.php` — `GET ?dashboard=1` (JOIN bitacora_usuario+usuarios WHERE estado='deficit_sin_nota', GROUP BY tecnico); `GET ?desde=&hasta=` (retorna `{tecnicos, dias, visitas}`); `POST` (guarda nota; si fila existe: UPDATE estado='deficit_con_nota'; si no: INSERT con horas_esp del horario del técnico); `DELETE ?tecnico_id&fecha` (borra nota, restaura estado).
   - `backend/cron/bitacora_deficit.php` — zero output; procesa solo AYER; detecta festivos Colombia (implementación PHP interna); ON DUPLICATE KEY UPDATE preserva `deficit_con_nota` si sigue en déficit.
-  - `assets/js/bitacora.js?v=20260630a` — `renderBitacoraView()`, `_bitCargar()`, `_bitRenderTabla()`, `_bitRowBg()`, `_bitBadge()`, `_bitNotaCell()`, `_bitAbrirNota()`, `_bitGuardarNota()`, `_bitBorrarNota()`, `bitacoraCheckDashboard()`, `_bitDiasHabiles()`, `_fmtH()`.
+  - `assets/js/bitacora.js?v=20260703a` — `renderBitacoraView()`, `_bitCargar()`, `_bitRenderTabla()`, `_bitRowBg()`, `_bitBadge()`, `_bitNotaCell()`, `_bitAbrirNota()`, `_bitGuardarNota()`, `_bitBorrarNota()`, `bitacoraCheckDashboard()`, `_bitDiasHabiles()`, `_fmtH()`.
+    - **fix (2026-07-03):** `_bitGuardarNota` leía `localStorage.getItem('sesion')` (clave inexistente) → `admin_id` llegaba vacío → backend rechazaba con "tecnico_id, fecha, nota y admin_id son requeridos". Corregido a `currentUser?.id`.
 
   ### Archivos modificados
   - `assets/js/usuarios.js` — modal de usuario: sección "Horario contratado" con checkboxes por día + input horas + vigente_desde. Funciones nuevas: `_bitCargarHorarioModal`, `_bitRenderHorarioModal`, `_umToggleDia`, `_umGuardarHorario`.
   - `assets/js/tareas.js` — `setArea()`: agrega `isBitacora`, muestra/oculta `#bitacora-view`, llama `renderBitacoraView()`.
   - `assets/js/auth.js` — oculta `#tab-bitacora` para técnicos; llama `bitacoraCheckDashboard()` para admins al iniciar sesión.
-  - `tareas-equipo.html` — tab `📋 Bitácora` (id=`tab-bitacora`, solo admin), div `#bitacora-view`, div `#um-horario-cont` en modal de usuario, `<script src="assets/js/bitacora.js?v=20260630a">`.
+  - `tareas-equipo.html` — tab `📋 Bitácora` (id=`tab-bitacora`, solo admin), div `#bitacora-view`, div `#um-horario-cont` en modal de usuario, `<script src="assets/js/bitacora.js?v=20260703a">`.
 
   ### COLLATE
   - `bitacora_usuario` usa `utf8mb4_general_ci`. Todos los JOIN con `visita_participantes` (unicode_ci) llevan `COLLATE utf8mb4_general_ci` en ambos lados del ON.
