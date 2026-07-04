@@ -58,7 +58,27 @@ function iniciarAlarmaChecker() {
 // pasó y el técnico no ha registrado check-in. Dispara sonido urgente,
 // muestra modal y envía correo a administrativo (una vez por tarea/sesión).
 
-let _retrasoAlertadas = new Set(); // "tareaId|tecnicoId" ya alertados en esta sesión
+// Persistir alertas en localStorage con clave diaria para que sobrevivan recargas
+// pero se limpien automáticamente al día siguiente.
+function _cargarRetrasoAlertadas() {
+  const hoy = new Date().toISOString().substring(0, 10);
+  try {
+    const raw = localStorage.getItem('retraso_alertadas_' + hoy);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch(e) { return new Set(); }
+}
+function _guardarRetrasoAlertadas() {
+  const hoy = new Date().toISOString().substring(0, 10);
+  try {
+    localStorage.setItem('retraso_alertadas_' + hoy, JSON.stringify([..._retrasoAlertadas]));
+    // Limpiar claves de días anteriores
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('retraso_alertadas_') && k !== 'retraso_alertadas_' + hoy)
+        localStorage.removeItem(k);
+    });
+  } catch(e) {}
+}
+let _retrasoAlertadas = _cargarRetrasoAlertadas(); // "tareaId|tecnicoId" ya alertados hoy
 
 // participantesHoy: tareaId → Set de tecnicoIds que hicieron check-in HOY
 // Se reconstruye en cada ciclo de 60s y al arrancar.
@@ -129,6 +149,7 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
     const clave = `${t.id}|${tecnicoId}`;
     if (_retrasoAlertadas.has(clave)) continue;
     _retrasoAlertadas.add(clave);
+    _guardarRetrasoAlertadas();
 
     _reproducirBeepRetraso();
     _mostrarModalRetraso(t, tecnicoId);
