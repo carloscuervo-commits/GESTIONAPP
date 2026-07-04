@@ -21,7 +21,7 @@ if ($method === 'GET') {
     $stmt = $pdo->prepare("
       SELECT COUNT(*) AS total
       FROM visita_participantes vp
-      JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
+      JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
       WHERE r.tarea_id = ?
         AND vp.check_in IS NOT NULL
         AND (vp.transporte_estado IS NULL OR vp.transporte_estado = 'pendiente')
@@ -37,7 +37,7 @@ if ($method === 'GET') {
 
   if (!empty($_GET['tecnico_id'])) {
     $where[] = 't.tecnico_id = ?';
-    $params[] = (int)$_GET['tecnico_id'];
+    $params[] = $_GET['tecnico_id'];
   }
   if (!empty($_GET['desde'])) {
     $where[] = 't.fecha >= ?';
@@ -66,9 +66,7 @@ if ($method === 'GET') {
   $rows = $stmt->fetchAll();
 
   foreach ($rows as &$r) {
-    $r['valor']           = (int)$r['valor'];
-    $r['tecnico_id']      = (int)$r['tecnico_id'];
-    $r['participante_id'] = (int)$r['participante_id'];
+    $r['valor'] = (int)$r['valor'];
   }
   jsonOut($rows);
 }
@@ -101,7 +99,7 @@ if ($method === 'POST') {
   $stmt = $pdo->prepare("
     SELECT vp.id, vp.tecnico_id, vp.check_in, vp.check_out
     FROM visita_participantes vp
-    JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
+    JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
     WHERE r.tarea_id = ?
       AND vp.check_in IS NOT NULL
       AND (vp.transporte_estado IS NULL OR vp.transporte_estado = 'pendiente')
@@ -128,8 +126,8 @@ if ($method === 'POST') {
       ")->execute([
         $id,
         $tareaId,
-        (int)$p['id'],
-        (int)$p['tecnico_id'],
+        $p['id'],
+        $p['tecnico_id'],
         $tarea['cliente'] ?? '',
         $tarea['titulo']  ?? '',
         $fecha,
@@ -140,14 +138,14 @@ if ($method === 'POST') {
 
       // Marcar el participante como 'registrado'
       $pdo->prepare("UPDATE visita_participantes SET transporte_estado = 'registrado' WHERE id = ?")
-          ->execute([(int)$p['id']]);
+          ->execute([$p['id']]);
 
       $created++;
     } catch (\PDOException $e) {
       if ($e->getCode() === '23000') {
         // Duplicado: el registro ya existía; solo actualizar estado
         $pdo->prepare("UPDATE visita_participantes SET transporte_estado = 'registrado' WHERE id = ?")
-            ->execute([(int)$p['id']]);
+            ->execute([$p['id']]);
         $skipped++;
         continue;
       }
@@ -176,7 +174,7 @@ if ($method === 'PUT') {
 
     $stmt = $pdo->prepare("
       UPDATE visita_participantes vp
-      JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
+      JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
       SET vp.transporte_estado = 'no_aplica'
       WHERE r.tarea_id = ?
         AND vp.check_in IS NOT NULL
