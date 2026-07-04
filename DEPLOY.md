@@ -186,3 +186,21 @@ Comportamiento:
 - Técnicos: no ven el botón ⚙️
 - Admins: botón ⚙️ en header abre panel full-screen con sección Usuarios arriba y Avisos a técnicos abajo
 - Panel tiene botón "✕ Cerrar" sticky en el top
+
+---
+
+**Vista Clientes — tabla + buscador + filtros + paginación (2026-07-04):**
+
+Sin migraciones SQL ni cambios de backend.
+
+Archivos modificados:
+- `assets/js/clientes.js?v=20260704p` — `renderClientesView()` reescrita: tabla con columnas Nombre/Dirección/GPS/Transporte/Contrato/Plazo/Editar; estado local `_cliSearch`, `_cliFiltroT`, `_cliFiltroC`, `_cliPagina` (25/página); nuevas funciones globales `cliSetSearch()`, `cliToggleFiltro()`, `cliSetPagina()`
+- `tareas-equipo.html` — bump `clientes.js?v=20260704p`
+
+Comportamiento:
+- Buscador filtra por nombre o dirección en tiempo real
+- Chip "🚗 Con transporte" → solo clientes con `valor_transporte > 0`
+- Chip "📋 Con contrato" → solo clientes con `contrato_area` activo
+- Chips se iluminan teal cuando están activos
+- Paginación de 25/página con numeración compacta (muestra 1, …, páginas cercanas, …, última)
+- ⚠️ en columna GPS es clickeable y abre el modal de edición directamente

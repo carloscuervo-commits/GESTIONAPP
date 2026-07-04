@@ -4,6 +4,13 @@
 
 let _clientes = []; // caché local
 
+// ── Estado de la tabla de clientes ──
+let _cliSearch   = '';
+let _cliFiltroT  = false;  // solo con transporte > 0
+let _cliFiltroC  = false;  // solo con contrato activo
+let _cliPagina   = 1;
+const CLI_PER_PAGE = 25;
+
 // ----------------- Autocomplete Alegra en modal -----------------
 let _cmSuggestTimer = null;
 let _cmSuggestions  = [];
@@ -71,42 +78,192 @@ function renderClientesView() {
   const el = document.getElementById('clientes-view');
   if (!el) return;
 
+  // Resetear estado al entrar a la vista
+  _cliSearch  = '';
+  _cliFiltroT = false;
+  _cliFiltroC = false;
+  _cliPagina  = 1;
+
   const sinUbicacion = _clientes.filter(c => !c.lat || !c.lng);
+  const alertaUbic = sinUbicacion.length
+    ? `<div style="font-size:12px;color:#f59e0b;margin-top:3px">⚠️ ${sinUbicacion.length} cliente(s) sin ubicación — el geofencing no aplica para ellos</div>`
+    : (_clientes.length ? `<div style="font-size:12px;color:#16a34a;margin-top:3px">✅ Todos los clientes tienen ubicación registrada</div>` : '');
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <!-- Encabezado -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:17px;font-weight:700;color:var(--text)">🏢 Clientes</div>
-        ${sinUbicacion.length
-          ? `<div style="font-size:12px;color:#f59e0b;margin-top:3px">⚠️ ${sinUbicacion.length} cliente(s) sin ubicación — el geofencing no aplica para ellos</div>`
-          : (_clientes.length ? `<div style="font-size:12px;color:#16a34a;margin-top:3px">✅ Todos los clientes tienen ubicación registrada</div>` : '')}
+        ${alertaUbic}
       </div>
       <button class="btn-save" onclick="abrirModalCliente()">+ Nuevo cliente</button>
     </div>
-    ${_clientes.length === 0
-      ? `<div style="color:var(--text-muted);font-size:14px;text-align:center;padding:48px 0">No hay clientes registrados aún</div>`
-      : `<div style="display:grid;gap:10px">${_clientes.map(_clienteCard).join('')}</div>`
-    }`;
+
+    <!-- Buscador + filtros -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center">
+      <input id="cli-search" type="search" placeholder="🔍 Buscar por nombre o dirección…"
+        oninput="cliSetSearch(this.value)"
+        style="flex:1;min-width:180px;max-width:320px;padding:7px 10px;font-size:13px;
+               border:1px solid var(--border);border-radius:7px;background:var(--card-bg);
+               color:var(--text);outline:none">
+      <button id="cli-btn-t" onclick="cliToggleFiltro('t')"
+        style="padding:6px 12px;font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;
+               border:1.5px solid var(--teal,#0D3B40);background:transparent;color:var(--teal,#0D3B40);
+               transition:all .15s">
+        🚗 Con transporte
+      </button>
+      <button id="cli-btn-c" onclick="cliToggleFiltro('c')"
+        style="padding:6px 12px;font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;
+               border:1.5px solid var(--teal,#0D3B40);background:transparent;color:var(--teal,#0D3B40);
+               transition:all .15s">
+        📋 Con contrato
+      </button>
+    </div>
+
+    <!-- Tabla -->
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
+      <table id="cli-tabla" style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:2px solid var(--border)">
+            <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted);white-space:nowrap">Nombre</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted)">Dirección</th>
+            <th style="padding:10px 8px;text-align:center;font-weight:700;color:var(--text-muted);white-space:nowrap">GPS</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--text-muted);white-space:nowrap">Transporte</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted);white-space:nowrap">Contrato</th>
+            <th style="padding:10px 14px;text-align:center;font-weight:700;color:var(--text-muted);white-space:nowrap">Plazo</th>
+            <th style="padding:10px 8px"></th>
+          </tr>
+        </thead>
+        <tbody id="cli-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <div id="cli-paginacion" style="display:flex;align-items:center;justify-content:space-between;
+         margin-top:12px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;gap:6px"></div>
+  `;
+
+  _renderTablaClientes();
 }
 
-function _clienteCard(c) {
-  const tieneUbic = c.lat && c.lng;
-  return `
-    <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;
-                padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:5px">${esc(c.nombre)}</div>
-        <div style="font-size:12px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:10px">
-          ${c.direccion ? `<span>📍 ${esc(c.direccion)}</span>` : '<span style="color:#94a3b8">Sin dirección</span>'}
-          ${tieneUbic
-            ? `<span style="color:#16a34a">✅ GPS: ${(+c.lat).toFixed(5)}, ${(+c.lng).toFixed(5)}</span>`
-            : `<span style="color:#f59e0b;cursor:pointer;text-decoration:underline" onclick="abrirModalCliente('${c.id}')">⚠️ Sin ubicación — agregar</span>`}
-          <span>📏 Radio: ${c.radio_metros}m</span>
-          <span>📅 Plazo: ${c.plazo_factura_dias} días</span>
-        </div>
-      </div>
-      <button class="btn-archivar" onclick="abrirModalCliente('${c.id}')" style="white-space:nowrap;flex-shrink:0">✏️ Editar</button>
-    </div>`;
+function _cliClientes() {
+  // Aplicar búsqueda y filtros
+  let lista = _clientes;
+  const q = _cliSearch.trim().toLowerCase();
+  if (q) {
+    lista = lista.filter(c =>
+      c.nombre.toLowerCase().includes(q) ||
+      (c.direccion || '').toLowerCase().includes(q)
+    );
+  }
+  if (_cliFiltroT) lista = lista.filter(c => c.valor_transporte > 0);
+  if (_cliFiltroC) lista = lista.filter(c => c.contrato_area);
+  return lista;
+}
+
+function _renderTablaClientes() {
+  const tbody = document.getElementById('cli-tbody');
+  const pag   = document.getElementById('cli-paginacion');
+  if (!tbody) return;
+
+  const lista  = _cliClientes();
+  const total  = lista.length;
+  const paginas = Math.max(1, Math.ceil(total / CLI_PER_PAGE));
+  if (_cliPagina > paginas) _cliPagina = paginas;
+
+  const desde = (_cliPagina - 1) * CLI_PER_PAGE;
+  const items  = lista.slice(desde, desde + CLI_PER_PAGE);
+
+  // Actualizar estilos de filtros
+  ['t','c'].forEach(f => {
+    const btn = document.getElementById(`cli-btn-${f}`);
+    if (!btn) return;
+    const activo = f === 't' ? _cliFiltroT : _cliFiltroC;
+    btn.style.background = activo ? 'var(--teal,#0D3B40)' : 'transparent';
+    btn.style.color      = activo ? '#fff' : 'var(--teal,#0D3B40)';
+  });
+
+  if (total === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted)">
+      ${_clientes.length ? 'No hay clientes que coincidan con los filtros aplicados.' : 'No hay clientes registrados aún.'}
+    </td></tr>`;
+    if (pag) pag.innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = items.map((c, i) => {
+    const par = (desde + i) % 2 === 1 ? 'background:var(--bg)' : '';
+    const gps = (c.lat && c.lng)
+      ? `<span title="Lat: ${(+c.lat).toFixed(5)}, Lng: ${(+c.lng).toFixed(5)}" style="color:#16a34a;cursor:default">✅</span>`
+      : `<span title="Sin ubicación — el geofencing no aplica" style="color:#f59e0b;cursor:pointer"
+           onclick="abrirModalCliente('${c.id}')">⚠️</span>`;
+    const transporte = c.valor_transporte > 0
+      ? `<span style="color:var(--text);font-weight:600">$${Number(c.valor_transporte).toLocaleString('es-CO')}</span>`
+      : `<span style="color:var(--text-muted)">—</span>`;
+    const contrato = c.contrato_area
+      ? `<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">
+           ${c.contrato_area.toUpperCase()} · ${c.contrato_horas_mes ?? '?'}h/mes
+         </span>`
+      : `<span style="color:var(--text-muted)">—</span>`;
+
+    return `<tr style="border-top:1px solid var(--border);${par}">
+      <td style="padding:10px 14px;font-weight:600;color:var(--text)">${esc(c.nombre)}</td>
+      <td style="padding:10px 14px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${esc(c.direccion || '')}">${c.direccion ? esc(c.direccion) : '<span style="color:#94a3b8">—</span>'}</td>
+      <td style="padding:10px 8px;text-align:center">${gps}</td>
+      <td style="padding:10px 14px;text-align:right">${transporte}</td>
+      <td style="padding:10px 14px">${contrato}</td>
+      <td style="padding:10px 14px;text-align:center;color:var(--text-muted)">${c.plazo_factura_dias}d</td>
+      <td style="padding:10px 8px;text-align:right">
+        <button class="btn-archivar" onclick="abrirModalCliente('${c.id}')"
+          style="padding:4px 10px;font-size:12px;white-space:nowrap">✏️ Editar</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Paginación
+  if (pag) {
+    const info = `Mostrando <b>${desde + 1}–${Math.min(desde + CLI_PER_PAGE, total)}</b> de <b>${total}</b>`;
+    const prev = _cliPagina > 1
+      ? `<button onclick="cliSetPagina(${_cliPagina - 1})" class="btn-archivar" style="padding:4px 10px;font-size:12px">← Ant.</button>` : '';
+    const next = _cliPagina < paginas
+      ? `<button onclick="cliSetPagina(${_cliPagina + 1})" class="btn-archivar" style="padding:4px 10px;font-size:12px">Sig. →</button>` : '';
+    const nums = Array.from({length: paginas}, (_, i) => i + 1)
+      .filter(p => p === 1 || p === paginas || Math.abs(p - _cliPagina) <= 1)
+      .reduce((acc, p, idx, arr) => {
+        if (idx > 0 && arr[idx - 1] !== p - 1) acc.push('…');
+        acc.push(p);
+        return acc;
+      }, [])
+      .map(p => p === '…'
+        ? `<span style="padding:0 4px">…</span>`
+        : `<button onclick="cliSetPagina(${p})" class="btn-archivar"
+             style="padding:4px 8px;font-size:12px;${p === _cliPagina ? 'background:var(--teal,#0D3B40);color:#fff;border-color:var(--teal)' : ''}">${p}</button>`)
+      .join('');
+    pag.innerHTML = `<span>${info}</span><div style="display:flex;gap:4px;align-items:center">${prev}${nums}${next}</div>`;
+  }
+}
+
+// ── Controles públicos de la tabla ───────────────────────────────────
+function cliSetSearch(val) {
+  _cliSearch = val;
+  _cliPagina = 1;
+  _renderTablaClientes();
+}
+
+function cliToggleFiltro(filtro) {
+  if (filtro === 't') _cliFiltroT = !_cliFiltroT;
+  if (filtro === 'c') _cliFiltroC = !_cliFiltroC;
+  _cliPagina = 1;
+  _renderTablaClientes();
+}
+
+function cliSetPagina(n) {
+  _cliPagina = n;
+  _renderTablaClientes();
+  // Scroll al inicio de la tabla
+  const el = document.getElementById('cli-tabla');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ----------------- Modal crear / editar -----------------

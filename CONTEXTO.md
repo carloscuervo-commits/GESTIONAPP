@@ -4,6 +4,40 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-04 — mejoras UI)
+
+### feat: Vista Clientes — tabla + buscador + filtros + paginación
+
+**Archivo:** `assets/js/clientes.js`
+
+Reemplazada la vista de tarjetas por una tabla con las siguientes columnas: **Nombre · Dirección · GPS · Transporte · Contrato · Plazo · Editar**.
+
+**Buscador:** `<input>` que filtra en tiempo real por nombre o dirección del cliente.
+
+**Filtros chip** (toggle, se iluminan al estar activos):
+- 🚗 Con transporte → `valor_transporte > 0`
+- 📋 Con contrato → `contrato_area` no nulo
+
+**Paginación:** 25 clientes por página; numeración compacta con puntos suspensivos; scroll suave al inicio de la tabla al cambiar página.
+
+**Estado local:** `_cliSearch`, `_cliFiltroT`, `_cliFiltroC`, `_cliPagina` (se resetean al entrar a la vista).
+**Funciones globales:** `cliSetSearch(val)`, `cliToggleFiltro('t'|'c')`, `cliSetPagina(n)`.
+
+La columna GPS muestra ⚠️ clickeable que abre directamente el modal de edición.
+La columna Transporte muestra el valor formateado en pesos colombianos o "—".
+La columna Contrato muestra chip verde con área y horas/mes o "—".
+
+### feat: Panel ⚙️ Configuración + Usuarios en header
+
+Tabs "Usuarios" y "Configuración" eliminados del menú de pestañas. Reemplazados por botón ⚙️ en el header (solo admin) que abre panel full-screen overlay con:
+- Sección **👥 Usuarios** arriba (renderiza `renderUsuariosView()`)
+- Sección **🔔 Avisos a técnicos** abajo (renderiza `renderConfiguracion()`)
+- Botón "✕ Cerrar" sticky en la parte superior
+
+Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configuracion.js`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-04 — sesión noche, segunda parte)
 
 ### feat: PWA offline — check-in/checkout sin conexión
