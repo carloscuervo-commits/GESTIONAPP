@@ -420,9 +420,9 @@ function renderDashboard() {
       </div>
     </div>`;
 
-  html += '<div id="alertas-incumplidas"></div>';
   if (allAlerts.length || sinProgAlerts.length || sinCotizarAlerts.length || comT.some(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); }) || (typeof _bitDeficitData !== 'undefined' && _bitDeficitData.length)) {
     html += `<div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:10px">🔔 Zona de alertas</div>`;
+    html += '<div id="alertas-incumplidas"></div>';
   }
 
   // 1. Pendientes sin programar
