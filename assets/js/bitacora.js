@@ -181,13 +181,15 @@ function _bitRenderTabla() {
       let hayEnCurso  = false;
       let estado      = null;
       let nota        = null;
+      let notaTipo    = null;
       let adminNombre = null;
 
       if (filaBD && !esHoy) {
         // Dato precalculado del cron
         horasReal   = parseFloat(filaBD.horas_real);
         estado      = filaBD.estado;
-        nota        = filaBD.nota || null;
+        nota        = filaBD.nota      || null;
+        notaTipo    = filaBD.nota_tipo  || null;
         adminNombre = filaBD.admin_nombre || filaBD.admin_id || null;
         totalReal  += horasReal;
       } else {
@@ -219,7 +221,7 @@ function _bitRenderTabla() {
             <td style="padding:8px 10px;font-size:12px;text-align:right;color:var(--text-muted)">0h</td>
             <td style="padding:8px 10px;font-size:12px">${_bitBadge(horasReal, horasEsp, hayEnCurso, estado)}</td>
             <td style="padding:8px 10px;font-size:12px"></td>
-            <td style="padding:8px 10px;font-size:12px">${_bitNotaCell(tec.id, fecha, nota, adminNombre, estado)}</td>
+            <td style="padding:8px 10px;font-size:12px">${_bitNotaCell(tec.id, fecha, nota, notaTipo, adminNombre, estado)}</td>
           </tr>`);
       } else {
         // Filas de visitas del día
@@ -245,7 +247,7 @@ function _bitRenderTabla() {
               ${esUltima ? `
                 <td style="padding:6px 10px;font-size:12px">${_bitBadge(horasReal, horasEsp, hayEnCurso, estado)}</td>
                 <td style="padding:6px 10px;font-size:12px">${_bitObsCell(v, vPausas)}</td>
-                <td style="padding:6px 10px;font-size:12px">${_bitNotaCell(tec.id, fecha, nota, adminNombre, estado)}</td>
+                <td style="padding:6px 10px;font-size:12px">${_bitNotaCell(tec.id, fecha, nota, notaTipo, adminNombre, estado)}</td>
               ` : `<td></td><td style="padding:6px 10px;font-size:12px">${_bitObsCell(v, vPausas)}</td><td></td>`}
             </tr>`);
         });
@@ -354,21 +356,30 @@ function _bitBadge(horasReal, horasEsp, hayEnCurso, estado) {
 
 // ─── Celda de nota ───────────────────────────────────────────────────────────
 
-function _bitNotaCell(tecId, fecha, nota, adminNombre, estado) {
-  // Solo mostrar botón de nota si hay déficit
-  const hayDeficit = estado && estado !== 'ok';
+function _bitNotaCell(tecId, fecha, nota, notaTipo, adminNombre, estado) {
+  const hayDeficit  = estado && estado !== 'ok';
+  const tieneJustif = !!notaTipo;
+  const notaEsc     = (nota     || '').replace(/'/g, "\\'");
+  const tipoEsc     = (notaTipo || '').replace(/'/g, "\\'");
 
-  if (nota) {
+  if (tieneJustif) {
     return `
       <div style="display:flex;align-items:flex-start;gap:6px">
-        <div style="flex:1;font-size:11px;color:#92400e;background:#fffbeb;
-                    border:1px solid #fde68a;border-radius:6px;padding:4px 8px;
-                    line-height:1.4;max-width:240px">
-          ${esc(nota)}
-          ${adminNombre ? `<div style="font-size:10px;color:#b45309;margin-top:2px">${esc(adminNombre)}</div>` : ''}
+        <div style="flex:1;max-width:260px">
+          <span style="display:inline-block;background:#0D3B40;color:#D6F3F4;
+                       border:1px solid #169BBC;border-radius:99px;
+                       padding:2px 10px;font-size:10px;font-weight:700;margin-bottom:3px">
+            ${esc(notaTipo)}
+          </span>
+          ${nota ? `<div style="font-size:11px;color:#92400e;background:#fffbeb;
+                                border:1px solid #fde68a;border-radius:6px;
+                                padding:3px 8px;line-height:1.4;margin-top:2px">
+                      ${esc(nota)}
+                    </div>` : ''}
+          ${adminNombre ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(adminNombre)}</div>` : ''}
         </div>
-        <button type="button" title="Editar nota"
-          onclick="_bitAbrirNota('${esc(tecId)}','${fecha}','${esc(nota.replace(/'/g,"\\'"))}')"
+        <button type="button" title="Editar justificación"
+          onclick="_bitAbrirNota('${esc(tecId)}','${fecha}','${notaEsc}','${tipoEsc}')"
           style="font-size:13px;background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px">✏️</button>
       </div>`;
   }
@@ -376,7 +387,7 @@ function _bitNotaCell(tecId, fecha, nota, adminNombre, estado) {
   if (!hayDeficit) return '';
 
   return `
-    <button type="button" onclick="_bitAbrirNota('${esc(tecId)}','${fecha}','')"
+    <button type="button" onclick="_bitAbrirNota('${esc(tecId)}','${fecha}','','')"
       style="font-size:11px;padding:3px 8px;border:1px dashed var(--border);border-radius:6px;
              background:none;cursor:pointer;color:var(--text-muted)">+ justificar</button>`;
 }
@@ -390,25 +401,23 @@ const _BIT_OPCIONES = [
   'Labor terminada',
 ];
 
-function _bitAbrirNota(tecId, fecha, notaActual) {
+function _bitAbrirNota(tecId, fecha, notaActual, notaTipoActual) {
   document.getElementById('bit-nota-modal')?.remove();
 
   const tec       = (_bitData?.tecnicos || []).find(t => t.id === tecId);
   const tecNombre = tec ? tec.nombre : tecId;
   const fechaDisp = fecha.split('-').reverse().join('/');
 
-  // Determinar si la nota guardada es una opción predefinida u "Otras"
-  const esOpcion    = _BIT_OPCIONES.includes(notaActual);
-  const esOtras     = notaActual && !esOpcion;
-  const textoOtras  = esOtras ? notaActual : '';
+  // notaTipoActual = categoría guardada; notaActual = texto adicional
+  const tipoSel = notaTipoActual || '';
 
   const radios = _BIT_OPCIONES.map(op => `
     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 12px;
-                  border:1px solid ${notaActual === op ? '#169BBC' : 'var(--border)'};
-                  border-radius:8px;background:${notaActual === op ? '#e0f7fa' : 'transparent'};
+                  border:1px solid ${tipoSel === op ? '#169BBC' : 'var(--border)'};
+                  border-radius:8px;background:${tipoSel === op ? '#e0f7fa' : 'transparent'};
                   transition:border-color .15s">
       <input type="radio" name="bit-nota-opcion" value="${op}"
-             ${notaActual === op ? 'checked' : ''}
+             ${tipoSel === op ? 'checked' : ''}
              onchange="_bitOnOpcChange()"
              style="accent-color:#169BBC;width:15px;height:15px;flex-shrink:0">
       <span style="font-size:13px">${op}</span>
@@ -430,23 +439,24 @@ function _bitAbrirNota(tecId, fecha, notaActual) {
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
         ${radios}
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 12px;
-                      border:1px solid ${esOtras ? '#169BBC' : 'var(--border)'};
-                      border-radius:8px;background:${esOtras ? '#e0f7fa' : 'transparent'};
+                      border:1px solid ${tipoSel === 'Otras' ? '#169BBC' : 'var(--border)'};
+                      border-radius:8px;background:${tipoSel === 'Otras' ? '#e0f7fa' : 'transparent'};
                       transition:border-color .15s">
           <input type="radio" name="bit-nota-opcion" value="Otras"
-                 ${esOtras ? 'checked' : ''}
+                 ${tipoSel === 'Otras' ? 'checked' : ''}
                  onchange="_bitOnOpcChange()"
                  style="accent-color:#169BBC;width:15px;height:15px;flex-shrink:0">
           <span style="font-size:13px">Otras</span>
         </label>
       </div>
 
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;margin-top:6px">Observaciones adicionales <span style="opacity:.6">(opcional)</span></div>
       <textarea id="bit-nota-texto"
-                style="width:100%;min-height:80px;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;resize:vertical;box-sizing:border-box;display:none"
-                placeholder="Describe el motivo…">${esc(textoOtras)}</textarea>
+                style="width:100%;min-height:70px;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;resize:vertical;box-sizing:border-box"
+                placeholder="Agrega contexto si es necesario…">${esc(notaActual)}</textarea>
 
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-        ${notaActual ? `<button class="btn-cancel" onclick="_bitBorrarNota('${esc(tecId)}','${fecha}')">Eliminar</button>` : ''}
+        ${notaTipoActual ? `<button class="btn-cancel" onclick="_bitBorrarNota('${esc(tecId)}','${fecha}')">Eliminar</button>` : ''}
         <button class="btn-cancel" onclick="document.getElementById('bit-nota-modal').remove()">Cancelar</button>
         <button class="btn-save" onclick="_bitGuardarNota('${esc(tecId)}','${fecha}')">Guardar</button>
       </div>
@@ -459,41 +469,27 @@ function _bitAbrirNota(tecId, fecha, notaActual) {
 }
 
 function _bitOnOpcChange() {
-  const opcion  = document.querySelector('input[name="bit-nota-opcion"]:checked');
-  const textarea = document.getElementById('bit-nota-texto');
-  if (!textarea) return;
-  const esOtras = opcion?.value === 'Otras';
-  textarea.style.display = esOtras ? 'block' : 'none';
-  // Actualizar estilos de los labels
   document.querySelectorAll('input[name="bit-nota-opcion"]').forEach(r => {
     const lbl = r.closest('label');
     if (!lbl) return;
-    const sel = r.checked;
-    lbl.style.borderColor = sel ? '#169BBC' : 'var(--border)';
-    lbl.style.background  = sel ? '#e0f7fa'  : 'transparent';
+    lbl.style.borderColor = r.checked ? '#169BBC' : 'var(--border)';
+    lbl.style.background  = r.checked ? '#e0f7fa'  : 'transparent';
   });
-  if (esOtras) setTimeout(() => textarea.focus(), 30);
 }
 
 async function _bitGuardarNota(tecId, fecha) {
   const opcion = document.querySelector('input[name="bit-nota-opcion"]:checked');
   if (!opcion) { alert('Selecciona una opción de justificación'); return; }
 
-  let texto;
-  if (opcion.value === 'Otras') {
-    texto = document.getElementById('bit-nota-texto')?.value?.trim();
-    if (!texto) { alert('Describe el motivo en el campo de texto'); return; }
-  } else {
-    texto = opcion.value;
-  }
-
-  const adminId = currentUser?.id || '';
+  const notaTipo = opcion.value;
+  const nota     = document.getElementById('bit-nota-texto')?.value?.trim() || '';
+  const adminId  = currentUser?.id || '';
 
   try {
     const res  = await fetch(`${API_BASE}/bitacora.php`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ tecnico_id: tecId, fecha, nota: texto, admin_id: adminId }),
+      body:    JSON.stringify({ tecnico_id: tecId, fecha, nota_tipo: notaTipo, nota, admin_id: adminId }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -555,4 +551,4 @@ function _fmtH(h) {
   const mm        = totalMins % 60;
   return mm === 0 ? `${sign}${hh}h` : `${sign}${hh}h ${mm}m`;
 }
-// =====
+// ====
