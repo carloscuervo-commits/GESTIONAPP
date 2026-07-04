@@ -174,16 +174,15 @@ function aplicarPermisosUI() {
   if (esTecnico && !['it', 'if'].includes(currentArea)) currentArea = 'it';
 
   // Tabs solo visibles para administradores
-  const tabUsuarios = document.getElementById('tab-usuarios');
-  if (tabUsuarios) tabUsuarios.style.display = esTecnico ? 'none' : '';
   const tabClientes = document.getElementById('tab-clientes');
   if (tabClientes) tabClientes.style.display = esTecnico ? 'none' : '';
   const tabTransportes = document.getElementById('tab-transportes');
   if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
-  const tabConfiguracion = document.getElementById('tab-configuracion');
-  if (tabConfiguracion) tabConfiguracion.style.display = esTecnico ? 'none' : '';
+  // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
+  const btnSettings = document.getElementById('btn-settings');
+  if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';
 
   const badge = document.getElementById('user-badge');
   if (badge) badge.textContent = `${currentUser.nombre.split(' ')[0]} · ${esTecnico ? 'Técnico' : 'Admin'}`;

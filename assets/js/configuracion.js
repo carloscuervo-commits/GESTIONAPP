@@ -187,3 +187,29 @@
   window.renderConfiguracion = renderConfiguracion;
 
 })();
+
+// ── Panel de Configuración (accessible desde botón ⚙️ del header) ────────────
+
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  if (!panel) return;
+  if (panel.style.display === 'none' || !panel.style.display) {
+    abrirSettings();
+  } else {
+    cerrarSettings();
+  }
+}
+
+function abrirSettings() {
+  const panel = document.getElementById('settings-panel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  // Renderizar ambas secciones
+  if (typeof renderConfiguracion === 'function') renderConfiguracion();
+  if (typeof renderUsuariosView  === 'function') renderUsuariosView();
+}
+
+function cerrarSettings() {
+  const panel = document.getElementById('settings-panel');
+  if (panel) panel.style.display = 'none';
+}

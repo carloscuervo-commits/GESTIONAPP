@@ -169,3 +169,20 @@ Comportamiento:
 2. Al hacer check-in/checkout sin conexión: se guarda en IndexedDB, la pantalla se actualiza inmediatamente con estado local
 3. Al recuperar señal: `offlineProcesarCola()` envía los requests en orden cronológico; el servidor usa `INSERT IGNORE` para idempotencia
 4. Background Sync del SW garantiza la sincronización incluso si el técnico cierra la app
+
+---
+
+**Panel ⚙️ Configuración en header (2026-07-04):**
+
+Sin migraciones SQL ni cambios de backend — solo frontend.
+
+Archivos modificados:
+- `tareas-equipo.html` — quitados tabs Usuarios y Configuración; botón `#btn-settings` (⚙️) en header; `#settings-panel` overlay full-screen con `#usuarios-view` y `#configuracion-view` adentro; bumps: `auth.js?v=20260704p`, `tareas.js?v=20260704p`, `configuracion.js?v=20260704p`
+- `assets/js/auth.js?v=20260704p` — `aplicarPermisosUI()`: sustituye `tab-usuarios` + `tab-configuracion` por `btn-settings` (oculto para técnicos)
+- `assets/js/tareas.js?v=20260704p` — `setArea()`: eliminadas referencias a `isUsuarios`, `isConfiguracion`, sus display y render calls
+- `assets/js/configuracion.js?v=20260704p` — agrega `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` (llama `renderConfiguracion()` + `renderUsuariosView()`)
+
+Comportamiento:
+- Técnicos: no ven el botón ⚙️
+- Admins: botón ⚙️ en header abre panel full-screen con sección Usuarios arriba y Avisos a técnicos abajo
+- Panel tiene botón "✕ Cerrar" sticky en el top

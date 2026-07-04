@@ -311,7 +311,6 @@ function setView(v) {
     // Salir de las vistas especiales al volver al Dashboard
     document.getElementById('facturacion-view').style.display = 'none';
     document.getElementById('cartera-view').style.display = 'none';
-    document.getElementById('usuarios-view').style.display = 'none';
     document.getElementById('clientes-view').style.display = 'none';
     document.getElementById('informes-view').style.display = 'none';
     document.getElementById('agenda-view').style.display = 'none';
@@ -670,13 +669,11 @@ function setArea(a) {
   const isCartera    = a === 'cartera';
   const isFacturacion = a === 'facturacion';
   const isInformes   = a === 'informes';
-  const isUsuarios   = a === 'usuarios';
   const isClientes   = a === 'clientes';
   const isAgenda      = a === 'agenda';
   const isTransportes = a === 'transportes';
   const isBitacora       = a === 'bitacora';
-  const isConfiguracion  = a === 'configuracion';
-  const isOther = isCartera || isFacturacion || isInformes || isUsuarios || isClientes || isAgenda || isTransportes || isBitacora || isConfiguracion;
+  const isOther = isCartera || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -684,12 +681,10 @@ function setArea(a) {
   document.getElementById('cartera-view').style.display     = isCartera    ? 'block' : 'none';
   document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
   document.getElementById('informes-view').style.display    = isInformes   ? 'block' : 'none';
-  document.getElementById('usuarios-view').style.display    = isUsuarios   ? 'block' : 'none';
   document.getElementById('clientes-view').style.display    = isClientes   ? 'block' : 'none';
   document.getElementById('agenda-view').style.display      = isAgenda      ? 'block' : 'none';
   document.getElementById('transportes-view').style.display = isTransportes  ? 'block' : 'none';
   document.getElementById('bitacora-view').style.display       = isBitacora       ? 'block' : 'none';
-  document.getElementById('configuracion-view').style.display  = isConfiguracion  ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -700,12 +695,10 @@ function setArea(a) {
   if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
   else if (isFacturacion) { /* nada que cargar al entrar */ }
   else if (isInformes)  { renderInformesView(); }
-  else if (isUsuarios)  { renderUsuariosView(); }
   else if (isClientes)  { cargarClientes(); }
   else if (isAgenda)       { iniciarAgenda(); }
   else if (isTransportes) { iniciarTransportes(); }
   else if (isBitacora)       { if (typeof renderBitacoraView    === 'function') renderBitacoraView(); }
-  else if (isConfiguracion)  { if (typeof renderConfiguracion  === 'function') renderConfiguracion(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.

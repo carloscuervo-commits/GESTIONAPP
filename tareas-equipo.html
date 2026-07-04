@@ -49,6 +49,7 @@
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="user-badge" style="font-size:12px;color:var(--text-muted);font-weight:600"></span>
+    <button id="btn-settings" class="btn-cancel" style="display:none;padding:5px 10px;font-size:13px" onclick="toggleSettings()" title="Configuración">⚙️</button>
     <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="cerrarSesion()">Salir</button>
     <button class="btn-add" onclick="openModal()">+ <span class="btn-add-text">Nueva tarea</span></button>
   </div>
@@ -62,12 +63,10 @@
   <button class="area-tab" data-area="cartera" onclick="setArea('cartera')">💰 Cartera <span class="tab-count" id="cnt-cartera">0</span></button>
   <button class="area-tab" data-area="facturacion" onclick="setArea('facturacion')">🧾 Facturación</button>
   <button class="area-tab" data-area="informes" onclick="setArea('informes')">📊 Informes</button>
-  <button class="area-tab" data-area="usuarios" id="tab-usuarios" onclick="setArea('usuarios')" style="display:none">👥 Usuarios</button>
   <button class="area-tab" data-area="clientes" id="tab-clientes" onclick="setArea('clientes')" style="display:none">🏢 Clientes</button>
   <button class="area-tab" data-area="agenda" id="tab-agenda" onclick="setArea('agenda')">📅 Agenda</button>
   <button class="area-tab" data-area="transportes" id="tab-transportes" onclick="setArea('transportes')" style="display:none">🚗 Transportes</button>
   <button class="area-tab" data-area="bitacora" id="tab-bitacora" onclick="setArea('bitacora')" style="display:none">📋 Bitácora</button>
-  <button class="area-tab" data-area="configuracion" id="tab-configuracion" onclick="setArea('configuracion')" style="display:none">⚙️ Configuración</button>
 </div>
 
 <!-- Banner offline: visible solo cuando no hay conexión o hay cola pendiente -->
@@ -132,15 +131,25 @@
 <!-- INFORMES VIEW -->
 <div id="informes-view" style="display:none;padding:16px 20px 30px"></div>
 
-<!-- USUARIOS VIEW -->
-<div id="usuarios-view" style="display:none;padding:16px 20px 30px"></div>
-
 <!-- CLIENTES VIEW -->
 <div id="clientes-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="agenda-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="transportes-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="bitacora-view" style="display:none;padding:16px 20px 30px"></div>
-<div id="configuracion-view" style="display:none;padding:16px 20px 30px"></div>
+<!-- SETTINGS PANEL — accesible solo para admins desde el botón ⚙️ del header -->
+<div id="settings-panel" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto">
+  <div style="position:sticky;top:0;z-index:1;background:var(--bg);border-bottom:2px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
+    <span style="font-weight:700;font-size:16px;color:var(--teal)">⚙️ Configuración</span>
+    <button class="btn-cancel" style="padding:5px 14px;font-size:13px" onclick="cerrarSettings()">✕ Cerrar</button>
+  </div>
+  <div style="padding:20px 20px 40px;max-width:900px">
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">👥 Usuarios</div>
+    <div id="usuarios-view"></div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:28px 0">
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">🔔 Avisos a técnicos</div>
+    <div id="configuracion-view"></div>
+  </div>
+</div>
 
 <!-- CARTERA MODAL -->
 <div class="cartera-modal-overlay" id="cartera-modal">
@@ -731,8 +740,8 @@
 
 
 <script src="assets/js/core.js?v=20260701a"></script>
-<script src="assets/js/auth.js?v=20260629a"></script>
-<script src="assets/js/tareas.js?v=20260704j"></script>
+<script src="assets/js/auth.js?v=20260704p"></script>
+<script src="assets/js/tareas.js?v=20260704p"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260704n"></script>
@@ -745,7 +754,7 @@
 <script src="assets/js/imagenes.js?v=20260630a"></script>
 <script src="assets/js/transportes.js?v=20260704e"></script>
 <script src="assets/js/bitacora.js?v=20260704m"></script>
-<script src="assets/js/configuracion.js?v=20260704k"></script>
+<script src="assets/js/configuracion.js?v=20260704p"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
 <script src="assets/js/app.js?v=20260704n"></script>
 </body>
