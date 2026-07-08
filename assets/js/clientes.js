@@ -141,6 +141,7 @@ function renderClientesView() {
           <tr style="background:var(--bg);border-bottom:2px solid var(--border)">
             <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted);white-space:nowrap">Nombre</th>
             <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted)">Dirección</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted);white-space:nowrap">Correo</th>
             <th style="padding:10px 8px;text-align:center;font-weight:700;color:var(--text-muted);white-space:nowrap">GPS</th>
             <th style="padding:10px 14px;text-align:right;font-weight:700;color:var(--text-muted);white-space:nowrap">Transporte</th>
             <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--text-muted);white-space:nowrap">Contrato</th>
@@ -198,7 +199,7 @@ function _renderTablaClientes() {
   });
 
   if (total === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted)">
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--text-muted)">
       ${_clientes.length ? 'No hay clientes que coincidan con los filtros aplicados.' : 'No hay clientes registrados aún.'}
     </td></tr>`;
     if (pag) pag.innerHTML = '';
@@ -219,11 +220,17 @@ function _renderTablaClientes() {
            ${c.contrato_area.toUpperCase()} · ${c.contrato_horas_mes ?? '?'}h/mes
          </span>`
       : `<span style="color:var(--text-muted)">—</span>`;
+    const correo = c.email
+      ? `<span style="color:var(--text-muted);font-size:12px">${esc(c.email)}</span>`
+      : `<span title="Sin correo — no se podrán enviar avisos" style="color:#ef4444;font-size:12px;cursor:pointer"
+             onclick="abrirModalCliente('${c.id}')">⚠️ Sin correo</span>`;
 
     return `<tr style="border-top:1px solid var(--border);${par}">
       <td style="padding:10px 14px;font-weight:600;color:var(--text)">${esc(c.nombre)}</td>
       <td style="padding:10px 14px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
           title="${esc(c.direccion || '')}">${c.direccion ? esc(c.direccion) : '<span style="color:#94a3b8">—</span>'}</td>
+      <td style="padding:10px 14px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${esc(c.email || '')}">${correo}</td>
       <td style="padding:10px 8px;text-align:center">${gps}</td>
       <td style="padding:10px 14px;text-align:right">${transporte}</td>
       <td style="padding:10px 14px">${contrato}</td>
