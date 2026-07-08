@@ -214,11 +214,14 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
 - **Solución**: nuevo endpoint `GET reportes.php?tarea_ids_enviados=1` → `SELECT DISTINCT tarea_id FROM reportes WHERE estado='enviado'` (muy liviano). `cargarVisitasActivas()` lo carga en paralelo y popula `reportesEnviados = new Set()`. En `renderVisitaBoton()`, si `(t.diasProg||1) <= 1` y `reportesEnviados.has(t.id)` → muestra `✅ Visita completada`. Tareas multi-día no se afectan.
 - **Archivos**: `backend/api/reportes.php`, `assets/js/reportes.js?v=20260708a`.
 
-### fix: correo del cliente se captura desde Alegra al momento de creación
-- **Problema**: clientes creados antes de `db/018` tienen `email = NULL` en la BD local → el campo mostraba solo el placeholder "contacto@cliente.com".
-- **Solución correcta**: el email se captura en el momento de seleccionar el cliente desde el autocomplete de Alegra (en el modal de cliente), no al abrir el modal. Cuando el resultado de la búsqueda ya incluye el email (`c.email`), se llena directamente. Si la búsqueda no lo devuelve, `_seleccionarCmIdx()` hace un fetch a `alegra_contactos.php?id={c.id}` para obtener el contacto completo. En ambos casos el email queda en el campo `cm-email` y se guarda en la BD al hacer clic en "Guardar" — quedando permanente sin llamadas adicionales en aperturas futuras.
+### fix: correo del cliente se captura desde Alegra al momento de creación/selección
+- **Problema raíz**: `seleccionarClienteAlegraIdx` en `tareas.js` llamaba `sincronizarClienteAlegra(c.name, c.id, c.address)` sin pasar `c.email`. `sincronizarClienteAlegra` en `clientes.js` tampoco lo aceptaba ni guardaba. Al auto-crear el cliente (al guardar una tarea) solo se guardaban nombre, alegra_id y dirección.
+- **Fix**:
+  - `tareas.js` → `seleccionarClienteAlegraIdx` ahora pasa `c.email || null` como cuarto argumento.
+  - `clientes.js` → `sincronizarClienteAlegra(nombre, alegraId, direccion, email)`: si `email` viene null pero hay `alegraId`, hace un `GET alegra_contactos.php?id={alegraId}` para traer el contacto completo **antes** del POST. El email se incluye en el POST inicial y también en el PUT de completar datos faltantes.
+  - `_seleccionarCmIdx()` en el modal de clientes: misma lógica — si `c.email` es null, fetch `?id=X` al seleccionar.
 - **Backend**: handler `GET ?id=X` en `alegra_contactos.php` → `GET /contacts/{id}` en Alegra → retorna `{id, name, address, email}`.
-- **Archivos**: `backend/api/alegra_contactos.php`, `assets/js/clientes.js?v=20260708b`.
+- **Archivos**: `backend/api/alegra_contactos.php`, `assets/js/tareas.js?v=20260708b`, `assets/js/clientes.js?v=20260708c`.
 
 ### fix: validación "Por facturar" acepta reporte Ginno ya enviado
 - **Problema**: `saveTask()` verificaba `borradoresActivos[editingId]` para saber si existe reporte Ginno. Cuando el reporte ya está en estado `enviado` no está en `borradoresActivos` → validación fallaba aunque el reporte existía.

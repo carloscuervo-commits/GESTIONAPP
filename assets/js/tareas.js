@@ -1201,7 +1201,7 @@ function seleccionarClienteAlegraIdx(i) {
   hideClienteSuggestions();
   // Sincronizar alegra_id y dirección en la tabla clientes (no bloquea el flujo)
   if (typeof sincronizarClienteAlegra === 'function') {
-    sincronizarClienteAlegra(c.name, c.id, c.address || null);
+    sincronizarClienteAlegra(c.name, c.id, c.address || null, c.email || null);
   }
   // Verificar contrato para mostrar/ocultar tipo_tarea
   const area = document.getElementById('f-area')?.value;

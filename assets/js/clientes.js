@@ -423,21 +423,34 @@ async function eliminarCliente() {
 // Crea o actualiza el cliente con alegra_id y direccion.
 // Usa POST directo (sin GET previo) para evitar race condition con tareas.php
 // que también hace INSERT IGNORE al guardar la tarea.
-async function sincronizarClienteAlegra(nombre, alegraId, direccion) {
+async function sincronizarClienteAlegra(nombre, alegraId, direccion, email) {
   if (!API_BASE || !nombre) return;
   try {
     // POST: si el cliente no existe lo crea; si ya existe devuelve el existente
     const res  = await fetch(`${API_BASE}/clientes.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, alegra_id: alegraId, direccion: direccion || null }),
+      body: JSON.stringify({ nombre, alegra_id: alegraId, direccion: direccion || null, email: email || null }),
     });
     const data = await res.json();
     if (!data.id) return;
 
-    // Si el registro devuelto (creado o existente via INSERT IGNORE) le faltan datos, actualizar
     const updates = {};
-    if (!data.alegra_id && alegraId)   updates.alegra_id = alegraId;
-    if (!data.direccion && direccion)  updates.direccion = direccion;
+    if (!data.alegra_id && alegraId)  updates.alegra_id = alegraId;
+    if (!data.direccion && direccion) updates.direccion = direccion;
+
+    // Solo buscar email en Alegra si el cliente aún no lo tiene en la BD
+    if (!data.email) {
+      let emailFinal = email || null;
+      if (!emailFinal && alegraId) {
+        try {
+          const er = await fetch(`${API_BASE}/alegra_contactos.php?id=${encodeURIComponent(alegraId)}`);
+          const ed = await er.json();
+          if (ed?.email) emailFinal = ed.email;
+        } catch (_) {}
+      }
+      if (emailFinal) updates.email = emailFinal;
+    }
+
     if (Object.keys(updates).length) {
       await fetch(`${API_BASE}/clientes.php?id=${data.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
