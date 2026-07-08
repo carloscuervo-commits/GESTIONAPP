@@ -214,11 +214,11 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
 - **Solución**: nuevo endpoint `GET reportes.php?tarea_ids_enviados=1` → `SELECT DISTINCT tarea_id FROM reportes WHERE estado='enviado'` (muy liviano). `cargarVisitasActivas()` lo carga en paralelo y popula `reportesEnviados = new Set()`. En `renderVisitaBoton()`, si `(t.diasProg||1) <= 1` y `reportesEnviados.has(t.id)` → muestra `✅ Visita completada`. Tareas multi-día no se afectan.
 - **Archivos**: `backend/api/reportes.php`, `assets/js/reportes.js?v=20260708a`.
 
-### fix: correo del cliente se auto-carga desde Alegra al abrir modal
+### fix: correo del cliente se captura desde Alegra al momento de creación
 - **Problema**: clientes creados antes de `db/018` tienen `email = NULL` en la BD local → el campo mostraba solo el placeholder "contacto@cliente.com".
-- **Fix**: `abrirModalCliente()` en `clientes.js` detecta `c.alegra_id && !c.email` y hace `GET alegra_contactos.php?id={alegraId}` en segundo plano. Si Alegra devuelve email, pre-llena el campo; el usuario lo confirma al guardar.
-- **Backend**: nuevo handler `GET ?id=X` en `alegra_contactos.php` → `GET /contacts/{id}` en Alegra → retorna `{id, name, address, email}` (misma lógica de extracción de email/address que el buscador por nombre).
-- **Archivos**: `backend/api/alegra_contactos.php`, `assets/js/clientes.js?v=20260708a`.
+- **Solución correcta**: el email se captura en el momento de seleccionar el cliente desde el autocomplete de Alegra (en el modal de cliente), no al abrir el modal. Cuando el resultado de la búsqueda ya incluye el email (`c.email`), se llena directamente. Si la búsqueda no lo devuelve, `_seleccionarCmIdx()` hace un fetch a `alegra_contactos.php?id={c.id}` para obtener el contacto completo. En ambos casos el email queda en el campo `cm-email` y se guarda en la BD al hacer clic en "Guardar" — quedando permanente sin llamadas adicionales en aperturas futuras.
+- **Backend**: handler `GET ?id=X` en `alegra_contactos.php` → `GET /contacts/{id}` en Alegra → retorna `{id, name, address, email}`.
+- **Archivos**: `backend/api/alegra_contactos.php`, `assets/js/clientes.js?v=20260708b`.
 
 ### fix: validación "Por facturar" acepta reporte Ginno ya enviado
 - **Problema**: `saveTask()` verificaba `borradoresActivos[editingId]` para saber si existe reporte Ginno. Cuando el reporte ya está en estado `enviado` no está en `borradoresActivos` → validación fallaba aunque el reporte existía.
@@ -268,7 +268,7 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
   - `backend/api/usuarios.php` — GET devuelve `cedula` y `foto`; INSERT y UPDATE incluyen `cedula`.
   - `backend/api/tareas.php` — INSERT y UPDATE incluyen `avisar_cliente` (default 1).
   - `assets/js/core.js` — `taskToApi`/`apiToTask` incluyen `avisarCliente`.
-  - `assets/js/clientes.js` — auto-rellena `email` al seleccionar/crear desde Alegra; carga y guarda email en modal.
+  - `assets/js/clientes.js` — auto-rellena `email` al seleccionar desde autocomplete de Alegra (si la búsqueda no lo trae, hace GET ?id= al elegir el contacto); lo guarda en BD al confirmar con "Guardar".
   - `assets/js/usuarios.js` — modal incluye `cedula`, foto upload/preview/eliminar.
   - `assets/js/tareas.js` — checkbox `#f-avisar-cliente` visible en IT/IF; se carga en `openModal()` y se lee en `saveTask()`.
   - `tareas-equipo.html` — campo email en modal cliente; checkbox avisar cliente en formulario de tarea; campos cedula/foto en modal usuario.

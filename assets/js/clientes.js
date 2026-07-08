@@ -47,7 +47,21 @@ function _seleccionarCmIdx(i) {
   document.getElementById('cm-nombre').value    = c.name;
   document.getElementById('cm-alegra-id').value = c.id || '';
   if (c.address) document.getElementById('cm-direccion').value = c.address;
-  if (c.email)   { const e = document.getElementById('cm-email'); if (e) e.value = c.email; }
+  if (c.email) {
+    const e = document.getElementById('cm-email');
+    if (e) e.value = c.email;
+  } else if (c.id && API_BASE) {
+    // La búsqueda no devolvió email → traer el contacto completo de Alegra para capturarlo
+    fetch(`${API_BASE}/alegra_contactos.php?id=${encodeURIComponent(c.id)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.email) {
+          const e = document.getElementById('cm-email');
+          if (e) e.value = data.email;
+        }
+      })
+      .catch(() => {});
+  }
   _actualizarLinkMaps();
   _ocultarCmSuggestions();
 }
@@ -308,20 +322,6 @@ function abrirModalCliente(id = null) {
   if (btnEliminar) btnEliminar.style.display = id ? 'inline-flex' : 'none';
 
   document.getElementById('cliente-modal').classList.add('open');
-
-  // Si el cliente tiene alegra_id pero no tiene email guardado localmente,
-  // consultamos Alegra en segundo plano y lo pre-llenamos para que el usuario lo confirme al guardar.
-  if (c?.alegra_id && !c?.email && API_BASE) {
-    fetch(`${API_BASE}/alegra_contactos.php?id=${encodeURIComponent(c.alegra_id)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data?.email) {
-          const el = document.getElementById('cm-email');
-          if (el && !el.value) el.value = data.email;
-        }
-      })
-      .catch(() => {});
-  }
 }
 
 function cerrarModalCliente() {
