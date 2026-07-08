@@ -214,6 +214,11 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
 - **Solución**: nuevo endpoint `GET reportes.php?tarea_ids_enviados=1` → `SELECT DISTINCT tarea_id FROM reportes WHERE estado='enviado'` (muy liviano). `cargarVisitasActivas()` lo carga en paralelo y popula `reportesEnviados = new Set()`. En `renderVisitaBoton()`, si `(t.diasProg||1) <= 1` y `reportesEnviados.has(t.id)` → muestra `✅ Visita completada`. Tareas multi-día no se afectan.
 - **Archivos**: `backend/api/reportes.php`, `assets/js/reportes.js?v=20260708a`.
 
+### fix: validación "Por facturar" acepta reporte Ginno ya enviado
+- **Problema**: `saveTask()` verificaba `borradoresActivos[editingId]` para saber si existe reporte Ginno. Cuando el reporte ya está en estado `enviado` no está en `borradoresActivos` → validación fallaba aunque el reporte existía.
+- **Fix**: `tieneReporteGinno` ahora también acepta `reportesEnviados.has(editingId)` (el Set poblado en `cargarVisitasActivas`). La condición queda: borrador pendiente OR ya enviado.
+- **Archivo**: `assets/js/tareas.js?v=20260708a`.
+
 ### feat: cerrar modal tarjeta con Escape (PC)
 - Listener `keydown` en `tareas.js`: `Escape` cierra `#modal` o `#cartera-modal` según cuál esté abierto.
 - **Archivo**: `assets/js/tareas.js?v=20260708a`.

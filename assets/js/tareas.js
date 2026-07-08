@@ -1373,8 +1373,10 @@ async function saveTask() {
       const prevTask = editingId ? tasks.find(t => t.id === editingId) : null;
       const fRepFile = document.getElementById('f-reporte-file');
       const tieneArchivo = (fRepFile?.files?.[0]) || prevTask?.reporteArchivo;
-      const tieneReporteGinno = editingId && (typeof borradoresActivos !== 'undefined') &&
-        (borradoresActivos[editingId] || []).some(r => ['borrador','completado','enviado'].includes(r.estado));
+      const tieneReporteGinno = editingId && (
+        ((typeof borradoresActivos !== 'undefined') && (borradoresActivos[editingId] || []).length > 0) ||
+        ((typeof reportesEnviados  !== 'undefined') && reportesEnviados.has(editingId))
+      );
       if (!tieneArchivo && !tieneReporteGinno) {
         alert('Para marcar como Por facturar debes adjuntar un archivo o crear un reporte de visita desde Ginno');
         return;
