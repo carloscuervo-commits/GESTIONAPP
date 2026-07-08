@@ -1668,3 +1668,8 @@ async function _confirmarFacturaRapida(tareaId) {
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
 document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(document.getElementById('modal')?.classList.contains('open')){ closeModal(); e.preventDefault(); return; }
+  if(document.getElementById('cartera-modal')?.classList.contains('open')){ closeCarteraModal(); e.preventDefault(); }
+});
