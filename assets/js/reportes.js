@@ -22,15 +22,17 @@ const PLANTILLAS_REPORTE = {
 
 let visitasActivas = {};   // tareaId -> reporte en estado 'en_visita'
 let borradoresActivos = {}; // tareaId -> [array de reportes en estado 'borrador']
+let reportesEnviados = new Set(); // tarea_ids con al menos un reporte enviado (para bloquear "Iniciar visita" en tareas de un solo día)
 let reporteActual = null;  // reporte abierto en el formulario
 
 // ----------------- Carga inicial -----------------
 async function cargarVisitasActivas() {
   if (!API_BASE) return;
   try {
-    const [enVisita, borradores] = await Promise.all([
+    const [enVisita, borradores, enviados] = await Promise.all([
       fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json()),
       fetch(`${API_BASE}/reportes.php?estado=borrador`).then(r => r.json()),
+      fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()),
     ]);
     visitasActivas = {};
     (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
@@ -39,6 +41,7 @@ async function cargarVisitasActivas() {
       if (!borradoresActivos[r.tarea_id]) borradoresActivos[r.tarea_id] = [];
       borradoresActivos[r.tarea_id].push(r);
     });
+    reportesEnviados = new Set(Array.isArray(enviados) ? enviados : []);
     render();
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
@@ -169,6 +172,10 @@ function renderVisitaBoton(t) {
       }
     }
     return html;
+  }
+  // Tarea de un solo día cuyo reporte ya fue enviado → no ofrecer nueva visita
+  if ((t.diasProg || 1) <= 1 && reportesEnviados.has(t.id)) {
+    return `<div class="task-date" style="color:#16a34a;font-weight:600;font-size:12px">✅ Visita completada</div>`;
   }
   // Si es tarea de contrato, mostrar horas disponibles antes del botón
   if (t.tipoTarea === 'contrato') {

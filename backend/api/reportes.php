@@ -140,6 +140,13 @@ if ($method === 'GET') {
     jsonOut(array_map(fn($r) => reporteConFotos($pdo, $r), $stmt->fetchAll()));
   }
 
+  // Devuelve solo los tarea_id con al menos un reporte enviado.
+  // Liviano: sin JOIN ni fullreport — solo para saber si la visita fue completada.
+  if (!empty($_GET['tarea_ids_enviados'])) {
+    $stmt = $pdo->query("SELECT DISTINCT tarea_id FROM reportes WHERE estado = 'enviado'");
+    jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
+  }
+
   if (!empty($_GET['id'])) {
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
     $stmt->execute([$_GET['id']]);

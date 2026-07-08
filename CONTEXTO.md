@@ -207,6 +207,19 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
   ### COLLATE en pausas
   - `visita_pausas.participante_id COLLATE utf8mb4_general_ci = vp.id COLLATE utf8mb4_general_ci` en todas las comparaciones (ambas tablas son `unicode_ci`, servidor en `general_ci`).
 
+## Estado actual (última actualización: 2026-07-08)
+
+### fix: "Iniciar visita" no reaparece en tareas de un solo día tras enviar el reporte
+- **Problema**: después de check-in → checkout → enviar reporte, la tarjeta volvía a mostrar "🚀 Iniciar visita". Correcto para tareas multi-día, incorrecto para tareas de un día.
+- **Solución**: nuevo endpoint `GET reportes.php?tarea_ids_enviados=1` → `SELECT DISTINCT tarea_id FROM reportes WHERE estado='enviado'` (muy liviano). `cargarVisitasActivas()` lo carga en paralelo y popula `reportesEnviados = new Set()`. En `renderVisitaBoton()`, si `(t.diasProg||1) <= 1` y `reportesEnviados.has(t.id)` → muestra `✅ Visita completada`. Tareas multi-día no se afectan.
+- **Archivos**: `backend/api/reportes.php`, `assets/js/reportes.js?v=20260708a`.
+
+### feat: cerrar modal tarjeta con Escape (PC)
+- Listener `keydown` en `tareas.js`: `Escape` cierra `#modal` o `#cartera-modal` según cuál esté abierto.
+- **Archivo**: `assets/js/tareas.js?v=20260708a`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-03)
 
 - **feat: aviso por correo al cliente (2026-06-30)** — pendiente de deploy:
