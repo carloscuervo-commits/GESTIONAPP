@@ -13,6 +13,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
   jsonOut(['error' => 'Método no soportado'], 405);
 }
 
+// GET ?id=X — devuelve {id, name, address, email} de un contacto por su ID de Alegra
+if (!empty($_GET['id'])) {
+  $alegraId = intval($_GET['id']);
+  $url2 = "https://api.alegra.com/api/v1/contacts/{$alegraId}";
+  $ch2 = curl_init($url2);
+  curl_setopt_array($ch2, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => [
+      'Authorization: Basic ' . base64_encode(ALEGRA_EMAIL . ':' . ALEGRA_TOKEN),
+      'Accept: application/json',
+    ],
+    CURLOPT_TIMEOUT => 8,
+  ]);
+  $resp2   = curl_exec($ch2);
+  $status2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+  curl_close($ch2);
+  if ($resp2 === false || $status2 < 200 || $status2 >= 300) jsonOut([]);
+  $c2 = json_decode($resp2, true);
+  if (!is_array($c2) || empty($c2['id'])) jsonOut([]);
+  $addr2 = null;
+  if (!empty($c2['address'])) {
+    $addr2 = is_array($c2['address']) ? ($c2['address']['address'] ?? null) : (string)$c2['address'];
+  }
+  $email2 = null;
+  if (!empty($c2['email'])) {
+    if (is_array($c2['email'])) {
+      $email2 = $c2['email'][0]['address'] ?? ($c2['email'][0] ?? null);
+      if (is_array($email2)) $email2 = null;
+    } else {
+      $email2 = (string)$c2['email'];
+    }
+  }
+  jsonOut(['id' => $c2['id'], 'name' => $c2['name'] ?? '', 'address' => $addr2, 'email' => $email2]);
+}
+
 $q = trim($_GET['q'] ?? '');
 if ($q === '' || strlen($q) < 2) {
   jsonOut([]);

@@ -308,6 +308,20 @@ function abrirModalCliente(id = null) {
   if (btnEliminar) btnEliminar.style.display = id ? 'inline-flex' : 'none';
 
   document.getElementById('cliente-modal').classList.add('open');
+
+  // Si el cliente tiene alegra_id pero no tiene email guardado localmente,
+  // consultamos Alegra en segundo plano y lo pre-llenamos para que el usuario lo confirme al guardar.
+  if (c?.alegra_id && !c?.email && API_BASE) {
+    fetch(`${API_BASE}/alegra_contactos.php?id=${encodeURIComponent(c.alegra_id)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.email) {
+          const el = document.getElementById('cm-email');
+          if (el && !el.value) el.value = data.email;
+        }
+      })
+      .catch(() => {});
+  }
 }
 
 function cerrarModalCliente() {

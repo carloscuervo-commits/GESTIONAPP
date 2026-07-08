@@ -214,6 +214,12 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
 - **Solución**: nuevo endpoint `GET reportes.php?tarea_ids_enviados=1` → `SELECT DISTINCT tarea_id FROM reportes WHERE estado='enviado'` (muy liviano). `cargarVisitasActivas()` lo carga en paralelo y popula `reportesEnviados = new Set()`. En `renderVisitaBoton()`, si `(t.diasProg||1) <= 1` y `reportesEnviados.has(t.id)` → muestra `✅ Visita completada`. Tareas multi-día no se afectan.
 - **Archivos**: `backend/api/reportes.php`, `assets/js/reportes.js?v=20260708a`.
 
+### fix: correo del cliente se auto-carga desde Alegra al abrir modal
+- **Problema**: clientes creados antes de `db/018` tienen `email = NULL` en la BD local → el campo mostraba solo el placeholder "contacto@cliente.com".
+- **Fix**: `abrirModalCliente()` en `clientes.js` detecta `c.alegra_id && !c.email` y hace `GET alegra_contactos.php?id={alegraId}` en segundo plano. Si Alegra devuelve email, pre-llena el campo; el usuario lo confirma al guardar.
+- **Backend**: nuevo handler `GET ?id=X` en `alegra_contactos.php` → `GET /contacts/{id}` en Alegra → retorna `{id, name, address, email}` (misma lógica de extracción de email/address que el buscador por nombre).
+- **Archivos**: `backend/api/alegra_contactos.php`, `assets/js/clientes.js?v=20260708a`.
+
 ### fix: validación "Por facturar" acepta reporte Ginno ya enviado
 - **Problema**: `saveTask()` verificaba `borradoresActivos[editingId]` para saber si existe reporte Ginno. Cuando el reporte ya está en estado `enviado` no está en `borradoresActivos` → validación fallaba aunque el reporte existía.
 - **Fix**: `tieneReporteGinno` ahora también acepta `reportesEnviados.has(editingId)` (el Set poblado en `cargarVisitasActivas`). La condición queda: borrador pendiente OR ya enviado.
