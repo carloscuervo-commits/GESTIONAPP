@@ -1021,7 +1021,13 @@ async function generarPDFReporte(btn) {
         const minPausa = minutosEnPausas(p.pausas);
         const pausaLabel = minPausa > 0 ? ` · Pausa: ${minPausa}min` : '';
         const etiqueta = partes.length > 1 ? `Técnico ${i + 1}` : 'Técnico';
-        filas.push([etiqueta, `${nombre}   ${horaIn} → ${horaOut}   (${durNeta}${pausaLabel})`]);
+        filas.push([etiqueta, nombre]);
+        if (p.check_in) {
+          const horario = p.check_out
+            ? `${horaIn} – ${horaOut}  (${durNeta}${pausaLabel})`
+            : `${horaIn}  (En curso)`;
+          filas.push(['', horario]);
+        }
         // Detalle de pausas en el PDF
         (p.pausas || []).forEach(pz => {
           const pIn  = pz.pausa_inicio ? pz.pausa_inicio.substring(11,16) : '-';

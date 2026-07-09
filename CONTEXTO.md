@@ -4,6 +4,37 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-09 — configuración email/DNS)
+
+### Investigación: alerta de suplantación en Gmail (julio 2026)
+
+Gmail Workspace emitió una alerta MEDIUM de posible suplantación (spoofing) por correos enviados desde `ginno@grupoinnovate.com` con el nombre "Grupo Innovate" hacia `administrativo@innovate.com.co`. El problema es que el display name coincide con usuarios del dominio `innovate.com.co`, activando la detección de spoofing.
+
+**Estado actual de autenticación de email para `grupoinnovate.com`:**
+- **DKIM**: ✅ Válido y configurado correctamente en Dongee.
+- **SPF**: ❌ No configurado — cPanel detecta IP privada `192.168.0.100` (detrás de NAT, inutilizable en SPF público). El servidor usa HELO `zion.dongee.com`.
+- **PTR/Reverse DNS**: ⚠️ No aplica para IP privada — problema de configuración interna de Dongee (no accionable por el usuario).
+
+**DNS externo en Dongee — cPanel no puede modificar registros directamente:**
+- Nameservers: `ns1.dongee.com`, `ns2.dongee.com`, `ns3.dongee.com`
+- El botón "Repair" en cPanel → Email Deliverability está **inactivo** por este motivo.
+
+**Acción pendiente en Dongee (panel DNS de `grupoinnovate.com`):**
+Agregar registro TXT:
+```
+Nombre: @
+Tipo:   TXT
+Valor:  v=spf1 a:zion.dongee.com ~all
+```
+Si ya existe un registro SPF, agregar `a:zion.dongee.com` antes del `~all` existente (no crear dos registros SPF).
+
+**Acción adicional recomendada (en servidor — cPanel File Manager):**
+En `backend/config/config_correo.php`, cambiar `CORREO_FROM_NOMBRE` de `'Grupo Innovate'` a `'Ginno · Innovate'` para que el display name no coincida con nombres de usuarios del dominio `innovate.com.co`.
+
+**No se hicieron cambios de código en esta sesión.**
+
+---
+
 ## Estado actual (última actualización: 2026-07-04 — mejoras UI)
 
 ### feat: Vista Clientes — tabla + buscador + filtros + paginación
