@@ -140,10 +140,17 @@ if ($method === 'GET') {
     jsonOut(array_map(fn($r) => reporteConFotos($pdo, $r), $stmt->fetchAll()));
   }
 
-  // Devuelve solo los tarea_id con al menos un reporte enviado.
-  // Liviano: sin JOIN ni fullreport — solo para saber si la visita fue completada.
+  // Devuelve tarea_id con reporte enviado cuyo check_in fue HOY (hora Colombia).
+  // Evita suprimir la alerta de tardío en visitas futuras de la misma tarea.
   if (!empty($_GET['tarea_ids_enviados'])) {
-    $stmt = $pdo->query("SELECT DISTINCT tarea_id FROM reportes WHERE estado = 'enviado'");
+    $stmt = $pdo->query("
+      SELECT DISTINCT r.tarea_id
+      FROM reportes r
+      JOIN visita_participantes vp
+        ON vp.reporte_id = r.id COLLATE utf8mb4_general_ci
+      WHERE r.estado = 'enviado'
+        AND DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')) = CURDATE()
+    ");
     jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
   }
 
@@ -179,8 +186,8 @@ if ($method === 'GET') {
     $stmtCons = $pdo->prepare("
       SELECT COALESCE(SUM(vp.horas_contrato), 0)
       FROM visita_participantes vp
-      JOIN reportes r2 ON r2.id = vp.reporte_id
-      JOIN tareas t2   ON t2.id = r2.tarea_id COLLATE utf8mb4_general_ci
+      JOIN reportes r2 ON r2.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
+      JOIN tareas t2   ON t2.id COLLATE utf8mb4_general_ci = r2.tarea_id COLLATE utf8mb4_general_ci
       WHERE t2.cliente   COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
         AND t2.tipo_tarea = 'contrato'
         AND t2.area      = ?
