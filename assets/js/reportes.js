@@ -945,14 +945,34 @@ function rehacerFirma(seccionId) {
 }
 
 // ----------------- Generación de PDF (jsPDF, sin dependencias en el servidor) -----------------
-async function cargarImagenDataURL(url) {
+async function cargarImagenDataURL(url, maxPx = 0) {
   const res = await fetch(url);
   const blob = await res.blob();
+  if (!maxPx || !blob.type.startsWith('image/')) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+    const objUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      let w = img.width, h = img.height;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.78));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('img load failed')); };
+    img.src = objUrl;
   });
 }
 
@@ -1081,7 +1101,7 @@ async function generarPDFReporte(btn) {
         for (const f of fotos) {
           asegurarEspacio(colH + 5);
           try {
-            const dataUrl = await cargarImagenDataURL(fotoUrl(f.archivo));
+            const dataUrl = await cargarImagenDataURL(fotoUrl(f.archivo), 1000);
             const x = marginX + col * (colW + gap);
             doc.addImage(dataUrl, x, y, colW, colH);
           } catch (e) { /* se omite si la foto no carga */ }
