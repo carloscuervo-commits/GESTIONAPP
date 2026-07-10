@@ -1144,14 +1144,15 @@ async function generarPDFReporte(btn) {
     }
 
     // Nombre de archivo: Innovate-YYYYMMDD-PrimerasPalabrasCliente.pdf
-    const _fechaPDF = r.check_in
-      ? r.check_in.substring(0, 10).replace(/-/g, '')   // "YYYYMMDD"
-      : new Date().toISOString().substring(0, 10).replace(/-/g, '');
-    const _clienteSlug = (t.cliente || '')
-      .trim().split(/\s+/).slice(0, 4)
-      .map(w => w.replace(/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ]/g, ''))
-      .filter(Boolean).join('-') || 'SinCliente';
-    const nombreArchivo = `Innovate-${_fechaPDF}-${_clienteSlug}.pdf`;
+    const _fechaSrc = r.check_in ? r.check_in.substring(0, 10) : new Date().toISOString().substring(0, 10);
+    const [_yy, _mm, _dd] = _fechaSrc.split('-');
+    const _fechaPDF = `${_dd}${_mm}${_yy.slice(2)}`; // "DDMMAA"
+    const _clienteInic = (t.cliente || '')
+      .trim().split(/\s+/).slice(0, 5)
+      .map(w => w.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/g, '')[0] || '')
+      .filter(Boolean).join('').toUpperCase() || 'XX';
+    const _tareaShort = (r.tarea_id || t.id || '').slice(0, 4).toUpperCase();
+    const nombreArchivo = `${_clienteInic}-${_fechaPDF}-${_tareaShort}.pdf`;
 
     const blobPdf = doc.output('blob');
     const fd = new FormData();
