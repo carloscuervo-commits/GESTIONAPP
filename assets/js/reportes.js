@@ -1008,9 +1008,15 @@ async function generarPDFReporte(btn) {
     const tecnicoOut = getMember(r.tecnico_checkout_id)?.name || '-';
 
     const partes = r.participantes || [];
+    const fechaVisita = (() => {
+      const src = r.check_in || (partes[0] && partes[0].check_in) || null;
+      if (!src) return t.fechaProg || '-';
+      return new Date(src.replace(' ', 'T')).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Bogota' });
+    })();
     const filas = [
       ['Cliente', t.cliente || '-'],
       ['Tarea',   t.titulo  || '-'],
+      ['Fecha',   fechaVisita],
     ];
     if (partes.length > 0) {
       partes.forEach((p, i) => {
