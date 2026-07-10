@@ -968,7 +968,10 @@ async function cargarImagenDataURL(url, maxPx = 0) {
       }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const ctx2d = canvas.getContext('2d');
+      ctx2d.fillStyle = '#ffffff';
+      ctx2d.fillRect(0, 0, w, h);
+      ctx2d.drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL('image/jpeg', 0.78));
     };
     img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('img load failed')); };
@@ -1010,7 +1013,7 @@ async function generarPDFReporte(btn) {
     let y = 18;
 
     try {
-      const logoData = await cargarImagenDataURL('assets/img/logo-innovate.png');
+      const logoData = await cargarImagenDataURL('assets/img/logo-innovate.png', 800);
       doc.addImage(logoData, 'PNG', pageW - 15 - 42, 12, 42, 42 * (250 / 775));
     } catch (e) { /* continúa sin logo si falla */ }
 
@@ -1121,7 +1124,7 @@ async function generarPDFReporte(btn) {
         if (firmaFoto) {
           asegurarEspacio(35);
           try {
-            const dataUrl = await cargarImagenDataURL(fotoUrl(firmaFoto.archivo));
+            const dataUrl = await cargarImagenDataURL(fotoUrl(firmaFoto.archivo), 400);
             doc.addImage(dataUrl, marginX, y, 60, 30);
             y += 32;
           } catch (e) { y += 4; }
