@@ -49,8 +49,9 @@ Los siguientes archivos fueron modificados y commiteados pero aún no están en 
 | Archivo | Cambio |
 |---|---|
 | `backend/api/reportes.php` | fix COLLATE en JOIN horasContrato + tarea_ids_enviados scoped a hoy |
-| `assets/js/reportes.js?v=20260709e` | fecha en PDF, logo/firma a JPEG, nombre archivo nuevo formato |
-| `tareas-equipo.html` | bump versión reportes.js a `?v=20260709e` |
+| `assets/js/reportes.js?v=20260711a` | fecha en PDF, logo/firma a JPEG, nombre archivo nuevo formato; closeModal() tras check-in |
+| `assets/js/tareas.js?v=20260711a` | popup-aprobar-area auto-guarda y cierra modal al seleccionar IT/IF |
+| `tareas-equipo.html` | bump versiones tareas.js y reportes.js a `?v=20260711a` |
 | `backend/cron/recordatorio_visita_email.php` | agrega log de ejecución a `recordatorio_log.txt` |
 | `backend/api/test_recordatorio.php` | endpoint de diagnóstico (puede borrarse de producción cuando ya no se necesite) |
 

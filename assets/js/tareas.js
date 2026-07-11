@@ -1284,8 +1284,11 @@ function onEstadoChange(estado) {
   const wasShowing = grp && grp.style.display !== 'none';
   toggleAprobarAreaGroup(area, estado);
   if (area==='comercial' && estado==='aprobada' && !wasShowing) {
-    mostrarPopupAprobarArea().then(destino => {
-      if (destino) document.getElementById('f-aprobar-area').value = destino;
+    mostrarPopupAprobarArea().then(async destino => {
+      if (destino) {
+        document.getElementById('f-aprobar-area').value = destino;
+        await saveTask(); // guarda y cierra el modal automáticamente
+      }
     });
   }
 }

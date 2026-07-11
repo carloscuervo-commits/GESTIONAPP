@@ -418,6 +418,7 @@ async function iniciarVisita(tareaId, event) {
         _offline: true,
       };
       render();
+      if (typeof closeModal === 'function') closeModal();
       return;
     }
 
@@ -430,6 +431,7 @@ async function iniciarVisita(tareaId, event) {
       if (data.error) { alert(data.error); return; }
       visitasActivas[tareaId] = data;
       render();
+      if (typeof closeModal === 'function') closeModal();
     } catch (e) { console.error(e); alert('No se pudo iniciar la visita. Revisa tu conexión.'); }
   };
 
@@ -507,6 +509,7 @@ async function confirmarAdminCheckin() {
     if (data.error) { alert(data.error); return; }
     visitasActivas[tareaId] = data;
     render();
+    if (typeof closeModal === 'function') closeModal();
   } catch (e) { console.error(e); alert('No se pudo registrar el check-in. Revisa tu conexión.'); }
 }
 

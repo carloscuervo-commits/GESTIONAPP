@@ -4,6 +4,23 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-11 — fix UX popup cierra modal)
+
+### fix: Popup no cierra la tarjeta al completar acción
+
+Cuando se interactuaba con un sub-popup (check-in, selector de técnico, popup-aprobar-area) desde dentro del modal de una tarjeta, el modal quedaba abierto. Dar "Guardar" después podía sobreescribir la acción del popup.
+
+**Cambios en `assets/js/tareas.js?v=20260711a`:**
+- `updateFormForArea()`: cuando `popup-aprobar-area` resuelve con IT o IF, ahora llama automáticamente `await saveTask()` (que incluye el cierre del modal). Ya no se requiere que el usuario pulse "Guardar" manualmente.
+
+**Cambios en `assets/js/reportes.js?v=20260711a`:**
+- `confirmarAdminCheckin()`: tras el POST exitoso, llama `closeModal()`.
+- `ejecutarCheckin()`: tras el POST exitoso (online) o tras guardar en IndexedDB (offline), llama `closeModal()`.
+
+`tareas-equipo.html` bumpeado a `?v=20260711a` para ambos archivos.
+
+---
+
 ## Estado actual (última actualización: 2026-07-11 — PDF, correo cliente, diagnóstico cron)
 
 ### fix: Error 500 en endpoint `horasContrato`
@@ -850,23 +867,4 @@ Cuando el usuario use estos términos, interpretarlos con esta definición exact
 - Nombres de columnas SQL en snake_case; nombres de campos en el JSON del frontend en camelCase (el mapeo vive en `taskToApi`/`apiToTask`).
 
 - **SQL**:
-- Migraciones numeradas secuencialmente en `db/NNN_descripcion.sql` (ej. `001_init.sql`, `002_seguimiento.sql`). Cada migración es incremental (usa `ALTER TABLE ... ADD COLUMN`), nunca se reescribe `001_init.sql`.
-- Tablas en `InnoDB`, `utf8mb4`, claves foráneas explícitas con `ON DELETE CASCADE`/`SET NULL` donde aplica.
-
-- **JavaScript (frontend)**:
-- Todo en `<script>` dentro de `tareas-equipo.html`, sin módulos.
-- Constantes de configuración en mayúsculas al inicio del script (`API_BASE`, `STORAGE_KEY`, `TEAM`, `AREAS`, `AREA_FLOWS`).
-- Funciones `async` para cualquier llamada a `fetch`; errores se capturan con `try/catch` y se notifican con `alert(...)`.
-- `esc()` para escapar HTML al insertar texto dinámico en el DOM (evitar XSS básico).
-- Colores de área/usuario definidos como hex en `AREAS`/`TEAM` y reutilizados para badges (`color + '20'` para fondo semi-transparente).
-
-- **Git / deploy**:
-- Commits cortos y directos en español ("enviar reporte por wp", "archivadas colapsadas", "fix check-in multi-día"). Claude entrega el mensaje de commit listo al final de cada cambio.
-- Para deploys manuales desde GitHub Desktop, usar el summary entregado por Claude directamente.
-- Flujo de deploy: commit/push desde GitHub Desktop → cPanel "Git Version Control" → **Update from Remote** (verificar que aparezca el badge "New" con el commit correcto) → **Deploy HEAD Commit**.
-- cPanel cachea respuestas; al probar endpoints tras un deploy, usar un parámetro de cache-busting (`?cb=<numero único>`).
-- **⚠️ Rollback**: si se necesita hacer rollback al repo del servidor, usar cPanel Terminal → `cd /home/innovate/repos/gestionapp && git reset --hard <sha>` → Deploy HEAD Commit. El repo GitHub no se toca (sigue en el commit más reciente). Para volver a avanzar, crear un nuevo commit normal y hacer el flujo estándar.
-
-## Notas de seguridad pendientes
-
-- `config_alegra.php` (ahora en `backend/config/`) contiene credenciales reales de Alegra (`ALEGRA_EMAIL`, `ALEGRA_TOKEN`). Ya se agregó a `.gitignore` y se quitó del `.cpanel.yml`, igual que `config.php`. **Pendiente**: (1) hacer el deploy de la reorganización de carpetas, creando antes manualmente `backend/config/config.php` y `backend/config/config_alegra.php` en el servidor con las credenciales reales; (2) idealmente rotar el token de Alegra, ya que estuvo expuesto en el repositorio público antes de ser agregado a `.gitignore`. Acción corregida en código; queda pendiente la rotación manual del token.
+- Migraciones numeradas secuencialmente en `db/NNN_descripcion.sql` (ej. `
