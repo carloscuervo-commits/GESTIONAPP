@@ -26,8 +26,11 @@ error_reporting(0);
 define('GINNO_URL', 'https://grupoinnovate.com/ginno');
 
 try {
+  $logFile = __DIR__ . '/recordatorio_log.txt';
+  file_put_contents($logFile, date('Y-m-d H:i:s') . " CRON INICIADO\n", FILE_APPEND);
   $pdo    = getDB();
   $manana = date('Y-m-d', strtotime('+1 day'));
+  file_put_contents($logFile, date('Y-m-d H:i:s') . " Buscando tareas para: $manana\n", FILE_APPEND);
 
   // 1. Obtener tareas que califican
   $stmt = $pdo->prepare("
@@ -196,15 +199,16 @@ try {
 
     // 4. Enviar
     $asunto = "📅 Visita programada para mañana {$fechaFormateada} — Grupo Innovate";
-    enviarCorreoConAdjunto(
-      [$tarea['cliente_email']],
-      $asunto,
-      $html
-    );
+    $logFile = __DIR__ . '/recordatorio_log.txt';
+    $ok = enviarCorreoConAdjunto([$tarea['cliente_email']], $asunto, $html);
+    $msg = date('Y-m-d H:i:s') . ($ok ? ' ENVIADO' : ' FALLÓ ENVÍO') . ' → ' . $tarea['cliente_email'] . ' | ' . $tarea['titulo'] . "\n";
+    file_put_contents($logFile, $msg, FILE_APPEND);
   }
 
 } catch (Throwable $e) {
-  // Silencioso en producción
+  $logFile = __DIR__ . '/recordatorio_log.txt';
+  $msg = date('Y-m-d H:i:s') . ' ERROR: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine() . "\n";
+  file_put_contents($logFile, $msg, FILE_APPEND);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
