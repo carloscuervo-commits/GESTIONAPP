@@ -15,7 +15,10 @@ $pdo    = getDB();
 // Fecha a consultar: parámetro ?fecha= o mañana por defecto
 $fecha  = $_GET['fecha'] ?? date('Y-m-d', strtotime('+1 day'));
 echo "=== Diagnóstico recordatorio_visita_email ===\n";
-echo "Fecha buscada: $fecha\n\n";
+echo "Fecha buscada: $fecha\n";
+echo "Fecha del servidor (PHP date): " . date('Y-m-d H:i:s') . "\n";
+echo "Mañana según servidor: " . date('Y-m-d', strtotime('+1 day')) . "\n";
+echo "Timezone PHP: " . date_default_timezone_get() . "\n\n";
 
 // 1. Tareas que cumplen condiciones
 $stmt = $pdo->prepare("
