@@ -4,6 +4,41 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-11 — PDF, correo cliente, diagnóstico cron)
+
+### fix: Error 500 en endpoint `horasContrato`
+
+`backend/api/reportes.php` — JOIN entre `visita_participantes` (unicode_ci) y `reportes` (general_ci) sin COLLATE causaba "Illegal mix of collations". Corregido con `COLLATE utf8mb4_general_ci` en ambos lados de los JOINs.
+
+### fix: PDF del reporte
+
+Tres mejoras en `assets/js/reportes.js`:
+- **Fecha de visita**: agregada como fila en el encabezado del PDF (tomada de `r.check_in`, formato "9 de julio de 2026").
+- **Tamaño**: logo y firma se convertían como bitmap PNG → jsPDF los almacenaba sin comprimir (~567KB solo el logo). Ahora se convierten a JPEG vía canvas antes de insertar. PDF bajó de ~1.8MB a ~350KB.
+- **Nombre de archivo**: formato anterior `Innovate-YYYYMMDD-CLIENTE-LARGO.pdf`. Nuevo formato: `INICIALES-DDMMAA-SHORTID.pdf` (ej: `CCVH-090726-MRCJ.pdf`). Iniciales = primera letra de cada palabra del cliente (máx 5). ShortID = primeros 4 chars del ID de tarea en mayúsculas (igual al badge `#MRCJ` en la tarjeta).
+
+### diagnóstico: Correo recordatorio a cliente
+
+El cron `recordatorio_visita_email.php` (6pm diario) ya estaba configurado en cPanel. El email no llegaba por mismatch entre nombre del cliente en tarea vs tabla `clientes`. Verificado con endpoint de diagnóstico `backend/api/test_recordatorio.php?token=ginno_test&fecha=YYYY-MM-DD`. Cron ahora redirige output a `backend/cron/recordatorio_log.txt` (quitar `2>&1 > /dev/null`, reemplazar por `>> log 2>&1`).
+
+### pendiente: Reestructura de estados IT/IF
+
+Análisis completo realizado pero **no implementado** — en standby. Ver detalle en sesión 2026-07-11.
+
+**Nuevos estados propuestos:** `pendiente` → `programada` → `en-ejecucion` → `por-facturar` → `facturado`
+
+**Migración DB (ejecutar una sola vez):**
+```sql
+UPDATE tareas SET estado='pendiente'    WHERE estado='solicitud'  AND fechaProg IS NULL      AND area IN ('it','if');
+UPDATE tareas SET estado='programada'   WHERE estado='solicitud'  AND fechaProg IS NOT NULL   AND area IN ('it','if');
+UPDATE tareas SET estado='en-ejecucion' WHERE estado='programado' AND area IN ('it','if');
+UPDATE tareas SET estado='por-facturar' WHERE estado='realizado'  AND area IN ('it','if');
+```
+
+**Archivos a modificar:** `core.js`, `tareas.js` (15+ refs), `alarma.js`, `reportes.js`, `backend/api/tareas.php`, `backend/api/reportes.php`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-09 — configuración email/DNS)
 
 ### Investigación: alerta de suplantación en Gmail (julio 2026)

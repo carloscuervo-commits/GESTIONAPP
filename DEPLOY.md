@@ -42,6 +42,25 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-07-11)
+
+Los siguientes archivos fueron modificados y commiteados pero aún no están en producción:
+
+| Archivo | Cambio |
+|---|---|
+| `backend/api/reportes.php` | fix COLLATE en JOIN horasContrato + tarea_ids_enviados scoped a hoy |
+| `assets/js/reportes.js?v=20260709e` | fecha en PDF, logo/firma a JPEG, nombre archivo nuevo formato |
+| `tareas-equipo.html` | bump versión reportes.js a `?v=20260709e` |
+| `backend/cron/recordatorio_visita_email.php` | agrega log de ejecución a `recordatorio_log.txt` |
+| `backend/api/test_recordatorio.php` | endpoint de diagnóstico (puede borrarse de producción cuando ya no se necesite) |
+
+**Cron en cPanel — cambiar comando a:**
+```
+0 18 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/recordatorio_visita_email.php >> /home/innovate/public_html/ginno/backend/cron/recordatorio_log.txt 2>&1
+```
+
+---
+
 ## Archivos nuevos pendientes de agregar a `.cpanel.yml`
 
 Los siguientes archivos creados el `2026-06-30` deben estar listados en `.cpanel.yml`:
