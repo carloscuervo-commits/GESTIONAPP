@@ -625,8 +625,9 @@ function abrirFormularioReporte(reporte) {
 }
 
 function cerrarFormularioReporte() {
-  // Si hay un checkout pendiente (reporte aún no enviado), advertir al técnico
-  if (_pendingCheckout) {
+  // Advertir si el reporte no ha sido enviado al cliente (y no es edición administrativa)
+  const _sinEnviar = reporteActual && !_reporteSoloEdicion && reporteActual.estado !== 'enviado';
+  if (_sinEnviar) {
     document.getElementById('popup-sin-reporte').classList.add('open');
     return; // NO cerrar el formulario todavía
   }
@@ -682,7 +683,13 @@ async function _completarCheckout() {
 // Llamado cuando el técnico confirma que no completará el reporte.
 async function confirmarSinReporte() {
   document.getElementById('popup-sin-reporte').classList.remove('open');
-  if (!_pendingCheckout) return;
+  if (!_pendingCheckout) {
+    // Checkout ya registrado (borrador reabierto): solo cerrar el formulario sin marcar sin_reporte
+    document.getElementById('reporte-modal').classList.remove('open');
+    reporteActual = null;
+    cargarVisitasActivas();
+    return;
+  }
   const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
   _pendingCheckout = null;
   try {
