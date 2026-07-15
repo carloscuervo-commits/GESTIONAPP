@@ -107,18 +107,14 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
   // skipFetch=true en la llamada inicial (evita fetch duplicado al arrancar).
   if (!skipFetch && typeof API_BASE !== 'undefined' && API_BASE) {
     try {
-      const [enVisita, borradores] = await Promise.all([
-        fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json()),
-        fetch(`${API_BASE}/reportes.php?estado=borrador`).then(r => r.json()),
+      const [activosArr, sinReporteArr] = await Promise.all([
+        fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()),
+        fetch(`${API_BASE}/reportes.php?estado=sin_reporte`).then(r => r.json()),
       ]);
       visitasActivas = {};
-      (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
-      borradoresActivos = {};
-      (Array.isArray(borradores) ? borradores : []).forEach(r => {
-        if (!borradoresActivos[r.tarea_id]) borradoresActivos[r.tarea_id] = [];
-        borradoresActivos[r.tarea_id].push(r);
-      });
-      _reconstruirParticipantesHoy(enVisita, borradores, hoy);
+      (Array.isArray(activosArr) ? activosArr : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
+      // borradoresActivos es ahora local — no sobrescribir desde servidor
+      _reconstruirParticipantesHoy(activosArr, sinReporteArr, hoy);
     } catch(e) { /* silencioso: usa estado anterior */ }
   } else if (skipFetch) {
     // Primera llamada: construir participantesHoy con los datos ya cargados
