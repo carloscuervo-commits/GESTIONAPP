@@ -896,6 +896,10 @@ function updateFormForArea() {
   // Avisar cliente: solo para IT/IF
   const elAvisar = document.getElementById('grp-avisar-cliente');
   if (elAvisar) elAvisar.style.display = itIf ? '' : 'none';
+  // Reporte interno: solo para admins en IT/IF
+  const elRepInterno = document.getElementById('grp-reporte-interno');
+  const esAdmin = currentUser && currentUser.perfil === 'admin';
+  if (elRepInterno) elRepInterno.style.display = (itIf && esAdmin) ? '' : 'none';
   // Tipo de tarea: inicialmente oculto — se muestra solo si el cliente tiene contrato
   const elTipoTarea = document.getElementById('grp-tipo-tarea');
   if (elTipoTarea) elTipoTarea.style.display = 'none';
@@ -1102,6 +1106,8 @@ function openModal(id, preArea, preEstado) {
   if (elChk) elChk.checked = !!(t?.incluyeProg);
   const chkAvisar = document.getElementById('f-avisar-cliente');
   if (chkAvisar) chkAvisar.checked = t?.avisarCliente !== false;
+  const chkInterno = document.getElementById('f-reporte-interno');
+  if (chkInterno) chkInterno.checked = !!(t?.reporteInterno);
   document.getElementById('f-solicitud-comercial').value=t?.solicitudComercial||'';
   toggleFacturaField(defaultEstado);
   const faInfo = document.getElementById('facturas-alegra-info');
@@ -1447,7 +1453,8 @@ async function saveTask() {
   const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
   const incluyeProg = area === 'admin' ? !!(document.getElementById('f-incluye-prog')?.checked) : false;
   const tipoTarea = ['it','if'].includes(area) ? (document.getElementById('f-tipo-tarea')?.value || 'evento') : 'evento';
-  const avisarCliente = ['it','if'].includes(area) ? !!(document.getElementById('f-avisar-cliente')?.checked) : false;
+  const avisarCliente   = ['it','if'].includes(area) ? !!(document.getElementById('f-avisar-cliente')?.checked)   : false;
+  const reporteInterno  = ['it','if'].includes(area) ? !!(document.getElementById('f-reporte-interno')?.checked)  : false;
 
   // Si técnico crea una nueva tarea, asignarse automáticamente
   let teamFinal = [...selectedTeam];
@@ -1476,7 +1483,7 @@ async function saveTask() {
     enviadaAt: estado==='enviada' ? (prev?.enviadaAt || now) : prev?.enviadaAt || null,
     programadoAt: estado==='programado' ? (prev?.programadoAt || now) : prev?.programadoAt || null,
     seguimientoFecha, seguimientoHistorial,
-    laborAdmin, solicitudComercial, incluyeProg, tipoTarea, avisarCliente,
+    laborAdmin, solicitudComercial, incluyeProg, tipoTarea, avisarCliente, reporteInterno,
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
     cotizacionDocx: prev?.cotizacionDocx || null,

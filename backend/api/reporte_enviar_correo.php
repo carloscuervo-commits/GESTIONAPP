@@ -15,7 +15,7 @@ if ($method === 'GET') {
   $reporteId = $_GET['reporteId'] ?? null;
   if (!$reporteId) jsonOut(['error' => 'reporteId requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT t.cliente FROM reportes r JOIN tareas t ON t.id = r.tarea_id WHERE r.id = ?");
+  $stmt = $pdo->prepare("SELECT t.cliente, t.reporte_interno FROM reportes r JOIN tareas t ON t.id = r.tarea_id COLLATE utf8mb4_general_ci WHERE r.id = ?");
   $stmt->execute([$reporteId]);
   $row = $stmt->fetch();
   if (!$row) jsonOut(['error' => 'Reporte no encontrado'], 404);
@@ -34,7 +34,7 @@ if ($method === 'POST') {
   $reporteId = $d['reporteId'] ?? null;
   if (!$reporteId) jsonOut(['error' => 'reporteId requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT r.*, t.titulo, t.cliente FROM reportes r JOIN tareas t ON t.id = r.tarea_id WHERE r.id = ?");
+  $stmt = $pdo->prepare("SELECT r.*, t.titulo, t.cliente, t.reporte_interno FROM reportes r JOIN tareas t ON t.id = r.tarea_id COLLATE utf8mb4_general_ci WHERE r.id = ?");
   $stmt->execute([$reporteId]);
   $rep = $stmt->fetch();
   if (!$rep) jsonOut(['error' => 'Reporte no encontrado'], 404);
@@ -54,8 +54,13 @@ if ($method === 'POST') {
 
   $correos = $d['correos'] ?? [];
   if (!is_array($correos)) $correos = [];
-  $correos[] = CORREO_ADMIN_FIJO;
-  $correos = array_values(array_unique(array_filter(array_map('trim', $correos))));
+  if (!empty($rep['reporte_interno'])) {
+    // Reporte solo interno: ignorar correo del cliente, enviar solo al admin
+    $correos = [CORREO_ADMIN_FIJO];
+  } else {
+    $correos[] = CORREO_ADMIN_FIJO;
+    $correos = array_values(array_unique(array_filter(array_map('trim', $correos))));
+  }
 
   $rutaPdf = __DIR__ . '/../uploads/reporte_pdf/' . $rep['pdf_archivo'];
 
@@ -70,7 +75,10 @@ if ($method === 'POST') {
   $tituloH  = htmlspecialchars($rep['titulo'] ?: 'servicio técnico');
   $clienteH = htmlspecialchars($rep['cliente'] ?: '');
 
-  $asunto = "🧾 Reporte de visita técnica — " . ($rep['cliente'] ?: 'Cliente');
+  $esInterno = !empty($rep['reporte_interno']);
+  $asunto = $esInterno
+    ? "🔔 [Reporte interno] Visita técnica — " . ($rep['titulo'] ?: 'Tarea')
+    : "🧾 Reporte de visita técnica — " . ($rep['cliente'] ?: 'Cliente');
   $cuerpo = "<div style='font-family:Arial,sans-serif;max-width:600px;color:#1e293b'>"
     . "<p>Buen día. Adjunto el reporte de visita técnica para <b>{$tituloH}</b>"
     . ($clienteH ? " – {$clienteH}" : '')
@@ -86,7 +94,7 @@ if ($method === 'POST') {
   $ok = enviarCorreoConAdjunto($correos, $asunto, $cuerpo, $rutaPdf, $rep['pdf_archivo']);
   if (!$ok) jsonOut(['error' => 'No se pudo enviar el correo (revisa la configuración de correo del servidor)'], 500);
 
-  $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW(), sin_reporte=0, sin_reporte_at=NULL WHERE id=?")
+  $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW() WHERE id=?")
     ->execute([implode(', ', $correos), $reporteId]);
 
   jsonOut(['ok' => true, 'enviado_a' => $correos]);
@@ -122,7 +130,4 @@ function _buscarEmailClienteAlegra(string $nombreCliente): ?string {
   if (!is_array($data)) return null;
 
   foreach ($data as $c) {
-    if (!empty($c['email'])) return $c['email'];
-  }
-  return null;
-}
+    if (!empty($c['email'])) retur

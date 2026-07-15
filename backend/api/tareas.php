@@ -170,7 +170,7 @@ if ($method === 'PUT') {
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, modalidad=?, factura=?, motivo_no_factura=?,
     realizado_en=?, enviada_en=?, programado_en=?, seguimiento_fecha=?, seguimiento_historial=?,
     solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?,
-    avisar_cliente=?, alerta_retraso_enviada=?
+    avisar_cliente=?, reporte_interno=?, alerta_retraso_enviada=?
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado,
@@ -185,6 +185,7 @@ if ($method === 'PUT') {
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx,
     empty($d['incluyeProg']) ? 0 : 1,
     isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : (int)($prev['avisar_cliente'] ?? 1),
+    isset($d['reporteInterno']) ? (int)$d['reporteInterno'] : (int)($prev['reporte_interno'] ?? 0),
     $alertaRetraso, $id,
   ]);
 

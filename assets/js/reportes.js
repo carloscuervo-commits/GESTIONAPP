@@ -20,7 +20,7 @@ const PLANTILLAS_REPORTE = {
   },
 };
 
-let visitasActivas = {};   // tareaId -> reporte en estado 'en_visita'
+let visitasActivas = {};   // tareaId -> reporte en estado 'activo'
 let borradoresActivos = {}; // tareaId -> [array de reportes en estado 'borrador']
 let reportesEnviados = new Set(); // tarea_ids con al menos un reporte enviado (para bloquear "Iniciar visita" en tareas de un solo día)
 let reporteActual = null;  // reporte abierto en el formulario
@@ -29,18 +29,13 @@ let reporteActual = null;  // reporte abierto en el formulario
 async function cargarVisitasActivas() {
   if (!API_BASE) return;
   try {
-    const [enVisita, borradores, enviados] = await Promise.all([
-      fetch(`${API_BASE}/reportes.php?estado=en_visita`).then(r => r.json()),
-      fetch(`${API_BASE}/reportes.php?estado=borrador`).then(r => r.json()),
+    const [activos, enviados] = await Promise.all([
+      fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()),
       fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()),
     ]);
     visitasActivas = {};
-    (Array.isArray(enVisita) ? enVisita : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
-    borradoresActivos = {};
-    (Array.isArray(borradores) ? borradores : []).forEach(r => {
-      if (!borradoresActivos[r.tarea_id]) borradoresActivos[r.tarea_id] = [];
-      borradoresActivos[r.tarea_id].push(r);
-    });
+    (Array.isArray(activos) ? activos : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
+    borradoresActivos = {}; // solo se usa localmente durante _pendingCheckout
     reportesEnviados = new Set(Array.isArray(enviados) ? enviados : []);
     render();
   } catch (e) { console.error('Error cargando visitas activas', e); }
@@ -407,7 +402,7 @@ async function iniciarVisita(tareaId, event) {
       visitasActivas[tareaId] = {
         id: reporteId,
         tarea_id: tareaId,
-        estado: 'en_visita',
+        estado: 'activo',
         participantes: [{
           id: participanteId,
           tecnico_id: tecnicoId,
@@ -626,7 +621,7 @@ function abrirFormularioReporte(reporte) {
 
 function cerrarFormularioReporte() {
   // Advertir si el reporte no ha sido enviado al cliente (y no es edición administrativa)
-  const _sinEnviar = reporteActual && !_reporteSoloEdicion && reporteActual.estado !== 'enviado';
+  const _sinEnviar = reporteActual && !_reporteSoloEdicion && !['enviado','sin_reporte'].includes(reporteActual.estado);
   if (_sinEnviar) {
     document.getElementById('popup-sin-reporte').classList.add('open');
     return; // NO cerrar el formulario todavía
@@ -1310,13 +1305,13 @@ async function renderHistorialVisitasModal(tareaId) {
   try {
     const res = await fetch(`${API_BASE}/reportes.php?tareaId=${tareaId}`);
     const reportes = await res.json();
-    const visitas = reportes.filter(r => r.estado !== 'en_visita' || (r.participantes||[]).length > 0);
+    const visitas = reportes.filter(r => r.estado !== 'activo' || (r.participantes||[]).length > 0);
     if (!visitas.length) { div.innerHTML = ''; div.style.display = 'none'; return; }
 
     // Inyectar botones "Ver reporte" en acciones rápidas para cualquier estado de reporte
     const accionesDiv = document.getElementById('modal-acciones-rapidas');
     if (accionesDiv) {
-      const reportesAbribles = reportes.filter(r => ['borrador','completado','enviado'].includes(r.estado));
+      const reportesAbribles = reportes.filter(r => ['activo','enviado','sin_reporte'].includes(r.estado));
       // Quitar botones "Ver reporte" previos para reemplazarlos con datos reales
       accionesDiv.querySelectorAll('.btn-ver-reporte').forEach(b => b.remove());
       if (reportesAbribles.length > 0) {
@@ -1349,10 +1344,11 @@ async function renderHistorialVisitasModal(tareaId) {
       const partes = r.participantes || [];
       const fecha = r.check_in ? r.check_in.substring(0,10) : (r.creado_en||'').substring(0,10);
       const estadoBadge = r.estado === 'enviado' ? '<span style="color:#059669;font-size:11px">✅ Enviado</span>'
-        : r.estado === 'completado' || r.pdf_archivo ? '<span style="color:#169BBC;font-size:11px">📄 PDF listo</span>'
-        : r.estado === 'borrador' ? '<span style="color:#f59e0b;font-size:11px">📝 Borrador</span>'
+        : r.estado === 'sin_reporte' ? '<span style="color:#dc2626;font-size:11px">🚫 Sin reporte</span>'
+        : r.pdf_archivo ? '<span style="color:#169BBC;font-size:11px">📄 PDF listo</span>'
+        : r.estado === 'activo' ? '<span style="color:#f59e0b;font-size:11px">⏳ En curso</span>'
         : '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>';
-      const puedeEliminarReporte = esAdmin && ['en_visita','borrador'].includes(r.estado);
+      const puedeEliminarReporte = esAdmin && ['activo','borrador'].includes(r.estado);
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
           <span style="font-size:12px;font-weight:600;color:#0D3B40">📅 ${fecha}</span>
@@ -1506,7 +1502,7 @@ async function guardarParticipanteVisita(btn) {
     setTimeout(() => { btn.disabled = false; btn.textContent = '💾'; }, 2500);
 
     // Actualizar estado local y re-renderizar historial
-    if (data.estado === 'en_visita') visitasActivas[data.tarea_id] = data;
+    if (data.estado === 'activo') visitasActivas[data.tarea_id] = data;
     else {
       // Puede que haya pasado de en_visita a borrador tras editar
       if (visitasActivas[data.tarea_id]?.id === repId) delete visitasActivas[data.tarea_id];

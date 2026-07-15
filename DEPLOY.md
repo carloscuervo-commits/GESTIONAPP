@@ -44,21 +44,32 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 
 ## Cambios pendientes de deploy (2026-07-15)
 
-⚠️ **Ejecutar en phpMyAdmin ANTES del deploy:**
+⚠️ **Ejecutar en phpMyAdmin ANTES del deploy (en orden):**
 ```sql
--- db/027_reporte_sin_reporte.sql
+-- 1. db/027_reporte_sin_reporte.sql (solo si NO se ejecutó antes)
 ALTER TABLE reportes
-  ADD COLUMN sin_reporte    TINYINT(1)  NOT NULL DEFAULT 0   AFTER estado,
-  ADD COLUMN sin_reporte_at DATETIME    NULL                  AFTER sin_reporte;
+  ADD COLUMN IF NOT EXISTS sin_reporte    TINYINT(1) NOT NULL DEFAULT 0 AFTER estado,
+  ADD COLUMN IF NOT EXISTS sin_reporte_at DATETIME NULL AFTER sin_reporte;
+
+-- 2. db/028_reporte_estados.sql (rediseño de estados)
+UPDATE reportes SET estado = 'activo'     WHERE estado = 'en_visita';
+UPDATE reportes SET estado = 'activo'     WHERE estado = 'borrador' AND check_out IS NULL;
+UPDATE reportes SET estado = 'sin_reporte' WHERE estado = 'borrador' AND sin_reporte = 1;
+UPDATE reportes SET estado = 'enviado'    WHERE estado = 'borrador' AND check_out IS NOT NULL AND sin_reporte = 0;
+ALTER TABLE reportes DROP COLUMN sin_reporte, DROP COLUMN sin_reporte_at;
+ALTER TABLE tareas ADD COLUMN reporte_interno TINYINT(1) NOT NULL DEFAULT 0 AFTER avisar_cliente;
 ```
 
 | Archivo | Cambio |
 |---|---|
-| `backend/api/reportes.php` | PUT `accion=sin_reporte` (checkout diferido + marca visita sin reporte) + GET `?sin_reporte=1` (lista para dashboard) |
-| `assets/js/reportes.js?v=20260715a` | Flujo checkout diferido: `_pendingCheckout`, `_completarCheckout()`, `confirmarSinReporte()`, popup-sin-reporte intercepta cierre de formulario |
-| `assets/js/tareas.js?v=20260715a` | Dashboard: nueva alerta "Visitas terminadas sin reporte" (fondo rojo, solo admins) |
-| `assets/js/informes.js?v=20260715a` | Nuevo informe "🚫 Visitas sin reporte" con filtros de fecha |
-| `tareas-equipo.html` | Nuevo `#popup-sin-reporte` HTML + bumps de versión a `?v=20260715a` |
+| `backend/api/reportes.php` | Estados actualizados (`activo`/`enviado`/`sin_reporte`); PUT `accion=sin_reporte` → `estado='sin_reporte'`; GET `?sin_reporte=1` |
+| `backend/api/reporte_enviar_correo.php` | JOIN con tareas para `reporte_interno`; si activo → solo correo al admin; asunto diferenciado |
+| `backend/api/tareas.php` | UPDATE incluye `reporte_interno` |
+| `assets/js/core.js` | `taskToApi`/`apiToTask` incluyen `reporteInterno` |
+| `assets/js/reportes.js?v=20260715b` | Estados `activo`/`enviado`/`sin_reporte`; badges "🚫 Sin reporte", "⏳ En curso"; popup intercepta cierre sin enviar |
+| `assets/js/tareas.js?v=20260715b` | Alerta "Visitas sin reporte" en dashboard; checkbox `#grp-reporte-interno` show/hide+populate+save |
+| `assets/js/informes.js?v=20260715a` | Informe "🚫 Visitas sin reporte" con filtros de fecha |
+| `tareas-equipo.html` | `#popup-sin-reporte`, `#grp-reporte-interno` checkbox, bumps a `?v=20260715b` |
 
 ---
 
@@ -225,22 +236,4 @@ Archivos modificados:
 Comportamiento:
 - Técnicos: no ven el botón ⚙️
 - Admins: botón ⚙️ en header abre panel full-screen con sección Usuarios arriba y Avisos a técnicos abajo
-- Panel tiene botón "✕ Cerrar" sticky en el top
-
----
-
-**Vista Clientes — tabla + buscador + filtros + paginación (2026-07-04):**
-
-Sin migraciones SQL ni cambios de backend.
-
-Archivos modificados:
-- `assets/js/clientes.js?v=20260704p` — `renderClientesView()` reescrita: tabla con columnas Nombre/Dirección/GPS/Transporte/Contrato/Plazo/Editar; estado local `_cliSearch`, `_cliFiltroT`, `_cliFiltroC`, `_cliPagina` (25/página); nuevas funciones globales `cliSetSearch()`, `cliToggleFiltro()`, `cliSetPagina()`
-- `tareas-equipo.html` — bump `clientes.js?v=20260704p`
-
-Comportamiento:
-- Buscador filtra por nombre o dirección en tiempo real
-- Chip "🚗 Con transporte" → solo clientes con `valor_transporte > 0`
-- Chip "📋 Con contrato" → solo clientes con `contrato_area` activo
-- Chips se iluminan teal cuando están activos
-- Paginación de 25/página con numeración compacta (muestra 1, …, páginas cercanas, …, última)
-- ⚠️ en columna GPS es clickeable y abre el modal de edición directamente
+- Panel 

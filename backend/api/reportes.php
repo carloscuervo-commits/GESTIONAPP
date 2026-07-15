@@ -130,7 +130,7 @@ if ($method === 'GET') {
   }
 
   if (!empty($_GET['activos'])) {
-    $stmt = $pdo->query("SELECT * FROM reportes WHERE estado = 'en_visita'");
+    $stmt = $pdo->query("SELECT * FROM reportes WHERE estado = 'activo'");
     jsonOut(array_map(fn($r) => reporteConFotos($pdo, $r), $stmt->fetchAll()));
   }
 
@@ -157,13 +157,13 @@ if ($method === 'GET') {
   // GET ?sin_reporte=1 → lista de reportes marcados sin reporte (dashboard + informe)
   if (!empty($_GET['sin_reporte'])) {
     try {
-      $donde   = ['r.sin_reporte = 1'];
-      $params  = [];
-      if (!empty($_GET['desde'])) { $donde[] = 'DATE(r.sin_reporte_at) >= ?'; $params[] = $_GET['desde']; }
-      if (!empty($_GET['hasta'])) { $donde[] = 'DATE(r.sin_reporte_at) <= ?'; $params[] = $_GET['hasta']; }
+      $donde  = ["r.estado = 'sin_reporte'"];
+      $params = [];
+      if (!empty($_GET['desde'])) { $donde[] = 'DATE(r.check_out) >= ?'; $params[] = $_GET['desde']; }
+      if (!empty($_GET['hasta'])) { $donde[] = 'DATE(r.check_out) <= ?'; $params[] = $_GET['hasta']; }
       $where = implode(' AND ', $donde);
       $stmt = $pdo->prepare("
-        SELECT r.id, r.tarea_id, r.sin_reporte_at, r.check_in, r.check_out,
+        SELECT r.id, r.tarea_id, r.check_out AS sin_reporte_at, r.check_in, r.check_out,
                t.titulo, t.cliente, t.area,
                (SELECT GROUP_CONCAT(u.nombre ORDER BY u.nombre SEPARATOR ', ')
                 FROM visita_participantes vp2
@@ -172,7 +172,7 @@ if ($method === 'GET') {
         FROM reportes r
         JOIN tareas t ON t.id COLLATE utf8mb4_general_ci = r.tarea_id COLLATE utf8mb4_general_ci
         WHERE $where
-        ORDER BY r.sin_reporte_at DESC
+        ORDER BY r.check_out DESC
         LIMIT 200
       ");
       $stmt->execute($params);
@@ -279,7 +279,7 @@ if ($method === 'POST') {
   $checkInVal = $checkInParam ?: date('Y-m-d H:i:s');
 
   // ¿Existe un reporte en_visita para esta tarea?
-  $stmt = $pdo->prepare("SELECT * FROM reportes WHERE tarea_id = ? AND estado = 'en_visita' ORDER BY creado_en DESC LIMIT 1");
+  $stmt = $pdo->prepare("SELECT * FROM reportes WHERE tarea_id = ? AND estado = 'activo' ORDER BY creado_en DESC LIMIT 1");
   $stmt->execute([$tareaId]);
   $enCurso = $stmt->fetch();
 
@@ -323,7 +323,7 @@ if ($method === 'POST') {
   // Aceptar id generado por el cliente (soporte offline); si no viene, generarlo aquí
   $reporteId = (isset($d['id']) && strlen($d['id']) >= 16) ? $d['id'] : bin2hex(random_bytes(16));
   $partId    = (isset($d['participanteId']) && strlen($d['participanteId']) >= 16) ? $d['participanteId'] : bin2hex(random_bytes(16));
-  $pdo->prepare("INSERT IGNORE INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'en_visita', ?, ?)")
+  $pdo->prepare("INSERT IGNORE INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'activo', ?, ?)")
     ->execute([$reporteId, $tareaId, $tecnicoId, $checkInVal]);
   $pdo->prepare("INSERT IGNORE INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng, fecha_prog_snap, hora_prog_snap) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
     ->execute([$partId, $reporteId, $tecnicoId, $checkInVal, $checkinLat, $checkinLng, $snapFecha, $snapHora]);
@@ -412,7 +412,7 @@ if ($method === 'PUT') {
     $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
     $stmtCnt->execute([$id]);
     $sinOut = (int)$stmtCnt->fetchColumn();
-    $nuevoEstado = $sinOut > 0 ? 'en_visita' : 'borrador';
+    $nuevoEstado = $sinOut > 0 ? 'activo' : 'enviado';
 
     // Sincronizar top-level check_in / check_out del reporte con MIN/MAX de los participantes,
     // para que renderFormularioReporte muestre siempre la hora correcta.
@@ -484,7 +484,7 @@ if ($method === 'PUT') {
       $stmtMax = $pdo->prepare("SELECT MAX(check_out) FROM visita_participantes WHERE reporte_id = ?");
       $stmtMax->execute([$id]);
       $ultimoCheckout = $stmtMax->fetchColumn();
-      $pdo->prepare("UPDATE reportes SET estado='borrador', check_out=?, tecnico_checkout_id=?, sin_reporte=1, sin_reporte_at=NOW() WHERE id=?")
+      $pdo->prepare("UPDATE reportes SET estado='sin_reporte', check_out=? ,tecnico_checkout_id=? WHERE id=?")
         ->execute([$ultimoCheckout, $tecnicoOut, $id]);
     }
 
@@ -511,16 +511,16 @@ if ($method === 'PUT') {
       $stmt->execute([$id]);
       $pendientes = (int)$stmt->fetchColumn();
       if ($pendientes === 0) {
-        // Todos terminaron → pasar a borrador
+        // Todos terminaron → enviado (checkout diferido, ya se envió el reporte)
         $stmt2 = $pdo->prepare("SELECT MAX(check_out) FROM visita_participantes WHERE reporte_id = ?");
         $stmt2->execute([$id]);
         $ultimoCheckout = $stmt2->fetchColumn();
-        $pdo->prepare("UPDATE reportes SET estado='borrador', check_out=?, tecnico_checkout_id=? WHERE id=?")
+        $pdo->prepare("UPDATE reportes SET estado='enviado', check_out=?, tecnico_checkout_id=? WHERE id=?")
           ->execute([$ultimoCheckout, $tecnicoOut, $id]);
       }
     } else {
       // ── Legacy: checkout único (registros sin visita_participantes) ──
-      $pdo->prepare("UPDATE reportes SET check_out=NOW(), tecnico_checkout_id=?, estado='borrador' WHERE id=?")
+      $pdo->prepare("UPDATE reportes SET check_out=NOW(), tecnico_checkout_id=?, estado='enviado' WHERE id=?")
         ->execute([$tecnicoOut, $id]);
       // Intentar actualizar participante coincidente si existe
       $pdo->prepare("UPDATE visita_participantes SET check_out=NOW(), checkout_lat=?, checkout_lng=? WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
@@ -623,7 +623,7 @@ if ($method === 'PUT') {
       $fechaVisita    = $part ? date('d/m/Y', strtotime($part['check_in'])) : date('d/m/Y');
 
       // ¿Ya generó el reporte?
-      $reporteHecho   = !empty($rep['pdf_archivo']) || !in_array($rep['estado'] ?? '', ['en_visita', 'borrador']);
+      $reporteHecho   = !empty($rep['pdf_archivo']) || !in_array($rep['estado'] ?? '', ['activo']);
       $reporteLabel   = $reporteHecho ? '✅ Sí' : '⏳ Pendiente';
 
       // ¿Ya se envió al cliente?
@@ -719,7 +719,7 @@ if ($method === 'DELETE') {
     // Si quedan participantes, recalcular estado del reporte
     $sinOut = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
     $sinOut->execute([$repId]);
-    $nuevoEstado = (int)$sinOut->fetchColumn() > 0 ? 'en_visita' : 'borrador';
+    $nuevoEstado = (int)$sinOut->fetchColumn() > 0 ? 'activo' : 'enviado';
     $pdo->prepare("UPDATE reportes SET estado = ? WHERE id = ?")->execute([$nuevoEstado, $repId]);
 
     jsonOut(['ok' => true, 'reporteEliminado' => false]);

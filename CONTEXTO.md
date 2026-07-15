@@ -4,26 +4,43 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
-## Estado actual (última actualización: 2026-07-15 — flujo visita sin reporte)
+## Estado actual (última actualización: 2026-07-15 — rediseño estados reporte + reporte_interno)
 
-### feat: Visitas terminadas sin reporte
+### feat: Nuevos estados de reporte + campo reporte_interno
 
-**Flujo rediseñado de finalización de visita (tarjetas IT/IF):**
+**Estados de reporte rediseñados:**
+- `activo` — visita en curso (reemplaza `en_visita`)
+- `sin_reporte` — visita finalizada sin reporte (reemplaza `borrador + sin_reporte=1`)
+- `enviado` — reporte enviado por correo (reemplaza `borrador` con check_out)
+- Ya no existen los estados `en_visita`, `borrador`, ni las columnas `sin_reporte`/`sin_reporte_at`
 
-- El técnico solo puede iniciar visita mientras la tarea esté en `solicitud` o `programado`.
-- Al finalizar la visita (último participante): en lugar de hacer checkout inmediato, la app abre el formulario de reporte. El checkout se escribe en el servidor **solo** cuando el técnico envía el reporte o confirma "sin reporte".
-- Si el técnico cierra el formulario sin enviar: aparece `popup-sin-reporte` preguntando si quiere continuar sin reporte.
-- Si confirma "sin reporte": se llama `accion: 'sin_reporte'` en el backend, que escribe el checkout y marca `sin_reporte=1` + `sin_reporte_at=NOW()` en la tabla `reportes`.
-- Dashboard → Zona de alertas: nueva sección "Visitas terminadas sin reporte" (fondo rojo) visible solo para admins.
+**Campo `reporte_interno` en `tareas`:**
+- Solo visible para admin en tarjetas IT/IF
+- Cuando está activo: al enviar el reporte solo llega al admin (`CORREO_ADMIN_FIJO`), no al cliente
+- Asunto del correo cambia a `🔔 [Reporte interno] Visita técnica — ...`
+- El técnico debe diligenciar y enviar el reporte igual; solo cambia el destinatario
 
 **Archivos modificados:**
-- `db/027_reporte_sin_reporte.sql` (nueva migración — ADD COLUMN `sin_reporte`, `sin_reporte_at` a `reportes`)
-- `backend/api/reportes.php`: nuevo PUT `accion=sin_reporte` + GET `?sin_reporte=1`
-- `assets/js/reportes.js?v=20260715a`: `_pendingCheckout`, `_completarCheckout()`, `confirmarSinReporte()`, `cerrarFormularioReporte` intercepta con popup si checkout pendiente, `enviarCorreoReporte` llama `_completarCheckout` al éxito
-- `assets/js/tareas.js?v=20260715a`: `cargarAlertasSinReporte()` — nuevo bloque en dashboard
-- `tareas-equipo.html`: nuevo `#popup-sin-reporte`, bumps a `?v=20260715a`
+- `db/028_reporte_estados.sql` — migración de datos `en_visita`→`activo`, DROP columnas `sin_reporte`/`sin_reporte_at`, ADD `tareas.reporte_interno`
+- `backend/api/reportes.php` — todos los estados actualizados; `accion=sin_reporte` escribe `estado='sin_reporte'`; `reporteHecho` check usa `['activo']`
+- `backend/api/reporte_enviar_correo.php` — JOIN con `tareas` para `reporte_interno`; si activo → solo envía al admin; asunto diferenciado
+- `backend/api/tareas.php` — UPDATE incluye `reporte_interno`
+- `assets/js/core.js` — `taskToApi`/`apiToTask` incluyen `reporteInterno`
+- `assets/js/reportes.js?v=20260715b` — estados `activo`/`enviado`/`sin_reporte` en toda la lógica; `borradoresActivos` solo local; badge "🚫 Sin reporte", "⏳ En curso"
+- `assets/js/tareas.js?v=20260715b` — `grp-reporte-interno` show/hide (admin+IT/IF), populate desde `t.reporteInterno`, guarda en `saveTask()`
+- `assets/js/informes.js?v=20260715a` — informe "🚫 Visitas sin reporte"; fix bug `areaLabel`/`areaColor` en `_informeFilas`
+- `tareas-equipo.html` — checkbox `#grp-reporte-interno`/`#f-reporte-interno`, bumps a `?v=20260715b`
 
-**Pendiente de deploy:** migración `027` ejecutar en phpMyAdmin antes del deploy.
+**⚠️ Pendiente de deploy:** ejecutar migración `028_reporte_estados.sql` en phpMyAdmin ANTES del deploy.
+
+---
+
+### feat: Visitas terminadas sin reporte (2026-07-15 — sesión anterior)
+
+- Flujo checkout diferido: al finalizar el último participante la app abre el formulario de reporte. El checkout se escribe en el servidor solo cuando el técnico envía el reporte o confirma "sin reporte".
+- Popup `#popup-sin-reporte` intercepta cualquier intento de cerrar el formulario sin enviar.
+- `cargarAlertasSinReporte()` en dashboard muestra visitas con estado `sin_reporte` a admins.
+- Migración `027_reporte_sin_reporte.sql` — ya ejecutada en producción (columnas `sin_reporte`/`sin_reporte_at` existen y son eliminadas por `028`).
 
 ---
 
@@ -881,27 +898,4 @@ El historial de seguimientos (`seguimiento_historial`) se guarda como JSON (text
 
 9. **Trazabilidad de cambios de estado**: cada cambio de `estado` en una tarea se registra en `tarea_historial` vía `registrarHistorial()` (no se registra si el estado no cambió).
 
-10. **Tarjeta de tarea simplificada para IT/IF**: el modal "Nueva Tarea"/edición tiene orden de campos fijo (Cliente → Título → Descripción → Equipo asignado → Área/Estado/...) para todas las áreas. Cuando `area` es `it` o `if`, `updateFormForArea()` oculta además `grp-fecha` (fecha límite), `grp-tiempo`, `grp-treal`, `grp-recursos` y `grp-notas` (todos con `id` asignado para poder ocultarlos). El **equipo asignado** ya no usa chips seleccionables tipo toggle: `buildTeamPicker()` ahora renderiza los miembros ya asignados como chips con botón "✕" para quitar (`toggleTeamChip`), más un `<select>` "+ Agregar técnico..." con los miembros disponibles que al elegir uno lo agrega (`addTeamMember`). Esto aplica a todas las áreas, no solo IT/IF.
-
-## Glosario de avisos (terminología oficial)
-
-| Término | Qué es | Implementación |
-|---------|--------|----------------|
-| **alarma** | Aviso sonoro con popup en pantalla | `alarma.js` — modal `#alarma-modal`, beep Web Audio API. Corre a las 4 PM lunes-viernes, solo admin. |
-| **alerta** | Aviso en la parte inferior del dashboard, dentro de la "Zona de alertas" | `renderDashboard()` — "Realizados sin facturar", "Cotizaciones sin seguimiento", "Pendientes sin programar". |
-| **banner alerta** | Franja horizontal fija en la parte superior de la pantalla | `#alertas-retraso-banner` (técnico tardío), `#bit-deficit-banner` (déficit bitácora). Se insertan sobre el contenido principal. |
-
-Cuando el usuario use estos términos, interpretarlos con esta definición exacta y no intercambiarlos.
-
-## Convenciones de código
-
-- **PHP**:
-- Endpoints en `backend/api/*.php`, un archivo por recurso, todos los métodos HTTP (GET/POST/PUT/DELETE) en el mismo archivo con `if ($method === 'X') { ... }`.
-- Siempre `require_once __DIR__ . '/../db.php'; applyCors();` al inicio.
-- Respuestas siempre vía `jsonOut($data, $codigoHttp)` — nunca `echo` directo.
-- Usar `strlen()`, no `mb_strlen()` (el host no garantiza `mbstring`).
-- Errores de Alegra/HTTP externos se devuelven como `jsonOut(['error' => '...'], 5xx)`, nunca se dejan excepciones sin capturar.
-- Nombres de columnas SQL en snake_case; nombres de campos en el JSON del frontend en camelCase (el mapeo vive en `taskToApi`/`apiToTask`).
-
-- **SQL**:
-- Migraciones numeradas secuencialmente en `db/NNN_descripcion.sql` (ej. `
+10. **Tarjeta de tarea simplificada para IT/IF**: el modal "Nueva Tarea"/edición tiene orden de campos fijo (Cliente → Título → Descripción → Equipo asignado → Área/Estado/...) para todas las áreas. Cuando `area` es `it` o `if`, `updateFormForArea()` oculta además `grp-fecha` (fecha límite), `grp-tiempo`, `grp-treal`, `grp-recursos` y `grp-notas` (todos con `id` asignado para poder ocultarlos). El **equipo asignado** ya no usa chips seleccionables tipo toggle: `buildTeamPicker()` ahora renderiza los miembros ya asignados como chips con botón "✕" para quitar (`toggleTeamChip`), más un `<select>` "+ Agregar técnico..." con los miembros disponibles que al elegir uno lo ag
