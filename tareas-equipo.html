@@ -625,6 +625,24 @@
   </div>
 </div>
 
+<!-- POPUP: técnico cierra reporte sin haberlo enviado -->
+<div class="modal-overlay" id="popup-sin-reporte" style="z-index:370">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-title" style="justify-content:center;color:#F29206">⚠️ ¿Continuar sin reporte?</div>
+    <p style="margin:0 0 6px;color:var(--text-muted);font-size:13px">
+      No enviaste el reporte de esta visita. Si continúas, la visita quedará marcada como
+      <strong style="color:#dc2626">sin reporte</strong> y el tiempo podría contarse como no laborado.
+    </p>
+    <p style="margin:0 0 16px;color:var(--text-muted);font-size:12px">
+      También puedes volver al formulario y completar el reporte ahora.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-cancel" style="width:100%;border-color:#dc2626;color:#dc2626" onclick="confirmarSinReporte()">Continuar sin reporte</button>
+      <button class="btn-save" style="width:100%" onclick="document.getElementById('popup-sin-reporte').classList.remove('open')">← Volver y completar el reporte</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: alerta de retraso de técnico (solo admin) -->
 <div class="modal-overlay" id="retraso-modal" style="z-index:401">
   <div class="modal" style="max-width:440px">
@@ -741,10 +759,10 @@
 
 <script src="assets/js/core.js?v=20260701a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260711b"></script>
+<script src="assets/js/tareas.js?v=20260715a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260711b"></script>
+<script src="assets/js/reportes.js?v=20260715a"></script>
 <script src="assets/js/informes.js?v=20260623b"></script>
 <script src="assets/js/alarma.js?v=20260708a"></script>
 <script src="assets/js/usuarios.js?v=20260630b"></script>

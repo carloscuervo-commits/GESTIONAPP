@@ -545,6 +545,30 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       return;
     }
 
+    // ¿Es este el último participante sin checkout?
+    const otrosActivos = (visita.participantes || []).filter(p => p.id !== participanteId && !p.check_out);
+    const esUltimo = otrosActivos.length === 0;
+
+    if (esUltimo) {
+      // Último participante: diferir checkout hasta que el técnico envíe el reporte.
+      // Mover visita a borradoresActivos localmente para que el UI refleje fin de visita.
+      _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng };
+      delete visitasActivas[tareaId];
+      if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
+      // Marcar localmente el participante como terminado (sin hora real aún)
+      const visitaLocal = Object.assign({}, visita, {
+        estado: 'borrador',
+        participantes: (visita.participantes || []).map(p =>
+          p.id === participanteId ? Object.assign({}, p, { check_out: new Date().toISOString().replace('T',' ').substring(0,19) }) : p
+        )
+      });
+      borradoresActivos[tareaId].push(visitaLocal);
+      _reporteSoloEdicion = false;
+      render();
+      abrirFormularioReporte(visitaLocal);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -552,37 +576,9 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
-
-      const todosTerminaron = (data.participantes || []).every(p => p.check_out);
-      if (todosTerminaron) {
-        delete visitasActivas[tareaId];
-        if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
-        borradoresActivos[tareaId].push(data);
-        _reporteSoloEdicion = false;
-        render();
-        // Si es tarea de contrato, mostrar resumen de horas al terminar
-        const tareaActual = tasks.find(x => x.id === tareaId);
-        if (tareaActual?.tipoTarea === 'contrato' && API_BASE) {
-          try {
-            const hr = await fetch(`${API_BASE}/reportes.php?horasContrato=1&tareaId=${tareaId}`);
-            const hd = await hr.json();
-            if (hd && hd.horasContratadas > 0) {
-              const partMio = (data.participantes || []).find(p => p.tecnico_id === tecnicoId);
-              const horasDescontadas = partMio?.horas_contrato ?? null;
-              const disponibles = hd.horasDisponibles;
-              let msg = `✅ Visita de contrato registrada.`;
-              if (horasDescontadas != null) msg += `\n⏱️ Descontadas: ${horasDescontadas}h`;
-              msg += `\n📋 Disponibles este mes: ${disponibles > 0 ? disponibles + 'h' : '⚠️ Horas agotadas'}`;
-              alert(msg);
-            }
-          } catch {}
-        }
-        abrirFormularioReporte(data);
-      } else {
-        // Aún hay otros técnicos en sitio — actualizar estado sin abrir formulario
-        visitasActivas[tareaId] = data;
-        render();
-      }
+      // Aún hay otros técnicos en sitio — actualizar estado sin abrir formulario
+      visitasActivas[tareaId] = data;
+      render();
     } catch (e) { console.error(e); alert('No se pudo finalizar la visita. Revisa tu conexión.'); }
   };
 
@@ -617,6 +613,9 @@ async function continuarReporte(reporteId, event, soloEdicion = false) {
 
 // ----------------- Formulario de reporte -----------------
 let _reporteSoloEdicion = false;
+// Checkout diferido: guardado mientras el técnico completa el reporte.
+// Se escribe en el servidor solo cuando envía el reporte (o confirma sin reporte).
+let _pendingCheckout = null; // { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng }
 
 function abrirFormularioReporte(reporte) {
   reporteActual = reporte;
@@ -626,6 +625,11 @@ function abrirFormularioReporte(reporte) {
 }
 
 function cerrarFormularioReporte() {
+  // Si hay un checkout pendiente (reporte aún no enviado), advertir al técnico
+  if (_pendingCheckout) {
+    document.getElementById('popup-sin-reporte').classList.add('open');
+    return; // NO cerrar el formulario todavía
+  }
   document.getElementById('reporte-modal').classList.remove('open');
   if (!reporteActual || _reporteSoloEdicion) {
     // Edición administrativa de un reporte existente: solo se corrige la
@@ -655,6 +659,58 @@ function cerrarFormularioReporte() {
     _nombreDiv.style.display = 'none';
   }
   document.getElementById('popup-tarea-terminada').classList.add('open');
+}
+
+// Llamado cuando el técnico envía el reporte: escribe el checkout real en el servidor.
+async function _completarCheckout() {
+  if (!_pendingCheckout) return;
+  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
+  _pendingCheckout = null;
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
+    });
+    const data = await res.json();
+    if (!data.error && borradoresActivos[tareaId]) {
+      const idx = borradoresActivos[tareaId].findIndex(b => b.id === visita.id);
+      if (idx >= 0) borradoresActivos[tareaId][idx] = data;
+    }
+  } catch (e) { console.error('_completarCheckout:', e); }
+}
+
+// Llamado cuando el técnico confirma que no completará el reporte.
+async function confirmarSinReporte() {
+  document.getElementById('popup-sin-reporte').classList.remove('open');
+  if (!_pendingCheckout) return;
+  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
+  _pendingCheckout = null;
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    if (borradoresActivos[tareaId]) {
+      const idx = borradoresActivos[tareaId].findIndex(b => b.id === visita.id);
+      if (idx >= 0) borradoresActivos[tareaId][idx] = data;
+    }
+  } catch (e) { console.error(e); alert('Error al registrar visita sin reporte.'); return; }
+  // Cerrar formulario y mostrar popup tarea-terminada (si aplica)
+  document.getElementById('reporte-modal').classList.remove('open');
+  const _tareaPopup = reporteActual ? tasks.find(t => t.id === reporteActual.tarea_id) : null;
+  if (_tareaPopup && !['realizado','facturado','archivado'].includes(_tareaPopup.estado)) {
+    const _nombreDiv = document.getElementById('popup-tarea-terminada-nombre');
+    if (_nombreDiv && _tareaPopup) {
+      _nombreDiv.textContent = [_tareaPopup.cliente, _tareaPopup.titulo].filter(Boolean).join(' · ');
+      _nombreDiv.style.display = 'block';
+    }
+    document.getElementById('popup-tarea-terminada').classList.add('open');
+  } else {
+    reporteActual = null;
+    cargarVisitasActivas();
+  }
 }
 
 async function resolverTareaTerminada(terminada) {
@@ -1223,6 +1279,8 @@ async function enviarCorreoReporte(btn) {
     const data = await res.json();
     if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
     statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))}`;
+    // Checkout diferido: escribir la hora real de checkout ahora que el reporte fue enviado
+    if (_pendingCheckout) await _completarCheckout();
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo enviar el correo. Verifica tu conexión e intenta de nuevo.</span>';

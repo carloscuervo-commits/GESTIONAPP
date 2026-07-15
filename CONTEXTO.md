@@ -4,6 +4,29 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-15 — flujo visita sin reporte)
+
+### feat: Visitas terminadas sin reporte
+
+**Flujo rediseñado de finalización de visita (tarjetas IT/IF):**
+
+- El técnico solo puede iniciar visita mientras la tarea esté en `solicitud` o `programado`.
+- Al finalizar la visita (último participante): en lugar de hacer checkout inmediato, la app abre el formulario de reporte. El checkout se escribe en el servidor **solo** cuando el técnico envía el reporte o confirma "sin reporte".
+- Si el técnico cierra el formulario sin enviar: aparece `popup-sin-reporte` preguntando si quiere continuar sin reporte.
+- Si confirma "sin reporte": se llama `accion: 'sin_reporte'` en el backend, que escribe el checkout y marca `sin_reporte=1` + `sin_reporte_at=NOW()` en la tabla `reportes`.
+- Dashboard → Zona de alertas: nueva sección "Visitas terminadas sin reporte" (fondo rojo) visible solo para admins.
+
+**Archivos modificados:**
+- `db/027_reporte_sin_reporte.sql` (nueva migración — ADD COLUMN `sin_reporte`, `sin_reporte_at` a `reportes`)
+- `backend/api/reportes.php`: nuevo PUT `accion=sin_reporte` + GET `?sin_reporte=1`
+- `assets/js/reportes.js?v=20260715a`: `_pendingCheckout`, `_completarCheckout()`, `confirmarSinReporte()`, `cerrarFormularioReporte` intercepta con popup si checkout pendiente, `enviarCorreoReporte` llama `_completarCheckout` al éxito
+- `assets/js/tareas.js?v=20260715a`: `cargarAlertasSinReporte()` — nuevo bloque en dashboard
+- `tareas-equipo.html`: nuevo `#popup-sin-reporte`, bumps a `?v=20260715a`
+
+**Pendiente de deploy:** migración `027` ejecutar en phpMyAdmin antes del deploy.
+
+---
+
 ## Estado actual (última actualización: 2026-07-11 — fix botón iniciar visita en tarea reprogramada)
 
 ### fix: Botón "Iniciar visita" no aparecía en tarjeta reprogramada para hoy

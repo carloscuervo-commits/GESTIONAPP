@@ -154,6 +154,24 @@ if ($method === 'GET') {
     jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
   }
 
+  // GET ?sin_reporte=1 → lista de reportes marcados sin reporte para el dashboard
+  if (!empty($_GET['sin_reporte'])) {
+    $stmt = $pdo->query("
+      SELECT r.id, r.tarea_id, r.sin_reporte_at, r.check_in, r.check_out,
+             t.titulo, t.cliente, t.area,
+             (SELECT GROUP_CONCAT(u.nombre ORDER BY u.nombre SEPARATOR ', ')
+              FROM visita_participantes vp2
+              LEFT JOIN usuarios u ON u.id = vp2.tecnico_id COLLATE utf8mb4_general_ci
+              WHERE vp2.reporte_id = r.id) AS tecnicos
+      FROM reportes r
+      JOIN tareas t ON t.id COLLATE utf8mb4_general_ci = r.tarea_id COLLATE utf8mb4_general_ci
+      WHERE r.sin_reporte = 1
+      ORDER BY r.sin_reporte_at DESC
+      LIMIT 50
+    ");
+    jsonOut($stmt->fetchAll());
+  }
+
   if (!empty($_GET['id'])) {
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
     $stmt->execute([$_GET['id']]);
@@ -425,6 +443,41 @@ if ($method === 'PUT') {
     if (!$partId) jsonOut(['error' => 'participanteId requerido'], 400);
     $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
       ->execute([$partId]);
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$id]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()));
+  }
+
+  // ── Finalizar visita SIN reporte (técnico confirma que no completará el documento) ──
+  if (($d['accion'] ?? '') === 'sin_reporte') {
+    $partId      = $d['participanteId']    ?? null;
+    $tecnicoOut  = $d['tecnicoCheckoutId'] ?? null;
+    $checkoutLat = isset($d['lat']) ? (float)$d['lat'] : null;
+    $checkoutLng = isset($d['lng']) ? (float)$d['lng'] : null;
+
+    if ($partId) {
+      // Cerrar pausa activa si existe
+      $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
+        ->execute([$partId]);
+      // Registrar checkout
+      $pdo->prepare("UPDATE visita_participantes SET check_out = NOW(), checkout_lat = ?, checkout_lng = ? WHERE id = ?")
+        ->execute([$checkoutLat, $checkoutLng, $partId]);
+    }
+
+    // Verificar si quedan participantes activos
+    $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
+    $stmtCnt->execute([$id]);
+    $pendientes = (int)$stmtCnt->fetchColumn();
+
+    if ($pendientes === 0) {
+      // Todos terminaron → marcar como sin_reporte
+      $stmtMax = $pdo->prepare("SELECT MAX(check_out) FROM visita_participantes WHERE reporte_id = ?");
+      $stmtMax->execute([$id]);
+      $ultimoCheckout = $stmtMax->fetchColumn();
+      $pdo->prepare("UPDATE reportes SET estado='borrador', check_out=?, tecnico_checkout_id=?, sin_reporte=1, sin_reporte_at=NOW() WHERE id=?")
+        ->execute([$ultimoCheckout, $tecnicoOut, $id]);
+    }
+
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
     $stmt->execute([$id]);
     jsonOut(reporteConFotos($pdo, $stmt->fetch()));

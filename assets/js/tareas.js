@@ -529,11 +529,13 @@ function renderDashboard() {
     </div>`;
   }
 
+  html += '<div id="alertas-sin-reporte"></div>';
   html += '<div id="alertas-fuera-sitio"></div>';
   html += '</div>';
   document.getElementById('dashboard-view').innerHTML = html;
   renderAlertasRetraso();
   actualizarBadgeFueraSitio();
+  cargarAlertasSinReporte();
 }
 
 // Banner persistente de técnicos tardíos (actualizado también por alarma.js cada 60s)
@@ -659,6 +661,34 @@ function renderAlertasFueraSitio() {
         Ver en Informes →
       </button>
     </div>`;
+}
+
+async function cargarAlertasSinReporte() {
+  if (!currentUser || currentUser.perfil !== 'admin' || !API_BASE) return;
+  const el = document.getElementById('alertas-sin-reporte');
+  if (!el) return;
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?sin_reporte=1`);
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : [];
+    if (!items.length) { el.innerHTML = ''; return; }
+    const filas = items.map(r => {
+      const ts = r.sin_reporte_at ? r.sin_reporte_at.substring(0,16).replace('T',' ') : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:13px"
+                onclick="openModal('${esc(r.tarea_id)}')">
+        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[r.area]||{}).color||'#a3a6ab'}25;color:${(AREAS[r.area]||{}).color||'#a3a6ab'}">${(AREAS[r.area]||{}).label||esc(r.area)}</span>
+        <span style="font-weight:600;flex:1">${esc(r.titulo||'')}</span>
+        ${r.cliente ? `<span style="color:#fff;font-size:11px">👤 ${esc(r.cliente)}</span>` : ''}
+        ${r.tecnicos ? `<span style="color:#D6F3F4;font-size:11px">🔧 ${esc(r.tecnicos)}</span>` : ''}
+        ${ts ? `<span style="color:#D6F3F4;font-size:11px">🕐 ${ts}</span>` : ''}
+      </div>`;
+    }).join('');
+    el.innerHTML = `
+      <div style="background:#dc2626;border:1px solid #dc2626;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚫 Visitas terminadas sin reporte (${items.length})</div>
+        <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
+      </div>`;
+  } catch(e) { /* silencioso */ }
 }
 
 function setArea(a) {
