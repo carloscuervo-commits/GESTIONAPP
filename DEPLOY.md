@@ -57,6 +57,7 @@ ALTER TABLE reportes
 | `backend/api/reportes.php` | PUT `accion=sin_reporte` (checkout diferido + marca visita sin reporte) + GET `?sin_reporte=1` (lista para dashboard) |
 | `assets/js/reportes.js?v=20260715a` | Flujo checkout diferido: `_pendingCheckout`, `_completarCheckout()`, `confirmarSinReporte()`, popup-sin-reporte intercepta cierre de formulario |
 | `assets/js/tareas.js?v=20260715a` | Dashboard: nueva alerta "Visitas terminadas sin reporte" (fondo rojo, solo admins) |
+| `assets/js/informes.js?v=20260715a` | Nuevo informe "🚫 Visitas sin reporte" con filtros de fecha |
 | `tareas-equipo.html` | Nuevo `#popup-sin-reporte` HTML + bumps de versión a `?v=20260715a` |
 
 ---

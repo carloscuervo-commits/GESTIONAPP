@@ -478,6 +478,75 @@ function toggleFueraSitioArchivados() {
   recalcularInforme();
 }
 
+async function renderSinReporteHTML(filtros) {
+  const tablaEl = document.getElementById('informe-tabla');
+  if (tablaEl) tablaEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Cargando...</div>';
+
+  const params = new URLSearchParams({ sin_reporte: 1 });
+  if (filtros.desde) params.set('desde', filtros.desde);
+  if (filtros.hasta) params.set('hasta', filtros.hasta);
+
+  let filas = [];
+  try {
+    const res  = await fetch(`${API_BASE}/reportes.php?${params}`);
+    const data = await res.json();
+    if (data.error) return `<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error: ${esc(data.error)}</div>`;
+    filas = Array.isArray(data) ? data : [];
+  } catch(e) {
+    return '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error cargando datos.</div>';
+  }
+
+  _informeColumnas = [
+    { key: 'fecha',    label: 'Fecha sin reporte' },
+    { key: 'areaLabel', label: 'Área' },
+    { key: 'cliente',  label: 'Cliente' },
+    { key: 'tarea',    label: 'Tarea' },
+    { key: 'tecnicos', label: 'Técnico(s)' },
+    { key: 'check_in', label: 'Check-in' },
+    { key: 'check_out',label: 'Check-out' },
+  ];
+
+  _informeFilas = filas.map(r => ({
+    fecha:      (r.sin_reporte_at || '').slice(0, 16).replace('T', ' '),
+    areaLabel:  (AREAS[r.area] || {}).label || r.area || '-',
+    areaColor:  (AREAS[r.area] || {}).color || '#94a3b8',
+    cliente:    r.cliente  || '-',
+    tarea:      r.titulo   || '-',
+    tecnicos:   r.tecnicos || '-',
+    check_in:   (r.check_in  || '').slice(0, 16).replace('T', ' '),
+    check_out:  (r.check_out || '').slice(0, 16).replace('T', ' '),
+    _tarea_id:  r.tarea_id,
+  }));
+
+  if (!_informeFilas.length) {
+    return '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Sin visitas marcadas sin reporte para el rango seleccionado. ✅</div>';
+  }
+
+  const cols = ['Fecha sin reporte','Área','Cliente','Tarea','Técnico(s)','Check-in','Check-out'];
+  const thStyle = 'padding:8px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);white-space:nowrap';
+  const tdStyle = 'padding:7px 12px;border-bottom:1px solid var(--border);font-size:13px';
+
+  const filasTR = _informeFilas.map(r => `
+    <tr style="cursor:pointer" onclick="openModal('${esc(r._tarea_id)}');setArea('it')">
+      <td style="${tdStyle};white-space:nowrap;color:#dc2626;font-weight:600">${esc(r.fecha)}</td>
+      <td style="${tdStyle}"><span style="background:${r.areaColor}20;color:${r.areaColor};border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${esc(r.areaLabel)}</span></td>
+      <td style="${tdStyle}">${esc(r.cliente)}</td>
+      <td style="${tdStyle}">${esc(r.tarea)}</td>
+      <td style="${tdStyle};color:var(--text-muted)">${esc(r.tecnicos)}</td>
+      <td style="${tdStyle};white-space:nowrap">${esc(r.check_in)}</td>
+      <td style="${tdStyle};white-space:nowrap">${esc(r.check_out)}</td>
+    </tr>`).join('');
+
+  return `
+    <div style="padding:10px 14px;font-size:12px;color:#dc2626;background:#fff5f5;border-bottom:1px solid #fecaca">
+      🚫 ${_informeFilas.length} visita${_informeFilas.length !== 1 ? 's' : ''} terminada${_informeFilas.length !== 1 ? 's' : ''} sin reporte
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>${cols.map(c => `<th style="${thStyle}">${c}</th>`).join('')}</tr></thead>
+      <tbody>${filasTR}</tbody>
+    </table>`;
+}
+
 const INFORMES = {
   actividades_tecnico: { nombre: '👷 Actividades de un técnico', campos: ['tecnico', 'desde', 'hasta'], calcular: calcActividadesTecnico },
   tarjetas_cliente: { nombre: '📋 Tarjetas de un cliente', campos: ['cliente'], calcular: calcTarjetasCliente },
@@ -485,6 +554,7 @@ const INFORMES = {
   reportes_busqueda: { nombre: '🔍 Reportes de tarjetas operativas', campos: ['desde', 'hasta', 'cliente'], calcular: calcReportesBusqueda, custom: renderReportesBusquedaHTML },
   tardias_llegada: { nombre: '⏰ Llegadas tardías', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderTardiasHTML },
   fuera_sitio: { nombre: '📍 Checks fuera de sitio', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderFueraSitioHTML },
+  sin_reporte: { nombre: '🚫 Visitas sin reporte', campos: ['desde', 'hasta'], customAsync: renderSinReporteHTML },
 };
 
 // --------------------------------------------------------------

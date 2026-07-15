@@ -154,9 +154,14 @@ if ($method === 'GET') {
     jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
   }
 
-  // GET ?sin_reporte=1 → lista de reportes marcados sin reporte para el dashboard
+  // GET ?sin_reporte=1 → lista de reportes marcados sin reporte (dashboard + informe)
   if (!empty($_GET['sin_reporte'])) {
-    $stmt = $pdo->query("
+    $donde   = ['r.sin_reporte = 1'];
+    $params  = [];
+    if (!empty($_GET['desde'])) { $donde[] = 'DATE(r.sin_reporte_at) >= ?'; $params[] = $_GET['desde']; }
+    if (!empty($_GET['hasta'])) { $donde[] = 'DATE(r.sin_reporte_at) <= ?'; $params[] = $_GET['hasta']; }
+    $where = implode(' AND ', $donde);
+    $stmt = $pdo->prepare("
       SELECT r.id, r.tarea_id, r.sin_reporte_at, r.check_in, r.check_out,
              t.titulo, t.cliente, t.area,
              (SELECT GROUP_CONCAT(u.nombre ORDER BY u.nombre SEPARATOR ', ')
@@ -165,10 +170,11 @@ if ($method === 'GET') {
               WHERE vp2.reporte_id = r.id) AS tecnicos
       FROM reportes r
       JOIN tareas t ON t.id COLLATE utf8mb4_general_ci = r.tarea_id COLLATE utf8mb4_general_ci
-      WHERE r.sin_reporte = 1
+      WHERE $where
       ORDER BY r.sin_reporte_at DESC
-      LIMIT 50
+      LIMIT 200
     ");
+    $stmt->execute($params);
     jsonOut($stmt->fetchAll());
   }
 
