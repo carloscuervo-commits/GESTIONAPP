@@ -563,9 +563,16 @@ function renderAlertasRetraso() {
     const fin = (typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg;
     if (fin < hoy) return;
     if (!t.horaProg || horaActual < t.horaProg) return;
-    // Si ya hay reporte enviado para esta tarea, la visita está completa → no es tardío
+    // Si ya hay reporte enviado o sin_reporte para esta tarea → no es tardío
     if (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id)) return;
-    const checkinHoy = phoy[t.id] || new Set();
+    if (typeof sinReporteHoy    !== 'undefined' && sinReporteHoy.has(t.id))    return;
+    // Combinar participantesHoy con los de la visita activa actual (fallback si phoy aún no fue construido)
+    const checkinActivo = new Set(
+      typeof visitasActivas !== 'undefined' && visitasActivas[t.id]
+        ? (visitasActivas[t.id].participantes || []).map(p => p.tecnico_id).filter(Boolean)
+        : []
+    );
+    const checkinHoy = new Set([...(phoy[t.id] || []), ...checkinActivo]);
     (t.team || []).forEach(uid => {
       if (!checkinHoy.has(uid)) tardios.push({ tarea: t, tecnicoId: uid });
     });
