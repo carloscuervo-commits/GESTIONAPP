@@ -678,9 +678,9 @@ async function cargarAlertasSinReporte() {
                 onclick="openModal('${esc(r.tarea_id)}')">
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${(AREAS[r.area]||{}).color||'#a3a6ab'}25;color:${(AREAS[r.area]||{}).color||'#a3a6ab'}">${(AREAS[r.area]||{}).label||esc(r.area)}</span>
         <span style="font-weight:600;flex:1">${esc(r.titulo||'')}</span>
-        ${r.cliente ? `<span style="color:#fff;font-size:11px">👤 ${esc(r.cliente)}</span>` : ''}
-        ${r.tecnicos ? `<span style="color:#D6F3F4;font-size:11px">🔧 ${esc(r.tecnicos)}</span>` : ''}
-        ${ts ? `<span style="color:#D6F3F4;font-size:11px">🕐 ${ts}</span>` : ''}
+        ${r.cliente ? `<span style="color:var(--text-muted);font-size:11px">👤 ${esc(r.cliente)}</span>` : ''}
+        ${r.tecnicos ? `<span style="color:var(--text-muted);font-size:11px">🔧 ${esc(r.tecnicos)}</span>` : ''}
+        ${ts ? `<span style="color:var(--text-muted);font-size:11px">🕐 ${ts}</span>` : ''}
       </div>`;
     }).join('');
     el.innerHTML = `
