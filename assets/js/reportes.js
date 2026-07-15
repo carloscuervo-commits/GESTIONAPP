@@ -154,7 +154,7 @@ function renderVisitaBoton(t) {
       html += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${b.id}',event)">📝 Continuar reporte</button>`;
     });
     // Tarea multi-día sin visita de hoy → permitir nuevo check-in
-    if (deHoy.length === 0 && (t.diasProg || 1) > 1) {
+    if (deHoy.length === 0 && ((t.diasProg || 1) > 1 || t.fechaProg === new Date().toLocaleDateString('sv', { timeZone: 'America/Bogota' }))) {
       html += `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita hoy</button>`;
     }
     // Admin: si hay miembros del equipo que no han llegado hoy, mostrar botón de registro

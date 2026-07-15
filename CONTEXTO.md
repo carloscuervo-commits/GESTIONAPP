@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-11 — fix botón iniciar visita en tarea reprogramada)
+
+### fix: Botón "Iniciar visita" no aparecía en tarjeta reprogramada para hoy
+
+Cuando una tarea IT/IF tenía una visita previa (días atrás) y se reprogramaba para hoy, el botón desaparecía por dos condiciones independientes:
+
+1. **`tareas.js` línea ~197:** La tarjeta no llamaba `renderVisitaBoton` si `estado='realizado'`. Fix: también la llama cuando `estado='realizado'` Y `fechaProg === hoy` (reprogramada).
+
+2. **`reportes.js` dentro de `renderVisitaBoton`:** Al haber borradores de días anteriores, solo mostraba "Iniciar visita hoy" si `diasProg > 1`. Fix: también lo muestra si `fechaProg === hoy` (tarea de 1 día reprogramada para hoy).
+
+Versiones bumpeadas a `?v=20260711b`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-11 — fix UX popup cierra modal)
 
 ### fix: Popup no cierra la tarjeta al completar acción
