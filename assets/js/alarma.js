@@ -145,6 +145,8 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
     if (!t.horaProg || horaActual < t.horaProg) return;
     // Si ya hay reporte enviado para esta tarea, la visita está completa → no es tardío
     if (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id)) return;
+    if (typeof sinReporteHoy   !== 'undefined' && sinReporteHoy.has(t.id))   return;
+    if (typeof sinReporteHoy   !== 'undefined' && sinReporteHoy.has(t.id))   return;
     const checkinHoy = participantesHoy[t.id] || new Set();
     (t.team || []).forEach(uid => {
       if (!checkinHoy.has(uid)) tardios.push({ tarea: t, tecnicoId: uid });

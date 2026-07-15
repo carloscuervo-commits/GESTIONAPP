@@ -23,20 +23,28 @@ const PLANTILLAS_REPORTE = {
 let visitasActivas = {};   // tareaId -> reporte en estado 'activo'
 let borradoresActivos = {}; // tareaId -> [array de reportes en estado 'borrador']
 let reportesEnviados = new Set(); // tarea_ids con al menos un reporte enviado (para bloquear "Iniciar visita" en tareas de un solo día)
+let sinReporteHoy = new Set();    // tarea_ids con reporte sin_reporte hoy (guard alarma tardío)
 let reporteActual = null;  // reporte abierto en el formulario
 
 // ----------------- Carga inicial -----------------
 async function cargarVisitasActivas() {
   if (!API_BASE) return;
   try {
-    const [activos, enviados] = await Promise.all([
+    const hoyISO = new Date().toISOString().substring(0, 10);
+    const [activos, enviados, srHoy] = await Promise.all([
       fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()),
       fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()),
+      fetch(`${API_BASE}/reportes.php?sin_reporte=1`).then(r => r.json()),
     ]);
     visitasActivas = {};
     (Array.isArray(activos) ? activos : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
     borradoresActivos = {}; // solo se usa localmente durante _pendingCheckout
     reportesEnviados = new Set(Array.isArray(enviados) ? enviados : []);
+    sinReporteHoy = new Set(
+      (Array.isArray(srHoy) ? srHoy : [])
+        .filter(r => (r.check_out || '').substring(0, 10) === hoyISO)
+        .map(r => r.tarea_id)
+    );
     render();
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
@@ -533,7 +541,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       if (todosTerminaron) {
         delete visitasActivas[tareaId];
         if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
-        borradoresActivos[tareaId].push(Object.assign({}, visita, { estado: 'borrador', _offline: true }));
+        borradoresActivos[tareaId].push(Object.assign({}, visita, { estado: 'activo', _offline: true }));
         _reporteSoloEdicion = false;
       }
       render();
@@ -552,7 +560,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
       // Marcar localmente el participante como terminado (sin hora real aún)
       const visitaLocal = Object.assign({}, visita, {
-        estado: 'borrador',
+        estado: 'enviado',
         participantes: (visita.participantes || []).map(p =>
           p.id === participanteId ? Object.assign({}, p, { check_out: new Date().toISOString().replace('T',' ').substring(0,19) }) : p
         )
@@ -1348,7 +1356,7 @@ async function renderHistorialVisitasModal(tareaId) {
         : r.pdf_archivo ? '<span style="color:#169BBC;font-size:11px">📄 PDF listo</span>'
         : r.estado === 'activo' ? '<span style="color:#f59e0b;font-size:11px">⏳ En curso</span>'
         : '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>';
-      const puedeEliminarReporte = esAdmin && ['activo','borrador'].includes(r.estado);
+      const puedeEliminarReporte = esAdmin && r.estado === 'activo';
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
           <span style="font-size:12px;font-weight:600;color:#0D3B40">📅 ${fecha}</span>

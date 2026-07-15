@@ -56,7 +56,7 @@ function formatDuracionMin(checkIn, checkOut) {
   return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
 
-const ETIQUETAS_ESTADO_REPORTE = { en_visita: '🟢 En visita', borrador: '📝 Borrador (sin enviar)', enviado: '✅ Enviado' };
+const ETIQUETAS_ESTADO_REPORTE = { activo: '⏳ En curso', sin_reporte: '🚫 Sin reporte', enviado: '✅ Enviado' };
 
 // --------------------------------------------------------------
 // 1) Actividades de un técnico por rango de fechas
