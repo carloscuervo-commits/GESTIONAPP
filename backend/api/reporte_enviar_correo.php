@@ -86,7 +86,7 @@ if ($method === 'POST') {
   $ok = enviarCorreoConAdjunto($correos, $asunto, $cuerpo, $rutaPdf, $rep['pdf_archivo']);
   if (!$ok) jsonOut(['error' => 'No se pudo enviar el correo (revisa la configuración de correo del servidor)'], 500);
 
-  $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW() WHERE id=?")
+  $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW(), sin_reporte=0, sin_reporte_at=NULL WHERE id=?")
     ->execute([implode(', ', $correos), $reporteId]);
 
   jsonOut(['ok' => true, 'enviado_a' => $correos]);
