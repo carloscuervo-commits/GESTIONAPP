@@ -156,26 +156,30 @@ if ($method === 'GET') {
 
   // GET ?sin_reporte=1 → lista de reportes marcados sin reporte (dashboard + informe)
   if (!empty($_GET['sin_reporte'])) {
-    $donde   = ['r.sin_reporte = 1'];
-    $params  = [];
-    if (!empty($_GET['desde'])) { $donde[] = 'DATE(r.sin_reporte_at) >= ?'; $params[] = $_GET['desde']; }
-    if (!empty($_GET['hasta'])) { $donde[] = 'DATE(r.sin_reporte_at) <= ?'; $params[] = $_GET['hasta']; }
-    $where = implode(' AND ', $donde);
-    $stmt = $pdo->prepare("
-      SELECT r.id, r.tarea_id, r.sin_reporte_at, r.check_in, r.check_out,
-             t.titulo, t.cliente, t.area,
-             (SELECT GROUP_CONCAT(u.nombre ORDER BY u.nombre SEPARATOR ', ')
-              FROM visita_participantes vp2
-              LEFT JOIN usuarios u ON u.id = vp2.tecnico_id COLLATE utf8mb4_general_ci
-              WHERE vp2.reporte_id = r.id) AS tecnicos
-      FROM reportes r
-      JOIN tareas t ON t.id COLLATE utf8mb4_general_ci = r.tarea_id COLLATE utf8mb4_general_ci
-      WHERE $where
-      ORDER BY r.sin_reporte_at DESC
-      LIMIT 200
-    ");
-    $stmt->execute($params);
-    jsonOut($stmt->fetchAll());
+    try {
+      $donde   = ['r.sin_reporte = 1'];
+      $params  = [];
+      if (!empty($_GET['desde'])) { $donde[] = 'DATE(r.sin_reporte_at) >= ?'; $params[] = $_GET['desde']; }
+      if (!empty($_GET['hasta'])) { $donde[] = 'DATE(r.sin_reporte_at) <= ?'; $params[] = $_GET['hasta']; }
+      $where = implode(' AND ', $donde);
+      $stmt = $pdo->prepare("
+        SELECT r.id, r.tarea_id, r.sin_reporte_at, r.check_in, r.check_out,
+               t.titulo, t.cliente, t.area,
+               (SELECT GROUP_CONCAT(u.nombre ORDER BY u.nombre SEPARATOR ', ')
+                FROM visita_participantes vp2
+                LEFT JOIN usuarios u ON u.id COLLATE utf8mb4_general_ci = vp2.tecnico_id COLLATE utf8mb4_general_ci
+                WHERE vp2.reporte_id COLLATE utf8mb4_general_ci = r.id COLLATE utf8mb4_general_ci) AS tecnicos
+        FROM reportes r
+        JOIN tareas t ON t.id COLLATE utf8mb4_general_ci = r.tarea_id COLLATE utf8mb4_general_ci
+        WHERE $where
+        ORDER BY r.sin_reporte_at DESC
+        LIMIT 200
+      ");
+      $stmt->execute($params);
+      jsonOut($stmt->fetchAll());
+    } catch (Exception $e) {
+      jsonOut(['error' => $e->getMessage()], 500);
+    }
   }
 
   if (!empty($_GET['id'])) {
