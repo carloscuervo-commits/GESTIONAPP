@@ -323,8 +323,25 @@ if ($method === 'POST') {
   // Aceptar id generado por el cliente (soporte offline); si no viene, generarlo aquí
   $reporteId = (isset($d['id']) && strlen($d['id']) >= 16) ? $d['id'] : bin2hex(random_bytes(16));
   $partId    = (isset($d['participanteId']) && strlen($d['participanteId']) >= 16) ? $d['participanteId'] : bin2hex(random_bytes(16));
-  $pdo->prepare("INSERT IGNORE INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'activo', ?, ?)")
-    ->execute([$reporteId, $tareaId, $tecnicoId, $checkInVal]);
+  $stmtIns = $pdo->prepare("INSERT IGNORE INTO reportes (id, tarea_id, estado, tecnico_checkin_id, check_in) VALUES (?, ?, 'activo', ?, ?)");
+  $stmtIns->execute([$reporteId, $tareaId, $tecnicoId, $checkInVal]);
+
+  if ($stmtIns->rowCount() === 0) {
+    // INSERT ignorado: otro proceso creó un reporte activo justo antes (race condition).
+    // Buscamos ese reporte y agregamos al técnico como participante adicional.
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE tarea_id = ? AND estado = 'activo' ORDER BY creado_en DESC LIMIT 1");
+    $stmt->execute([$tareaId]);
+    $existente = $stmt->fetch();
+    if ($existente) {
+      $reporteId = $existente['id'];
+      $pdo->prepare("INSERT IGNORE INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng, fecha_prog_snap, hora_prog_snap) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        ->execute([bin2hex(random_bytes(16)), $reporteId, $tecnicoId, $checkInVal, $checkinLat, $checkinLng, $snapFecha, $snapHora]);
+      $stmt2 = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+      $stmt2->execute([$reporteId]);
+      jsonOut(reporteConFotos($pdo, $stmt2->fetch()), 201);
+    }
+  }
+
   $pdo->prepare("INSERT IGNORE INTO visita_participantes (id, reporte_id, tecnico_id, check_in, checkin_lat, checkin_lng, fecha_prog_snap, hora_prog_snap) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
     ->execute([$partId, $reporteId, $tecnicoId, $checkInVal, $checkinLat, $checkinLng, $snapFecha, $snapHora]);
 
