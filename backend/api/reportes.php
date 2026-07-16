@@ -143,14 +143,8 @@ if ($method === 'GET') {
   // Devuelve tarea_id con reporte enviado cuyo check_in fue HOY (hora Colombia).
   // Evita suprimir la alerta de tardío en visitas futuras de la misma tarea.
   if (!empty($_GET['tarea_ids_enviados'])) {
-    $stmt = $pdo->query("
-      SELECT DISTINCT r.tarea_id
-      FROM reportes r
-      JOIN visita_participantes vp
-        ON vp.reporte_id = r.id COLLATE utf8mb4_general_ci
-      WHERE r.estado = 'enviado'
-        AND DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')) = CURDATE()
-    ");
+    // Sin filtro de fecha: una tarea con cualquier reporte enviado se considera atendida.
+    $stmt = $pdo->query("SELECT DISTINCT tarea_id FROM reportes WHERE estado = 'enviado'");
     jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
   }
 
