@@ -123,7 +123,10 @@ function taskCard(t) {
   // Incumplida: IT/IF programada cuyo rango de fechas ya pasó sin check-in
   const _hoyCard    = (typeof _horaBogota === 'function') ? _horaBogota().fecha : new Date().toISOString().substring(0,10);
   const _finCard    = t.fechaProg ? ((typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg) : null;
-  const esIncumplida = ['it','if'].includes(t.area) && t.estado === 'programado' && _finCard && _finCard < _hoyCard;
+  const _tieneActividadReporte = (typeof visitasActivas !== 'undefined' && visitasActivas[t.id])
+    || (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id))
+    || (typeof sinReporteHoy    !== 'undefined' && sinReporteHoy.has(t.id));
+  const esIncumplida = ['it','if'].includes(t.area) && t.estado === 'programado' && _finCard && _finCard < _hoyCard && !_tieneActividadReporte;
   const team      = t.team||[];
   const segColor = (alertaSeg?.tipo==='sin-seguimiento' && alertaSeg.vencido) ? '#ef4444'
     : { 'sin-seguimiento':'#94a3b8', 'pendiente':'#ef4444', 'al-dia':'#10b981' }[alertaSeg?.tipo] || ac;
@@ -614,7 +617,12 @@ function renderAlertasIncumplidas() {
     if (t.estado !== 'programado') return false;
     if (!t.fechaProg) return false;
     const fin = fechaProgFin(t) || t.fechaProg;
-    return fin < hoy; // rango completo en el pasado
+    if (fin >= hoy) return false; // rango completo en el pasado
+    // Excluir si ya hubo actividad (check-in activo, reporte enviado, o sin-reporte registrado)
+    if (typeof visitasActivas !== 'undefined' && visitasActivas[t.id]) return false;
+    if (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id)) return false;
+    if (typeof sinReporteHoy    !== 'undefined' && sinReporteHoy.has(t.id))    return false;
+    return true;
   });
 
   if (!incumplidas.length) { el.innerHTML = ''; return; }
