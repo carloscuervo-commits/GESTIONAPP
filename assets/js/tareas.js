@@ -227,7 +227,7 @@ function sortTarjetasOperativas(arr) {
 
 function renderKanban() {
   const filtered = getFiltered();
-  const cols = getColsForArea(currentArea);
+  const cols = getColsForArea(currentArea).filter(c => !c.noColumn);
   const colArea = currentArea==='all' ? null : currentArea;
   const esOpArea = ['it','if'].includes(currentArea);
 
