@@ -232,7 +232,7 @@ function renderKanban() {
   const esOpArea = ['it','if'].includes(currentArea);
 
   let html = cols.map(col => {
-    const rawCt = filtered.filter(t=>t.estado===col.id);
+    const rawCt = filtered.filter(t=>t.estado===col.id || (col.id==='solicitud' && esOpArea && t.estado==='por_reprogramar'));
     const ct = esOpArea ? sortTarjetasOperativas(rawCt) : rawCt;
     const addArea = colArea || 'it';
     return `<div class="kanban-col col-${col.id}">
