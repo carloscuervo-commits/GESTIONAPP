@@ -1324,16 +1324,32 @@ async function renderHistorialVisitasModal(tareaId) {
       accionesDiv.querySelectorAll('.btn-ver-reporte').forEach(b => b.remove());
       if (reportesAbribles.length > 0) {
         const ref = accionesDiv.querySelector('div'); // contenedor interior
+        const esAdminBtn = currentUser?.perfil === 'admin';
         reportesAbribles.forEach(r => {
           const fecha = (r.check_in || r.creado_en || '').substring(0, 10);
-          const label = reportesAbribles.length > 1 ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte';
-          const btn = document.createElement('button');
-          btn.className = 'btn-archivar btn-ver-reporte';
-          btn.style.cssText = 'background:#6366f1;color:#fff';
-          btn.textContent = label;
-          btn.onclick = (e) => continuarReporte(r.id, e);
-          if (ref) ref.appendChild(btn);
-          else accionesDiv.appendChild(btn);
+          const multi = reportesAbribles.length > 1;
+          const addBtn = (text, bg, fn) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-archivar btn-ver-reporte';
+            btn.style.cssText = `background:${bg};color:#fff`;
+            btn.textContent = text;
+            btn.onclick = fn;
+            if (ref) ref.appendChild(btn); else accionesDiv.appendChild(btn);
+          };
+          if (r.estado === 'enviado' && r.pdf_archivo) {
+            // Ver PDF directamente
+            addBtn(multi ? `📄 Ver PDF ${fecha}` : '📄 Ver PDF', '#059669',
+              (e) => { e.stopPropagation(); window.open(`${API_BASE}/reporte_pdf.php?id=${r.id}`, '_blank'); });
+            // Editar reporte: solo admin
+            if (esAdminBtn) {
+              addBtn(multi ? `✏️ Editar reporte ${fecha}` : '✏️ Editar reporte', '#6366f1',
+                (e) => continuarReporte(r.id, e, true));
+            }
+          } else {
+            // Activo o sin PDF: abrir formulario normalmente
+            addBtn(multi ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte', '#6366f1',
+              (e) => continuarReporte(r.id, e));
+          }
         });
         accionesDiv.style.display = 'block';
       }
