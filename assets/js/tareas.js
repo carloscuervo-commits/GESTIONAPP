@@ -124,7 +124,7 @@ function taskCard(t) {
   const _hoyCard    = (typeof _horaBogota === 'function') ? _horaBogota().fecha : new Date().toISOString().substring(0,10);
   const _finCard    = t.fechaProg ? ((typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg) : null;
   const _tieneActividadReporte = (typeof visitasActivas !== 'undefined' && visitasActivas[t.id])
-    || (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id))
+    || (typeof reportesTodosEnviados !== 'undefined' && reportesTodosEnviados.has(t.id))
     || (typeof sinReporteHoy    !== 'undefined' && sinReporteHoy.has(t.id));
   const esIncumplida = ['it','if'].includes(t.area) && t.estado === 'programado' && _finCard && _finCard < _hoyCard && !_tieneActividadReporte;
   const team      = t.team||[];
@@ -195,7 +195,7 @@ function taskCard(t) {
     ${t.modalidad?`<div class="task-date" style="color:#6366f1">${t.modalidad==='en_sitio'?'🏢 En sitio':'💻 Remoto'}</div>`:''}
     ${t.reporteInterno?`<div class="task-date" style="color:#0D3B40;font-weight:600">🔒 Reporte interno</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
-    ${((['it','if'].includes(t.area) && t.estado==='realizado' && reportesEnviados.has(t.id)) || (t.area==='admin' && t.estado==='por-facturar')) && !t.factura ? `<button class="btn-archivar" style="background:#d97706;color:#fff" onclick="_abrirRegistroFacturaRapido('${t.id}',event)">🧾 Registrar factura</button>` : ''}
+    ${((['it','if'].includes(t.area) && t.estado==='realizado' && reportesTodosEnviados.has(t.id)) || (t.area==='admin' && t.estado==='por-facturar')) && !t.factura ? `<button class="btn-archivar" style="background:#d97706;color:#fff" onclick="_abrirRegistroFacturaRapido('${t.id}',event)">🧾 Registrar factura</button>` : ''}
     ${(!t.factura && t.motivoNoFactura)?`<div class="task-date" style="color:#0D3B40;font-size:12px;font-weight:600">📋 Sin factura: ${esc(t.motivoNoFactura)}</div>`:''}
     ${(['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) ? `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>` : ''}
     ${(['it','if'].includes(t.area) && (!['realizado','facturado','archivado'].includes(t.estado) || (t.estado === 'realizado' && t.fechaProg === _hoyCard))) ? renderVisitaBoton(t) : ''}
@@ -620,7 +620,7 @@ function renderAlertasIncumplidas() {
     if (fin >= hoy) return false; // rango completo en el pasado
     // Excluir si ya hubo actividad (check-in activo, reporte enviado, o sin-reporte registrado)
     if (typeof visitasActivas !== 'undefined' && visitasActivas[t.id]) return false;
-    if (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id)) return false;
+    if (typeof reportesTodosEnviados !== 'undefined' && reportesTodosEnviados.has(t.id)) return false;
     if (typeof sinReporteHoy    !== 'undefined' && sinReporteHoy.has(t.id))    return false;
     return true;
   });
@@ -1432,7 +1432,7 @@ async function saveTask() {
       const tieneArchivo = (fRepFile?.files?.[0]) || prevTask?.reporteArchivo;
       const tieneReporteGinno = editingId && (
         ((typeof borradoresActivos !== 'undefined') && (borradoresActivos[editingId] || []).length > 0) ||
-        ((typeof reportesEnviados  !== 'undefined') && reportesEnviados.has(editingId))
+        ((typeof reportesTodosEnviados !== 'undefined') && reportesTodosEnviados.has(editingId))
       );
       if (!tieneArchivo && !tieneReporteGinno) {
         alert('Para marcar como Por facturar debes adjuntar un archivo o crear un reporte de visita desde Ginno');

@@ -22,7 +22,8 @@ const PLANTILLAS_REPORTE = {
 
 let visitasActivas = {};   // tareaId -> reporte en estado 'activo'
 let borradoresActivos = {}; // tareaId -> [array de reportes en estado 'borrador']
-let reportesEnviados = new Set(); // tarea_ids con al menos un reporte enviado (para bloquear "Iniciar visita" en tareas de un solo día)
+let reportesEnviados = new Set();      // tarea_ids con reporte enviado HOY (para bloquear "Iniciar visita")
+let reportesTodosEnviados = new Set(); // tarea_ids con cualquier reporte enviado (para validaciones y alertas)
 let sinReporteHoy = new Set();    // tarea_ids con reporte sin_reporte hoy (guard alarma tardío)
 let reporteActual = null;  // reporte abierto en el formulario
 
@@ -31,15 +32,17 @@ async function cargarVisitasActivas() {
   if (!API_BASE) return;
   try {
     const hoyISO = new Date().toISOString().substring(0, 10);
-    const [activos, enviados, srHoy] = await Promise.all([
+    const [activos, enviados, todosEnviados, srHoy] = await Promise.all([
       fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()),
       fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()),
+      fetch(`${API_BASE}/reportes.php?tarea_ids_con_reporte=1`).then(r => r.json()),
       fetch(`${API_BASE}/reportes.php?sin_reporte=1`).then(r => r.json()),
     ]);
     visitasActivas = {};
     (Array.isArray(activos) ? activos : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
     borradoresActivos = {}; // solo se usa localmente durante _pendingCheckout
-    reportesEnviados = new Set(Array.isArray(enviados) ? enviados : []);
+    reportesEnviados      = new Set(Array.isArray(enviados)      ? enviados      : []);
+    reportesTodosEnviados = new Set(Array.isArray(todosEnviados) ? todosEnviados : []);
     sinReporteHoy = new Set(
       (Array.isArray(srHoy) ? srHoy : [])
         .filter(r => (r.check_out || '').substring(0, 10) === hoyISO)
@@ -1298,7 +1301,7 @@ async function enviarCorreoReporte(btn) {
     statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))}`;
     // Actualizar estado local del reporte y del Set global
     reporteActual.estado = 'enviado';
-    if (reporteActual.tarea_id) reportesEnviados.add(reporteActual.tarea_id);
+    if (reporteActual.tarea_id) { reportesEnviados.add(reporteActual.tarea_id); reportesTodosEnviados.add(reporteActual.tarea_id); }
     // Checkout diferido: escribir la hora real de checkout ahora que el reporte fue enviado
     if (_pendingCheckout) await _completarCheckout();
   } catch (e) {
