@@ -198,7 +198,7 @@ function taskCard(t) {
     ${((['it','if'].includes(t.area) && t.estado==='realizado' && reportesTodosEnviados.has(t.id)) || (t.area==='admin' && t.estado==='por-facturar')) && !t.factura ? `<button class="btn-archivar" style="background:#d97706;color:#fff" onclick="_abrirRegistroFacturaRapido('${t.id}',event)">🧾 Registrar factura</button>` : ''}
     ${(!t.factura && t.motivoNoFactura)?`<div class="task-date" style="color:#0D3B40;font-size:12px;font-weight:600">📋 Sin factura: ${esc(t.motivoNoFactura)}</div>`:''}
     ${(['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) ? `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>` : ''}
-    ${(['it','if'].includes(t.area) && (!['realizado','facturado','archivado'].includes(t.estado) || (t.estado === 'realizado' && t.fechaProg === _hoyCard))) ? renderVisitaBoton(t) : ''}
+    ${(['it','if'].includes(t.area) && (!['realizado','facturado','archivado'].includes(t.estado) || (t.estado === 'realizado' && (t.fechaProg === _hoyCard || (typeof reportesTodosEnviados !== 'undefined' && reportesTodosEnviados.has(t.id)))))) ? renderVisitaBoton(t) : ''}
     ${showArchivar ? `<button class="btn-archivar" onclick="archivarTask('${t.id}',event)">📦 Archivar</button>` : ''}
   </div>`;
 }
