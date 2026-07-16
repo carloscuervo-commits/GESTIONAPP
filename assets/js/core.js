@@ -123,16 +123,18 @@ const AREA_FLOWS = {
     {id:'rechazada',  label:'Rechazada ❌'},
   ],
   it: [
-    {id:'solicitud',  label:'Pendientes 📋'},
-    {id:'programado', label:'En ejecución 🔧'},
-    {id:'realizado',  label:'Por facturar 🧾'},
-    {id:'facturado',  label:'Facturado ✅'},
+    {id:'solicitud',       label:'Pendientes 📋'},
+    {id:'programado',      label:'En ejecución 🔧'},
+    {id:'por_reprogramar', label:'Por reprogramar 🔁'},
+    {id:'realizado',       label:'Por facturar 🧾'},
+    {id:'facturado',       label:'Facturado ✅'},
   ],
   if: [
-    {id:'solicitud',  label:'Pendientes 📋'},
-    {id:'programado', label:'En ejecución 🔧'},
-    {id:'realizado',  label:'Por facturar 🧾'},
-    {id:'facturado',  label:'Facturado ✅'},
+    {id:'solicitud',       label:'Pendientes 📋'},
+    {id:'programado',      label:'En ejecución 🔧'},
+    {id:'por_reprogramar', label:'Por reprogramar 🔁'},
+    {id:'realizado',       label:'Por facturar 🧾'},
+    {id:'facturado',       label:'Facturado ✅'},
   ],
   admin: [
     {id:'pendiente',    label:'Pendiente'},
@@ -152,9 +154,13 @@ function getColsForArea(area) {
 }
 
 function getEstadoOptions(area) {
+  const isAdmin = typeof currentUser !== 'undefined' && currentUser?.perfil === 'admin';
   const flow = AREA_FLOWS[area] || AREA_FLOWS.admin;
-  return flow.map(c => `<option value="${c.id}">${c.label}</option>`).join('') +
-    `<option value="archivado">Archivado</option>`;
+  return flow.map(c => {
+    if (c.id === 'por_reprogramar' && !isAdmin)
+      return `<option value="${c.id}" disabled hidden>${c.label}</option>`;
+    return `<option value="${c.id}">${c.label}</option>`;
+  }).join('') + `<option value="archivado">Archivado</option>`;
 }
 
 function updateEstadoOptions(keepValue) {
