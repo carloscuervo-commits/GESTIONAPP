@@ -1427,6 +1427,12 @@ async function saveTask() {
     }
   }
 
+  // Si estaba por_reprogramar y se asignó fecha → pasar a programado automáticamente
+  if (['it','if'].includes(area) && estado === 'por_reprogramar' && fechaProg) {
+    estado = 'programado';
+    document.getElementById('f-est').value = estado;
+  }
+
   // Validaciones por estado en IT/IF
   if (['it','if'].includes(area)) {
     if (estado==='programado' && !fechaProg) { alert('Para pasar a En ejecución debes ingresar la Fecha de programación'); return; }
