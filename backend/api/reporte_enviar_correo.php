@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
-require_once __DIR__ . '/../config/config_alegra.php';
 require_once __DIR__ . '/../lib/mailer.php';
 
 $pdo = getDB();
@@ -9,19 +8,24 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // --------------------------------------------------------------
 // GET /reporte_enviar_correo.php?reporteId=UUID
-// Busca el correo del cliente en Alegra (para precargar en el form).
+// Lee el email del cliente directo desde nuestra tabla clientes.
 // --------------------------------------------------------------
 if ($method === 'GET') {
   $reporteId = $_GET['reporteId'] ?? null;
   if (!$reporteId) jsonOut(['error' => 'reporteId requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT t.cliente FROM reportes r JOIN tareas t ON t.id = r.tarea_id COLLATE utf8mb4_general_ci WHERE r.id = ?");
+  $stmt = $pdo->prepare("
+    SELECT c.email
+    FROM reportes r
+    JOIN tareas t      ON t.id      COLLATE utf8mb4_general_ci = r.tarea_id COLLATE utf8mb4_general_ci
+    LEFT JOIN clientes c ON c.nombre COLLATE utf8mb4_general_ci = t.cliente  COLLATE utf8mb4_general_ci
+    WHERE r.id = ?
+  ");
   $stmt->execute([$reporteId]);
   $row = $stmt->fetch();
-  if (!$row) jsonOut(['error' => 'Reporte no encontrado'], 404);
+  if ($row === false) jsonOut(['error' => 'Reporte no encontrado'], 404);
 
-  $email = $row['cliente'] ? _buscarEmailClienteAlegra($row['cliente']) : null;
-  jsonOut(['cliente_email_alegra' => $email]);
+  jsonOut(['cliente_email_alegra' => $row['email'] ?? null]);
 }
 
 // --------------------------------------------------------------
@@ -41,8 +45,6 @@ if ($method === 'POST') {
   if (!$rep['pdf_archivo']) jsonOut(['error' => 'Este reporte aún no tiene un PDF generado'], 422);
 
   // Freno de seguridad: si se envió hace menos de 20 segundos, no reenviar.
-  // Protege contra doble/triple clic accidental (ej. cuando el botón no
-  // muestra feedback claro por una versión vieja cacheada en el navegador).
   if (!empty($rep['enviado_en'])) {
     $segundosDesdeEnvio = time() - strtotime($rep['enviado_en']);
     if ($segundosDesdeEnvio >= 0 && $segundosDesdeEnvio < 20) {
@@ -64,7 +66,7 @@ if ($method === 'POST') {
 
   $rutaPdf = __DIR__ . '/../uploads/reporte_pdf/' . $rep['pdf_archivo'];
 
-  // Fecha de la visita en español (mismo formato que el mensaje de WhatsApp)
+  // Fecha de la visita en español
   $fechaVisita = '';
   if (!empty($rep['check_in'])) {
     $meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -101,33 +103,3 @@ if ($method === 'POST') {
 }
 
 jsonOut(['error' => 'Método no soportado'], 405);
-
-/**
- * Busca el primer contacto en Alegra que coincida con el nombre del
- * cliente y devuelve su email (o null si no se encuentra/no tiene).
- */
-function _buscarEmailClienteAlegra(string $nombreCliente): ?string {
-  if (ALEGRA_EMAIL === 'CAMBIAR_CORREO_ALEGRA' || ALEGRA_TOKEN === 'CAMBIAR_TOKEN_API_ALEGRA') return null;
-  $nombreCliente = trim($nombreCliente);
-  if ($nombreCliente === '') return null;
-
-  $url = 'https://api.alegra.com/api/v1/contacts?' . http_build_query(['name' => $nombreCliente, 'limit' => 5]);
-  $ch = curl_init($url);
-  curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER => [
-      'Authorization: Basic ' . base64_encode(ALEGRA_EMAIL . ':' . ALEGRA_TOKEN),
-      'Accept: application/json',
-    ],
-    CURLOPT_TIMEOUT => 10,
-  ]);
-  $resp = curl_exec($ch);
-  $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-  curl_close($ch);
-
-  if ($resp === false || $status < 200 || $status >= 300) return null;
-  $data = json_decode($resp, true);
-  if (!is_array($data)) return null;
-
-  foreach ($data as $c) {
-    if (!empty($c['email'])) retur
