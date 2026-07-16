@@ -734,15 +734,14 @@ async function resolverTareaTerminada(terminada) {
   const tareaId = reporteActual ? reporteActual.tarea_id : null;
   reporteActual = null;
 
-  if (terminada && tareaId) {
+  const nuevoEstado = terminada ? 'realizado' : 'por_reprogramar';
+  if (tareaId) {
     const idx = tasks.findIndex(t => t.id === tareaId);
     if (idx >= 0) {
-      tasks[idx].estado = 'realizado';
+      tasks[idx].estado = nuevoEstado;
       tasks[idx].updatedAt = new Date().toISOString();
       save();
-      // await garantiza que el servidor actualiza antes de cualquier re-carga
       await syncTask(tasks[idx], false);
-      // Recargar desde el servidor para que la UI refleje el estado real guardado
       await load();
       render();
     }

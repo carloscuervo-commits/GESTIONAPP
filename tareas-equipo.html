@@ -620,13 +620,11 @@
 <!-- MODAL: ¿la tarea quedó terminada con esta visita? -->
 <div class="modal-overlay" id="popup-tarea-terminada" style="z-index:360">
   <div class="modal" style="max-width:380px;text-align:center">
-    <div class="modal-title" style="justify-content:center">✅ ¿Se terminó la tarea?</div>
+    <div class="modal-title" style="justify-content:center">¿Cómo quedó la tarea?</div>
     <div id="popup-tarea-terminada-nombre" style="font-size:13px;font-weight:700;color:#169BBC;margin:-4px 0 12px;padding:6px 10px;background:#D6F3F4;border-radius:6px;display:none"></div>
-    <p style="margin:0 0 16px;color:var(--text-muted);font-size:13px">¿Con esta visita la tarea quedó completamente terminada, o falta continuar en otra visita (trabajo de varios días)?</p>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn-save" style="width:100%" onclick="resolverTareaTerminada(true)">✅ Sí, se terminó — mover a "Por facturar"</button>
-      <button class="btn-cancel" style="width:100%" onclick="resolverTareaTerminada(false)">⏳ No, falta continuar (otra visita)</button>
-      <button style="width:100%;background:transparent;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="resolverTareaTerminada(false)">Cancelar</button>
+      <button class="btn-save" style="width:100%" onclick="resolverTareaTerminada(true)">✅ Terminada — mover a "Por facturar"</button>
+      <button class="btn-cancel" style="width:100%;border-color:#f97316;color:#f97316" onclick="resolverTareaTerminada(false)">🔁 Requiere reprogramación</button>
     </div>
   </div>
 </div>
@@ -765,10 +763,10 @@
 
 <script src="assets/js/core.js?v=20260701a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260716g"></script>
+<script src="assets/js/tareas.js?v=20260716h"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260716f"></script>
+<script src="assets/js/reportes.js?v=20260716g"></script>
 <script src="assets/js/informes.js?v=20260715d"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
 <script src="assets/js/usuarios.js?v=20260630b"></script>

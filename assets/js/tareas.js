@@ -134,8 +134,9 @@ function taskCard(t) {
     : { 'sin-seguimiento':'background:#f8fafc;', 'pendiente':'background:#fff5f5;', 'al-dia':'' }[alertaSeg?.tipo] || '';
   const sinProgramar = ['it','if'].includes(t.area) && t.estado === 'solicitud' && !t.fechaProg;
   const porCotizar   = alertaPorCotizar(t);
-  const borderColor = esIncumplida ? '#F54927' : (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : (porCotizar&&porCotizar.vencido) ? '#ef4444' : alertaSeg ? segColor : ac;
-  const bgAlert     = esIncumplida ? 'background:#fff3f0;' : (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (porCotizar&&porCotizar.vencido) ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
+  const esPorReprogramar = t.estado === 'por_reprogramar';
+  const borderColor = esPorReprogramar ? '#f97316' : esIncumplida ? '#F54927' : (alerta&&alerta.vencido) ? '#ef4444' : sinProgramar ? '#ef4444' : (porCotizar&&porCotizar.vencido) ? '#ef4444' : alertaSeg ? segColor : ac;
+  const bgAlert     = esPorReprogramar ? 'background:#fff7ed;' : esIncumplida ? 'background:#fff3f0;' : (alerta&&alerta.vencido) ? 'background:#fff5f5;' : sinProgramar ? 'background:#fff5f5;' : (porCotizar&&porCotizar.vencido) ? 'background:#fff5f5;' : (alertaSeg ? segBg : '');
   const showArchivar = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
                     || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
   let segBadge = '';
@@ -170,6 +171,7 @@ function taskCard(t) {
       ondragend="onDragEnd(event)"
       onclick="openModal('${t.id}')"
       style="border-left:3px solid ${borderColor};${bgAlert}">
+    ${esPorReprogramar ? `<div style="font-size:11px;font-weight:700;color:#f97316;margin-bottom:4px">🔁 Por reprogramar</div>` : ''}
     ${esIncumplida ? `<div style="font-size:11px;font-weight:700;color:#F54927;margin-bottom:4px">⛔ Incumplida — sin check-in el día programado</div>` : ''}
     ${alerta ? `<div style="font-size:11px;font-weight:700;color:${alerta.vencido?'#ef4444':'#92400e'};margin-bottom:4px">🧾 ${alerta.dias} día${alerta.dias===1?'':'s'} hábil${alerta.dias===1?'':'es'} sin facturar</div>` : ''}
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
@@ -347,7 +349,7 @@ function dashMetric(label, value, color, highlight=false, area='', estado='') {
   </div>`;
 }
 
-function dashAreaCard(icon, title, color, areaKey, solSinProg, solProg, ejec, real, alertCount) {
+function dashAreaCard(icon, title, color, areaKey, solSinProg, solProg, ejec, reprog, real, alertCount) {
   return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)">
     <div onclick="goToArea('${areaKey}','')" style="font-weight:700;font-size:15px;color:${color};margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
       <span>${icon} ${title} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">→ ver todo</span></span>
@@ -357,6 +359,7 @@ function dashAreaCard(icon, title, color, areaKey, solSinProg, solProg, ejec, re
       ${dashMetric('Sin programar', solSinProg, '#94a3b8', false, areaKey, 'solicitud')}
       ${dashMetric('Programadas', solProg, '#0891b2', false, areaKey, 'solicitud')}
       ${dashMetric('En ejecución', ejec, '#6366f1', false, areaKey, 'programado')}
+      ${reprog>0 ? dashMetric('Por reprogramar', reprog, '#f97316', true, areaKey, 'por_reprogramar') : ''}
       ${dashMetric('Realizadas', real, '#ef4444', real>0, areaKey, 'realizado')}
     </div>
   </div>`;
@@ -405,12 +408,14 @@ function renderDashboard() {
         itT.filter(t=>t.estado==='solicitud'&&!t.fechaProg).length,
         itT.filter(t=>t.estado==='solicitud'&&t.fechaProg).length,
         itT.filter(t=>t.estado==='programado').length,
+        itT.filter(t=>t.estado==='por_reprogramar').length,
         itT.filter(t=>t.estado==='realizado').length,
         itAlerts.length)}
       ${dashAreaCard('🏗️','IF','#f97316','if',
         ifT.filter(t=>t.estado==='solicitud'&&!t.fechaProg).length,
         ifT.filter(t=>t.estado==='solicitud'&&t.fechaProg).length,
         ifT.filter(t=>t.estado==='programado').length,
+        ifT.filter(t=>t.estado==='por_reprogramar').length,
         ifT.filter(t=>t.estado==='realizado').length,
         ifAlerts.length)}
     </div>
