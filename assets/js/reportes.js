@@ -1337,16 +1337,20 @@ async function renderHistorialVisitasModal(tareaId) {
             if (ref) ref.appendChild(btn); else accionesDiv.appendChild(btn);
           };
           if (r.estado === 'enviado' && r.pdf_archivo) {
-            // Ver PDF directamente
+            // Enviado con PDF → abrir PDF directamente
             addBtn(multi ? `📄 Ver PDF ${fecha}` : '📄 Ver PDF', '#059669',
               (e) => { e.stopPropagation(); window.open(`${API_BASE}/reporte_pdf.php?id=${r.id}`, '_blank'); });
-            // Editar reporte: solo admin
+            // Editar: solo admin
             if (esAdminBtn) {
               addBtn(multi ? `✏️ Editar reporte ${fecha}` : '✏️ Editar reporte', '#6366f1',
                 (e) => continuarReporte(r.id, e, true));
             }
-          } else {
-            // Activo o sin PDF: abrir formulario normalmente
+          } else if (r.estado === 'activo') {
+            // Visita en curso (con o sin PDF generado) → volver al form
+            addBtn(multi ? `📝 Continuar reporte ${fecha}` : '📝 Continuar reporte', '#0284c7',
+              (e) => continuarReporte(r.id, e));
+          } else if (r.estado === 'enviado') {
+            // Enviado sin PDF (reportes viejos migrados) → abrir form para generar PDF
             addBtn(multi ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte', '#6366f1',
               (e) => continuarReporte(r.id, e));
           }

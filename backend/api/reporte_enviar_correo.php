@@ -15,7 +15,7 @@ if ($method === 'GET') {
   $reporteId = $_GET['reporteId'] ?? null;
   if (!$reporteId) jsonOut(['error' => 'reporteId requerido'], 400);
 
-  $stmt = $pdo->prepare("SELECT t.cliente, t.reporte_interno FROM reportes r JOIN tareas t ON t.id = r.tarea_id COLLATE utf8mb4_general_ci WHERE r.id = ?");
+  $stmt = $pdo->prepare("SELECT t.cliente FROM reportes r JOIN tareas t ON t.id = r.tarea_id COLLATE utf8mb4_general_ci WHERE r.id = ?");
   $stmt->execute([$reporteId]);
   $row = $stmt->fetch();
   if (!$row) jsonOut(['error' => 'Reporte no encontrado'], 404);
