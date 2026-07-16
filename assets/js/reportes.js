@@ -180,7 +180,7 @@ function renderVisitaBoton(t) {
     return html;
   }
   // Tarea de un solo día cuyo reporte ya fue enviado → no ofrecer nueva visita
-  if ((t.diasProg || 1) <= 1 && reportesEnviados.has(t.id)) {
+  if ((t.diasProg || 1) <= 1 && reportesTodosEnviados.has(t.id)) {
     return `<div class="task-date" style="color:#16a34a;font-weight:600;font-size:12px">✅ Visita completada</div>`;
   }
   // Si es tarea de contrato, mostrar horas disponibles antes del botón
