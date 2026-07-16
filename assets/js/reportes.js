@@ -1041,7 +1041,7 @@ async function cargarImagenDataURL(url, maxPx = 0) {
       ctx2d.fillStyle = '#ffffff';
       ctx2d.fillRect(0, 0, w, h);
       ctx2d.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.78));
+      resolve(canvas.toDataURL('image/jpeg', 0.60));
     };
     img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('img load failed')); };
     img.src = objUrl;
@@ -1173,7 +1173,7 @@ async function generarPDFReporte(btn) {
         for (const f of fotos) {
           asegurarEspacio(colH + 5);
           try {
-            const dataUrl = await cargarImagenDataURL(fotoUrl(f.archivo), 1000);
+            const dataUrl = await cargarImagenDataURL(fotoUrl(f.archivo), 700);
             const x = marginX + col * (colW + gap);
             doc.addImage(dataUrl, x, y, colW, colH);
           } catch (e) { /* se omite si la foto no carga */ }
@@ -1224,6 +1224,11 @@ async function generarPDFReporte(btn) {
     const nombreArchivo = `${_clienteInic}-${_fechaPDF}-${_tareaShort}.pdf`;
 
     const blobPdf = doc.output('blob');
+    if (blobPdf.size > 9 * 1024 * 1024) {
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ El PDF es demasiado grande (${(blobPdf.size/1024/1024).toFixed(1)} MB). Reduce el número de fotos e intenta de nuevo.</span>`;
+      if (botonEl) botonEl.innerHTML = textoOriginalBoton;
+      return;
+    }
     const fd = new FormData();
     fd.append('reporteId', r.id);
     fd.append('nombre', nombreArchivo);
