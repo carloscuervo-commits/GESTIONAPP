@@ -1296,6 +1296,9 @@ async function enviarCorreoReporte(btn) {
     const data = await res.json();
     if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
     statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))}`;
+    // Actualizar estado local del reporte y del Set global
+    reporteActual.estado = 'enviado';
+    if (reporteActual.tarea_id) reportesEnviados.add(reporteActual.tarea_id);
     // Checkout diferido: escribir la hora real de checkout ahora que el reporte fue enviado
     if (_pendingCheckout) await _completarCheckout();
   } catch (e) {
