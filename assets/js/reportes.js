@@ -1229,9 +1229,10 @@ async function generarPDFReporte(btn) {
     fd.append('nombre', nombreArchivo);
     fd.append('file', blobPdf, nombreArchivo);
     const res = await fetch(`${API_BASE}/reporte_pdf.php`, { method: 'POST', body: fd });
-    const data = await res.json();
-    if (data.error) {
-      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+    let data;
+    try { data = await res.json(); } catch (_) { data = { error: `Error del servidor (HTTP ${res.status})` }; }
+    if (!res.ok || data.error) {
+      statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error || 'Error desconocido')}</span>`;
       if (botonEl) botonEl.innerHTML = textoOriginalBoton;
       return;
     }
@@ -1242,7 +1243,8 @@ async function generarPDFReporte(btn) {
     if (botonEl) botonEl.innerHTML = '📄 Regenerar PDF';
   } catch (e) {
     console.error(e);
-    statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo generar el PDF. Verifica tu conexión e intenta de nuevo.</span>';
+    const msgErr = e?.message ? esc(e.message) : 'error desconocido';
+    statusEl.innerHTML = `<span style="color:#ef4444">⚠️ No se pudo generar el PDF: ${msgErr}</span>`;
     if (botonEl) botonEl.innerHTML = textoOriginalBoton;
   } finally {
     _generandoPDF = false;
