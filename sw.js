@@ -8,7 +8,7 @@
 // ======================================================
 // Caché offline
 // ======================================================
-var CACHE_NAME = 'ginno-v1';
+var CACHE_NAME = 'ginno-v2';
 
 // Assets mínimos a pre-cachear en install.
 // Los demás se cachean automáticamente la primera vez que se solicitan.
@@ -48,18 +48,11 @@ self.addEventListener('fetch', function (event) {
   var isAPI = url.includes('/backend/api/');
 
   if (isAPI) {
-    // Network First: intenta red, cae a caché si falla
-    event.respondWith(
-      fetch(req).then(function (res) {
-        if (res.ok) {
-          var clone = res.clone();
-          caches.open(CACHE_NAME).then(function (c) { c.put(req, clone); });
-        }
-        return res;
-      }).catch(function () {
-        return caches.match(req);
-      })
-    );
+    // Las respuestas de API NO se cachean: los datos en tiempo real
+    // (visitas activas, estado de tareas) no sirven como fallback offline
+    // porque quedan obsoletos en segundos. Mejor fallar limpio que mostrar
+    // datos viejos (ej. "Iniciar visita" cuando la visita ya arrancó en otro equipo).
+    event.respondWith(fetch(req));
   } else {
     // Cache First: sirve desde caché si existe; si no, busca en red y cachea
     event.respondWith(

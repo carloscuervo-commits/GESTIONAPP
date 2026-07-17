@@ -4,6 +4,61 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-17 — fix resolverTareaTerminada + syncTask)
+
+### fix: Tarjeta no pasaba a "Por facturar" al confirmar popup
+
+**Problema en 3 capas:**
+
+1. **Race condition auto-sync**: `resolverTareaTerminada(true)` llamaba `syncTask(...)` sin `await`. Si el auto-sync disparaba antes de que el PUT llegara al servidor, `load()` traía el estado viejo y revertía el local.
+2. **`syncTask` no verificaba respuesta del servidor**: si el PUT retornaba 4xx/5xx, se ignoraba silenciosamente. Solo capturaba errores de red.
+3. **Modal de tarea (`#modal`) quedaba abierto en segundo plano**: la visita se inicia desde el modal de la tarea, que permanece abierto mientras corre la visita y el reporte. Al confirmar el popup, el modal reaparecía con el estado antiguo; darle "Guardar" sobreescribía el 'realizado' recién guardado.
+
+**`assets/js/core.js?v=20260625c`:**
+- `syncTask`: verifica `res.ok`; si respuesta es 4xx/5xx, lanza el error con el mensaje del servidor + `alert()`.
+
+**`assets/js/reportes.js?v=20260625d`:**
+- `resolverTareaTerminada`: convertida a `async`; `await syncTask(...)` garantiza que el servidor actualiza antes de cualquier recarga; `await load(); render()` sincroniza la UI con el estado real del servidor; cierra `#modal` al inicio para evitar que datos viejos sobreescriban el estado.
+
+`tareas-equipo.html` bumpeado a `core.js?v=20260625c` y `reportes.js?v=20260625d`.
+
+---
+
+### fix: Correo de reporte al cliente usa el mismo mensaje que WhatsApp
+
+`backend/api/reporte_enviar_correo.php` — asunto y cuerpo ahora coinciden con el mensaje de WhatsApp:
+- Asunto: `"🧾 Reporte de visita técnica — [Cliente]"`
+- Cuerpo: "Buen día. Adjunto el reporte de visita técnica para **[titulo]** – [cliente], realizada el [fecha]." + agradecimiento + firma Grupo Innovate.
+- `fechaVisita` calculada desde `$rep['check_in']` con `DateTime` en `America/Bogota` y meses en español.
+
+---
+
+### feat: Auto-sync polling cada 20s
+
+`assets/js/app.js` — bloque `AUTO_SYNC`:
+- `autoSync()`: llama `load()` + `render()` + `cargarVisitasActivas()` cada 20s.
+- Se salta si `document.visibilityState === 'hidden'` o si `#modal`/`#reporte-modal` tienen clase `open`.
+- `iniciarAutoSync()`: guard `_autoSyncActivo` para no duplicar el intervalo; llamado desde `iniciarApp()`.
+
+---
+
+### fix: Editar hora de checkout de técnico no actualizaba el reporte
+
+`backend/api/reportes.php` — rama `editParticipante` ahora:
+1. Elimina pausas fuera de la ventana [newIn, newOut] del participante editado.
+2. Sincroniza `reportes.check_in`/`check_out` con `MIN`/`MAX` de todos los participantes vía query adicional.
+
+`assets/js/reportes.js` — `guardarParticipanteVisita()`: cuenta pausas antes/después del save, muestra feedback "✅ (N pausa(s) eliminada(s))", refresca historial y `borradoresActivos`.
+
+---
+
+### fix: Pausas fuera de ventana check-in/checkout causaban duración negativa
+
+- **Backend** (`reportes.php`): DELETE pausas fuera de [check_in, check_out] al editar participante.
+- **Frontend** (`assets/js/tareas.js` — `calcularDuracionNeta`): clip de overlap a la ventana: `overlap = max(0, min(pf,b) − max(pi,a))`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-15 — rediseño estados reporte + reporte_interno)
 
 ### feat: Nuevos estados de reporte + campo reporte_interno
