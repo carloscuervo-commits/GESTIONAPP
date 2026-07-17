@@ -33,13 +33,19 @@ async function cargarVisitasActivas() {
   try {
     const hoyISO = new Date().toISOString().substring(0, 10);
     const [activos, enviados, todosEnviados, srHoy] = await Promise.all([
-      fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()).catch(() => []),
+      // null = error de red/servidor → preservar visitasActivas local en vez de borrarla
+      fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()).catch(() => null),
       fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/reportes.php?tarea_ids_con_reporte=1`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/reportes.php?sin_reporte=1`).then(r => r.json()).catch(() => []),
     ]);
-    visitasActivas = {};
-    (Array.isArray(activos) ? activos : []).forEach(r => { visitasActivas[r.tarea_id] = r; });
+    // Solo limpiar y repoblar visitasActivas si el servidor respondió con datos válidos.
+    // Si activos === null (fallo de red o error 500), se preserva el estado local
+    // para evitar que un error transitorio revierta "Pausar visita" → "Iniciar visita".
+    if (Array.isArray(activos)) {
+      visitasActivas = {};
+      activos.forEach(r => { visitasActivas[r.tarea_id] = r; });
+    }
     borradoresActivos = {}; // solo se usa localmente durante _pendingCheckout
     reportesEnviados      = new Set(Array.isArray(enviados)      ? enviados      : []);
     reportesTodosEnviados = new Set(Array.isArray(todosEnviados) ? todosEnviados : []);
@@ -734,11 +740,10 @@ async function resolverTareaTerminada(terminada) {
   const tareaId = reporteActual ? reporteActual.tarea_id : null;
   reporteActual = null;
 
-  const nuevoEstado = terminada ? 'realizado' : 'por_reprogramar';
-  if (tareaId) {
+  if (terminada && tareaId) {
     const idx = tasks.findIndex(t => t.id === tareaId);
     if (idx >= 0) {
-      tasks[idx].estado = nuevoEstado;
+      tasks[idx].estado = 'realizado';
       tasks[idx].updatedAt = new Date().toISOString();
       save();
       await syncTask(tasks[idx], false);
