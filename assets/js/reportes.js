@@ -33,10 +33,10 @@ async function cargarVisitasActivas() {
   try {
     const hoyISO = new Date().toISOString().substring(0, 10);
     const [activos, enviados, todosEnviados, srHoy] = await Promise.all([
-      fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()),
-      fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()),
-      fetch(`${API_BASE}/reportes.php?tarea_ids_con_reporte=1`).then(r => r.json()),
-      fetch(`${API_BASE}/reportes.php?sin_reporte=1`).then(r => r.json()),
+      fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/reportes.php?tarea_ids_con_reporte=1`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/reportes.php?sin_reporte=1`).then(r => r.json()).catch(() => []),
     ]);
     visitasActivas = {};
     (Array.isArray(activos) ? activos : []).forEach(r => { visitasActivas[r.tarea_id] = r; });

@@ -135,24 +135,32 @@ if ($method === 'GET') {
   }
 
   if (!empty($_GET['estado'])) {
-    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE estado = ?");
-    $stmt->execute([$_GET['estado']]);
-    jsonOut(array_map(fn($r) => reporteConFotos($pdo, $r), $stmt->fetchAll()));
+    try {
+      $stmt = $pdo->prepare("SELECT * FROM reportes WHERE estado = ?");
+      $stmt->execute([$_GET['estado']]);
+      jsonOut(array_map(fn($r) => reporteConFotos($pdo, $r), $stmt->fetchAll()));
+    } catch (Exception $e) {
+      jsonOut(['error' => $e->getMessage()], 500);
+    }
   }
 
   // Devuelve tarea_id con reporte enviado cuyo check_in fue HOY (hora Colombia).
   // Evita suprimir la alerta de tardío en visitas futuras de la misma tarea.
   if (!empty($_GET['tarea_ids_enviados'])) {
     // Hoy: para bloquear "Iniciar visita" cuando ya hay reporte enviado hoy.
-    $stmt = $pdo->query("
-      SELECT DISTINCT r.tarea_id
-      FROM reportes r
-      JOIN visita_participantes vp
-        ON vp.reporte_id = r.id COLLATE utf8mb4_general_ci
-      WHERE r.estado = 'enviado'
-        AND DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')) = CURDATE()
-    ");
-    jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
+    try {
+      $stmt = $pdo->query("
+        SELECT DISTINCT r.tarea_id
+        FROM reportes r
+        JOIN visita_participantes vp
+          ON vp.reporte_id = r.id COLLATE utf8mb4_general_ci
+        WHERE r.estado = 'enviado'
+          AND DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')) = CURDATE()
+      ");
+      jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
+    } catch (Exception $e) {
+      jsonOut(['error' => $e->getMessage()], 500);
+    }
   }
   // Sin filtro de fecha: tarea con cualquier reporte enviado (para validaciones y alertas)
   if (!empty($_GET['tarea_ids_con_reporte'])) {
