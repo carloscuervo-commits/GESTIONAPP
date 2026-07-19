@@ -740,10 +740,11 @@ async function resolverTareaTerminada(terminada) {
   const tareaId = reporteActual ? reporteActual.tarea_id : null;
   reporteActual = null;
 
-  if (terminada && tareaId) {
+  const nuevoEstado = terminada ? 'realizado' : 'por_reprogramar';
+  if (tareaId) {
     const idx = tasks.findIndex(t => t.id === tareaId);
     if (idx >= 0) {
-      tasks[idx].estado = 'realizado';
+      tasks[idx].estado = nuevoEstado;
       tasks[idx].updatedAt = new Date().toISOString();
       save();
       await syncTask(tasks[idx], false);
