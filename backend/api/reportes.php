@@ -495,14 +495,16 @@ if ($method === 'PUT') {
     $tecnicoOut  = $d['tecnicoCheckoutId'] ?? null;
     $checkoutLat = isset($d['lat']) ? (float)$d['lat'] : null;
     $checkoutLng = isset($d['lng']) ? (float)$d['lng'] : null;
+    $checkoutAt  = !empty($d['checkoutAt']) ? $d['checkoutAt'] : null;
 
     if ($partId) {
       // Cerrar pausa activa si existe
       $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
         ->execute([$partId]);
-      // Registrar checkout
-      $pdo->prepare("UPDATE visita_participantes SET check_out = NOW(), checkout_lat = ?, checkout_lng = ? WHERE id = ?")
-        ->execute([$checkoutLat, $checkoutLng, $partId]);
+      // Registrar checkout (usar hora real si el frontend la envía)
+      $coAt = $checkoutAt ?: date('Y-m-d H:i:s');
+      $pdo->prepare("UPDATE visita_participantes SET check_out = ?, checkout_lat = ?, checkout_lng = ? WHERE id = ?")
+        ->execute([$coAt, $checkoutLat, $checkoutLng, $partId]);
     }
 
     // Verificar si quedan participantes activos
@@ -529,14 +531,16 @@ if ($method === 'PUT') {
     $partId      = $d['participanteId']    ?? null;
     $checkoutLat = isset($d['lat']) ? (float)$d['lat'] : null;
     $checkoutLng = isset($d['lng']) ? (float)$d['lng'] : null;
+    $checkoutAt  = !empty($d['checkoutAt']) ? $d['checkoutAt'] : null;
 
     if ($partId) {
       // ── Multi-tech: actualizar participante específico ──────────
       // Auto-cerrar pausa activa si el técnico finaliza estando en pausa
       $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
         ->execute([$partId]);
-      $pdo->prepare("UPDATE visita_participantes SET check_out = NOW(), checkout_lat = ?, checkout_lng = ? WHERE id = ?")
-        ->execute([$checkoutLat, $checkoutLng, $partId]);
+      $coAt = $checkoutAt ?: date('Y-m-d H:i:s');
+      $pdo->prepare("UPDATE visita_participantes SET check_out = ?, checkout_lat = ?, checkout_lng = ? WHERE id = ?")
+        ->execute([$coAt, $checkoutLat, $checkoutLng, $partId]);
       // ¿Quedan participantes sin checkout?
       $stmt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ? AND check_out IS NULL");
       $stmt->execute([$id]);
@@ -551,11 +555,11 @@ if ($method === 'PUT') {
       }
     } else {
       // ── Legacy: checkout único (registros sin visita_participantes) ──
-      $pdo->prepare("UPDATE reportes SET check_out=NOW(), tecnico_checkout_id=?, estado='enviado' WHERE id=?")
-        ->execute([$tecnicoOut, $id]);
+      $pdo->prepare("UPDATE reportes SET check_out=?, tecnico_checkout_id=?, estado='enviado' WHERE id=?")
+        ->execute([$coAt, $tecnicoOut, $id]);
       // Intentar actualizar participante coincidente si existe
-      $pdo->prepare("UPDATE visita_participantes SET check_out=NOW(), checkout_lat=?, checkout_lng=? WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
-        ->execute([$checkoutLat, $checkoutLng, $id, $tecnicoOut]);
+      $pdo->prepare("UPDATE visita_participantes SET check_out=?, checkout_lat=?, checkout_lng=? WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
+        ->execute([$coAt, $checkoutLat, $checkoutLng, $id, $tecnicoOut]);
     }
 
     // ── Descuento de horas de contrato (si la tarea es tipo contrato) ──

@@ -564,7 +564,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
     if (esUltimo) {
       // Último participante: diferir checkout hasta que el técnico envíe el reporte.
       // Mover visita a borradoresActivos localmente para que el UI refleje fin de visita.
-      _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng };
+      _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt: new Date().toISOString().replace('T',' ').substring(0,19) };
       delete visitasActivas[tareaId];
       if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
       // Marcar localmente el participante como terminado (sin hora real aún)
@@ -677,12 +677,12 @@ function cerrarFormularioReporte() {
 // Llamado cuando el técnico envía el reporte: escribe el checkout real en el servidor.
 async function _completarCheckout() {
   if (!_pendingCheckout) return;
-  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
+  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt } = _pendingCheckout;
   _pendingCheckout = null;
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
+      body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng, checkoutAt }),
     });
     const data = await res.json();
     if (!data.error && borradoresActivos[tareaId]) {
@@ -702,12 +702,12 @@ async function confirmarSinReporte() {
     cargarVisitasActivas();
     return;
   }
-  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
+  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt } = _pendingCheckout;
   _pendingCheckout = null;
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
+      body: JSON.stringify({ accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng, checkoutAt }),
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }

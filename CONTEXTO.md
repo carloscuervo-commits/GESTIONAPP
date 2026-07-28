@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-28 — fix hora checkout en PDF)
+
+### fix: Hora de checkout incorrecta en PDF (mostraba la hora del envío del correo, no del checkout real)
+
+**Problema:** `_pendingCheckout` guardaba el checkout en el servidor solo cuando el técnico enviaba el reporte. Si pasaban horas entre el checkout y el envío, el servidor registraba `check_out = NOW()` (hora del email), no la hora real del checkout.
+
+**Solución:**
+- **Frontend** (`assets/js/reportes.js?v=20260728a`): `_pendingCheckout` captura `checkoutAt: new Date().toISOString()...` en el momento del checkout real. `_completarCheckout()` y `confirmarSinReporte()` envían `checkoutAt` en el body del PUT.
+- **Backend** (`backend/api/reportes.php`): handlers `accion='checkout'` y `accion='sin_reporte'` leen `$d['checkoutAt']` y lo usan como `check_out`; si no viene (compatibilidad), usa `date('Y-m-d H:i:s')`.
+
+`tareas-equipo.html` bumpeado a `reportes.js?v=20260728a`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-17 — fix resolverTareaTerminada + syncTask)
 
 ### fix: Tarjeta no pasaba a "Por facturar" al confirmar popup
