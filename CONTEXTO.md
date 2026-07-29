@@ -413,6 +413,30 @@ Funciones: `toggleSettings()`, `abrirSettings()`, `cerrarSettings()` en `configu
   ### COLLATE en pausas
   - `visita_pausas.participante_id COLLATE utf8mb4_general_ci = vp.id COLLATE utf8mb4_general_ci` en todas las comparaciones (ambas tablas son `unicode_ci`, servidor en `general_ci`).
 
+## Estado actual (última actualización: 2026-07-29)
+
+### fix: múltiples bugs en reportes (horasContrato 500, check-out no sincroniza, Sin reporte con PDF)
+
+**500 en `?horasContrato=1`**
+- Causa: COLLATE aplicado al parámetro `?` en prepared statements (`? COLLATE utf8mb4_general_ci`), sintaxis que MySQL no acepta en statements preparados.
+- Fix: todos los queries `horasContrato` usan ahora `col COLLATE utf8mb4_general_ci = ?` (sin COLLATE en el `?`). Los JOINs de `visita_participantes` corregidos a `ON r2.id = vp.reporte_id COLLATE utf8mb4_general_ci`.
+- La columna `horas_contrato DECIMAL(4,1) NULL` ya existía en producción (agregada manualmente). Migración `migracion_horas_contrato.sql` queda como referencia.
+
+**Check-out editado no se refleja en historial ni PDF**
+- Causa: `guardarCabeceraReporte()` hace `PUT reportes.php` que actualizaba `reportes.check_out` pero NO `visita_participantes.check_out`. El historial y el PDF leen de `visita_participantes`.
+- Fix: en el PUT general, si `checkIn`/`checkOut` cambian y el reporte tiene exactamente 1 participante, se sincroniza `visita_participantes.check_in/check_out`.
+
+**"Sin reporte" aunque tiene PDF**
+- Causa: estado `sin_reporte` persiste aunque se genere PDF después.
+- Fix: en el PUT, cuando `pdfArchivo` se recibe sobre un reporte en estado `sin_reporte`, se promueve a `activo`.
+
+**Reportes en estado `borrador` no abribles**
+- Fix: `reportesAbribles` en `reportes.js` ahora incluye `borrador` además de `activo`/`enviado`/`sin_reporte`.
+
+- **Archivos**: `backend/api/reportes.php`, `assets/js/reportes.js?v=20260729a`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-08)
 
 ### fix: "Iniciar visita" no reaparece en tareas de un solo día tras enviar el reporte

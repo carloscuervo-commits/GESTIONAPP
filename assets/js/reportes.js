@@ -1337,7 +1337,7 @@ async function renderHistorialVisitasModal(tareaId) {
     // Inyectar botones "Ver reporte" en acciones rápidas para cualquier estado de reporte
     const accionesDiv = document.getElementById('modal-acciones-rapidas');
     if (accionesDiv) {
-      const reportesAbribles = reportes.filter(r => ['activo','enviado','sin_reporte'].includes(r.estado));
+      const reportesAbribles = reportes.filter(r => ['activo','borrador','enviado','sin_reporte'].includes(r.estado));
       // Quitar botones "Ver reporte" previos para reemplazarlos con datos reales
       accionesDiv.querySelectorAll('.btn-ver-reporte').forEach(b => b.remove());
       if (reportesAbribles.length > 0) {

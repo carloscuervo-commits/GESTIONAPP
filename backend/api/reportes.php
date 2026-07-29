@@ -217,7 +217,7 @@ if ($method === 'GET') {
 
     $stmtC = $pdo->prepare("
       SELECT contrato_horas_mes FROM clientes
-      WHERE nombre COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+      WHERE nombre COLLATE utf8mb4_general_ci = ?
         AND contrato_area = ?
       LIMIT 1
     ");
@@ -228,9 +228,9 @@ if ($method === 'GET') {
     $stmtCons = $pdo->prepare("
       SELECT COALESCE(SUM(vp.horas_contrato), 0)
       FROM visita_participantes vp
-      JOIN reportes r2 ON r2.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
-      JOIN tareas t2   ON t2.id COLLATE utf8mb4_general_ci = r2.tarea_id COLLATE utf8mb4_general_ci
-      WHERE t2.cliente   COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+      JOIN reportes r2 ON r2.id = vp.reporte_id COLLATE utf8mb4_general_ci
+      JOIN tareas t2   ON t2.id = r2.tarea_id
+      WHERE t2.cliente COLLATE utf8mb4_general_ci = ?
         AND t2.tipo_tarea = 'contrato'
         AND t2.area      = ?
         AND YEAR(vp.check_out)  = YEAR(CURDATE())
@@ -595,9 +595,9 @@ if ($method === 'PUT') {
           $stmtConsumo = $pdo->prepare("
             SELECT COALESCE(SUM(vp.horas_contrato), 0)
             FROM visita_participantes vp
-            JOIN reportes r2 ON r2.id = vp.reporte_id
-            JOIN tareas t2   ON t2.id = r2.tarea_id COLLATE utf8mb4_general_ci
-            WHERE t2.cliente   COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+            JOIN reportes r2 ON r2.id = vp.reporte_id COLLATE utf8mb4_general_ci
+            JOIN tareas t2   ON t2.id = r2.tarea_id
+            WHERE t2.cliente COLLATE utf8mb4_general_ci = ?
               AND t2.tipo_tarea = 'contrato'
               AND t2.area      = ?
               AND YEAR(vp.check_out)  = YEAR(CURDATE())
@@ -610,7 +610,7 @@ if ($method === 'PUT') {
           // Horas del contrato del cliente
           $stmtContrato = $pdo->prepare("
             SELECT contrato_horas_mes FROM clientes
-            WHERE nombre COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci
+            WHERE nombre COLLATE utf8mb4_general_ci = ?
               AND contrato_area = ?
             LIMIT 1
           ");
@@ -710,6 +710,11 @@ if ($method === 'PUT') {
   $datosNuevos = array_key_exists('datos', $d) ? array_merge($datosPrev, $d['datos']) : $datosPrev;
   $pdfArchivo = array_key_exists('pdfArchivo', $d) ? $d['pdfArchivo'] : $prev['pdf_archivo'];
   $estado = $d['estado'] ?? $prev['estado'];
+  // Si se genera un PDF sobre un reporte 'sin_reporte', promoverlo a 'activo'
+  // para que sea accesible desde el historial y el módulo de informes.
+  if (array_key_exists('pdfArchivo', $d) && $d['pdfArchivo'] && $prev['estado'] === 'sin_reporte') {
+    $estado = 'activo';
+  }
   // Edición administrativa: permite corregir el técnico que atendió y los
   // horarios de una visita ya registrada (la UI restringe esto a perfil admin).
   $tecnicoCheckinId = array_key_exists('tecnicoCheckinId', $d) ? $d['tecnicoCheckinId'] : $prev['tecnico_checkin_id'];
@@ -719,6 +724,17 @@ if ($method === 'PUT') {
 
   $pdo->prepare("UPDATE reportes SET plantilla=?, datos=?, pdf_archivo=?, estado=?, tecnico_checkin_id=?, tecnico_checkout_id=?, check_in=?, check_out=? WHERE id=?")
     ->execute([$plantilla, json_encode($datosNuevos, JSON_UNESCAPED_UNICODE), $pdfArchivo, $estado, $tecnicoCheckinId, $tecnicoCheckoutId, $checkIn, $checkOut, $id]);
+
+  // Si se editaron los horarios desde el admin, sincronizar con el participante
+  // (aplica solo cuando hay un único participante para no pisar horas de multi-técnico).
+  if (array_key_exists('checkIn', $d) || array_key_exists('checkOut', $d)) {
+    $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM visita_participantes WHERE reporte_id = ?");
+    $stmtCnt->execute([$id]);
+    if ((int)$stmtCnt->fetchColumn() === 1) {
+      $pdo->prepare("UPDATE visita_participantes SET check_in=?, check_out=? WHERE reporte_id=?")
+        ->execute([$checkIn, $checkOut, $id]);
+    }
+  }
 
   $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
   $stmt->execute([$id]);
