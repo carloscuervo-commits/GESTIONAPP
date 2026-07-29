@@ -37,7 +37,13 @@ if ($method === 'POST') {
     jsonOut(['error' => 'No se pudo guardar el PDF'], 500);
   }
 
-  $pdo->prepare("UPDATE reportes SET pdf_archivo = ? WHERE id = ?")->execute([$nombreArchivo, $reporteId]);
+  // Guardar archivo y, si el reporte estaba en 'sin_reporte', promoverlo a 'activo'
+  $pdo->prepare("
+    UPDATE reportes
+    SET pdf_archivo = ?,
+        estado = CASE WHEN estado = 'sin_reporte' THEN 'activo' ELSE estado END
+    WHERE id = ?
+  ")->execute([$nombreArchivo, $reporteId]);
   jsonOut(['ok' => true, 'archivo' => $nombreArchivo]);
 }
 
