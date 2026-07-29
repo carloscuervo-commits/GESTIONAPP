@@ -4,6 +4,22 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-29 — edición de horarios de pausa restringida a admin)
+
+### feat: editar horario de una pausa (solo admin)
+
+**Problema**: en el historial de visitas, las pausas (check-in de descanso) solo se mostraban en modo lectura; no había forma de corregir una hora de pausa mal registrada.
+
+**Solución** (mismo patrón que la edición de check-in/checkout existente — restringido a `perfil=admin` solo en el frontend, sin validación server-side):
+- **Backend** (`backend/api/reportes.php`): nueva acción `accion='editPausa'` en el PUT de `reportes.php?id=`. Recibe `pausaId`, `pausaInicio` ("HH:MM"), `pausaFin` ("HH:MM" o null). Compone el datetime con la fecha del `pausa_inicio` existente, valida que fin > inicio, y hace `UPDATE visita_pausas`.
+- **Frontend** (`assets/js/reportes.js?v=20260729c`): en `renderHistorialVisitasModal`, el bloque de pausas ahora renderiza inputs `type="time"` (`.hvp-pausa-in`/`.hvp-pausa-out`) + botón 💾 cuando `esAdmin`; para no-admin sigue siendo texto de solo lectura. Nueva función `guardarPausaVisita(btn)` hace el PUT y refresca el historial.
+
+`tareas-equipo.html` bumpeado a `reportes.js?v=20260729c`.
+
+**Nota de seguridad**: la restricción a admin es solo de UI (igual que el resto de ediciones admin en reportes.php) — el endpoint no valida el rol en el servidor. Pendiente si se quiere cerrar ese hueco: validar `token_sesion`/`perfil` en servidor para todas las acciones admin (editParticipante, editPausa, eliminarParticipante, eliminarReporteVisita).
+
+---
+
 ## Estado actual (última actualización: 2026-07-29 — filtro cliente por texto en informes)
 
 ### feat: filtro cliente en informes cambiado de select a input de texto

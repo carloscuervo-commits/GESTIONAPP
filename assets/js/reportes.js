@@ -1445,12 +1445,22 @@ async function renderHistorialVisitasModal(tareaId) {
           if (pausas.length > 0) {
             html += `<div style="margin:0 0 6px 12px;border-left:2px solid #fde68a;padding-left:8px">`;
             pausas.forEach(pz => {
-              const pIn  = pz.pausa_inicio ? pz.pausa_inicio.substring(11,16) : '-';
-              const pOut = pz.pausa_fin    ? pz.pausa_fin.substring(11,16)    : '(activa)';
+              const pIn  = pz.pausa_inicio ? pz.pausa_inicio.substring(11,16) : '';
+              const pOut = pz.pausa_fin    ? pz.pausa_fin.substring(11,16)    : '';
               const pDur = pz.pausa_fin
                 ? (() => { const d = Math.round((new Date(pz.pausa_fin.replace(' ','T')) - new Date(pz.pausa_inicio.replace(' ','T')))/60000); return `${d}min`; })()
                 : '';
-              html += `<div style="font-size:11px;color:#92400e;margin-bottom:2px">⏸️ ${pIn} – ${pOut}${pDur ? ' ('+pDur+')' : ''} · ${esc(pz.justificacion)}</div>`;
+              if (esAdmin) {
+                html += `<div style="display:grid;grid-template-columns:auto auto auto 1fr auto;gap:6px;align-items:center;margin-bottom:4px;font-size:11px" data-pausa-id="${pz.id}" data-rep-id="${r.id}">
+                  <span style="color:#92400e">⏸️</span>
+                  <input type="time" value="${pIn}" class="hvp-pausa-in" style="border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;width:90px;background:var(--card);color:var(--text)">
+                  <input type="time" value="${pOut}" class="hvp-pausa-out" placeholder="activa" style="border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;width:90px;background:var(--card);color:var(--text)">
+                  <span style="color:#92400e">${esc(pz.justificacion)}${pDur ? ' ('+pDur+')' : ''}</span>
+                  <button onclick="guardarPausaVisita(this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer">💾</button>
+                </div>`;
+              } else {
+                html += `<div style="font-size:11px;color:#92400e;margin-bottom:2px">⏸️ ${pIn || '-'} – ${pOut || '(activa)'}${pDur ? ' ('+pDur+')' : ''} · ${esc(pz.justificacion)}</div>`;
+              }
             });
             html += `</div>`;
           }
@@ -1564,6 +1574,44 @@ async function guardarParticipanteVisita(btn) {
     btn.disabled = false; btn.textContent = '💾';
   }
 }
+
+async function guardarPausaVisita(btn) {
+  const row     = btn.closest('[data-pausa-id]');
+  const pausaId = row.dataset.pausaId;
+  const repId   = row.dataset.repId;
+  const pIn     = row.querySelector('.hvp-pausa-in').value;
+  const pOut    = row.querySelector('.hvp-pausa-out').value;
+  if (!pIn) { alert('La hora de inicio de la pausa es obligatoria.'); return; }
+
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${repId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'editPausa', pausaId, pausaInicio: pIn, pausaFin: pOut || null }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = '💾'; return; }
+
+    btn.textContent = '✅';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '💾'; }, 2000);
+
+    // Actualizar estado local y re-renderizar historial
+    if (data.estado === 'activo') visitasActivas[data.tarea_id] = data;
+    else {
+      if (visitasActivas[data.tarea_id]?.id === repId) delete visitasActivas[data.tarea_id];
+      if (!borradoresActivos[data.tarea_id]) borradoresActivos[data.tarea_id] = [];
+      const idx = borradoresActivos[data.tarea_id].findIndex(b => b.id === repId);
+      if (idx >= 0) borradoresActivos[data.tarea_id][idx] = data;
+      else borradoresActivos[data.tarea_id].push(data);
+    }
+    render();
+    await renderHistorialVisitasModal(data.tarea_id);
+  } catch(e) {
+    alert('Error al guardar. Intenta de nuevo.');
+    btn.disabled = false; btn.textContent = '💾';
+  }
+}
+
 async function compartirPDFWhatsApp(btn) {
   if (!reporteActual?.pdf_archivo) { alert('Primero genera el PDF.'); return; }
   if (!navigator.canShare) { alert('Tu dispositivo no soporta compartir archivos. Descarga el PDF y compártelo manualmente.'); return; }

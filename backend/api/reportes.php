@@ -459,6 +459,32 @@ if ($method === 'PUT') {
     jsonOut(reporteConFotos($pdo, $stmt->fetch()));
   }
 
+  // ── Edición admin del horario de una pausa (la UI restringe esto a perfil admin) ──
+  if (($d['accion'] ?? '') === 'editPausa') {
+    $pausaId = $d['pausaId']     ?? null;
+    $hIn     = $d['pausaInicio'] ?? null; // "HH:MM"
+    $hOut    = $d['pausaFin']    ?? null; // "HH:MM" o null (pausa sigue activa)
+    if (!$pausaId || !$hIn) jsonOut(['error' => 'pausaId y pausaInicio son obligatorios'], 400);
+
+    $stmtPrevPausa = $pdo->prepare("SELECT pausa_inicio FROM visita_pausas WHERE id = ?");
+    $stmtPrevPausa->execute([$pausaId]);
+    $prevPausa = $stmtPrevPausa->fetch();
+    if (!$prevPausa) jsonOut(['error' => 'Pausa no encontrada'], 404);
+
+    $fechaBase = substr($prevPausa['pausa_inicio'], 0, 10);
+    $newIn  = $fechaBase . ' ' . $hIn  . ':00';
+    $newOut = $hOut ? ($fechaBase . ' ' . $hOut . ':00') : null;
+
+    if ($newOut && $newOut <= $newIn) jsonOut(['error' => 'La hora de fin de la pausa debe ser posterior a la de inicio'], 400);
+
+    $pdo->prepare("UPDATE visita_pausas SET pausa_inicio=?, pausa_fin=? WHERE id=?")
+      ->execute([$newIn, $newOut, $pausaId]);
+
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$id]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()));
+  }
+
   // ── Pausar visita de un participante ────────────────────────────
   if (($d['accion'] ?? '') === 'pausar') {
     $partId       = $d['participanteId'] ?? null;
