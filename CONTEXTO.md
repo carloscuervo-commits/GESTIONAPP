@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-07-29 — filtro cliente por texto en informes)
+
+### feat: filtro cliente en informes cambiado de select a input de texto
+
+**Problema**: el filtro "cliente" en la sección Informes era un `<select>` con lista fija; no permitía buscar ingresando letras.
+
+**Fix** (`assets/js/informes.js?v=20260729b`):
+- `actualizarCamposInforme()`: reemplazado `<select id="informe-cliente">` por `<input type="text" id="informe-cliente">` con `<datalist>` de sugerencias. Removida la optimización `dataset.built = '1'` del campo cliente para que el input se resetee al cambiar de informe.
+- Todas las comparaciones exactas `=== filtros.cliente` cambiadas a substring case-insensitive: `(campo || '').toLowerCase().includes(filtros.cliente.toLowerCase())`. Afecta: `calcTarjetasCliente`, `calcFacturasModulo`, `calcReportesBusqueda`, `renderReportesBusquedaHTML`.
+
+`tareas-equipo.html` bumpeado a `informes.js?v=20260729b`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-28 — fix hora checkout en PDF)
 
 ### fix: Hora de checkout incorrecta en PDF (mostraba la hora del envío del correo, no del checkout real)

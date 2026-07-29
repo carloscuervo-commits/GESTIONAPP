@@ -119,7 +119,7 @@ function calcTarjetasCliente(filtros) {
     return { columnas: [{ key: 'msg', label: 'Mensaje' }], filas: [{ msg: 'Selecciona un cliente arriba para ver sus tarjetas.' }] };
   }
   const filas = tasks
-    .filter(t => (t.cliente || '').trim() === filtros.cliente)
+    .filter(t => !filtros.cliente || (t.cliente || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
     .map(t => ({
       area: (AREAS[t.area] || {}).label || t.area,
       tarea: t.titulo || '-',
@@ -146,7 +146,7 @@ function calcTarjetasCliente(filtros) {
 function calcFacturasModulo(filtros) {
   const filas = informesFacturas
     .filter(f => dentroDeRango(f.fecha_factura, filtros.desde, filtros.hasta))
-    .filter(f => !filtros.cliente || (f.cliente_nombre || '').trim() === filtros.cliente)
+    .filter(f => !filtros.cliente || (f.cliente_nombre || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
     .map(f => ({
       numeroFactura: f.numero_factura || '-',
       cliente: f.cliente_nombre || '-',
@@ -173,7 +173,7 @@ function calcReportesBusqueda(filtros) {
   // Versión plana (sin botones) usada para exportar a Excel.
   const filas = informesReportesVisita
     .filter(r => dentroDeRango(r.check_in, filtros.desde, filtros.hasta))
-    .filter(r => !filtros.cliente || (r.cliente || '').trim() === filtros.cliente)
+    .filter(r => !filtros.cliente || (r.cliente || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
     .map(r => ({
       fecha: (r.check_in || '').slice(0, 10),
       cliente: r.cliente || '-',
@@ -195,7 +195,7 @@ function calcReportesBusqueda(filtros) {
 function renderReportesBusquedaHTML(filtros) {
   const filas = informesReportesVisita
     .filter(r => dentroDeRango(r.check_in, filtros.desde, filtros.hasta))
-    .filter(r => !filtros.cliente || (r.cliente || '').trim() === filtros.cliente)
+    .filter(r => !filtros.cliente || (r.cliente || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
     .sort((a, b) => (b.check_in || '').localeCompare(a.check_in || ''));
 
   if (!filas.length) {
@@ -610,14 +610,15 @@ function actualizarCamposInforme() {
 
   const wrapCli = document.getElementById('informe-campo-cliente');
   if (campos.includes('cliente')) {
-    if (!wrapCli.dataset.built) {
-      const clientes = obtenerClientesUnicos();
-      wrapCli.innerHTML = `<select id="informe-cliente" onchange="recalcularInforme()" style="min-width:220px;padding:8px">
-        <option value="">Selecciona un cliente...</option>
-        ${clientes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
-      </select>`;
-      wrapCli.dataset.built = '1';
-    }
+    const clientes = obtenerClientesUnicos();
+    wrapCli.innerHTML = `<input type="text" id="informe-cliente" placeholder="🔍 Buscar cliente..."
+      oninput="recalcularInforme()"
+      list="informe-clientes-list"
+      autocomplete="off"
+      style="min-width:220px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text)">
+      <datalist id="informe-clientes-list">
+        ${clientes.map(c => `<option value="${esc(c)}">`).join('')}
+      </datalist>`;
     wrapCli.style.display = '';
   } else if (wrapCli) wrapCli.style.display = 'none';
 
