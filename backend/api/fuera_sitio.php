@@ -40,7 +40,7 @@ if ($method === 'GET') {
   }
 
   $sql = "SELECT f.*, u.nombre AS tecnico_nombre,
-            t.titulo AS tarea_titulo, t.cliente AS tarea_cliente,
+            t.titulo AS tarea_titulo, t.cliente AS tarea_cliente, t.area AS tarea_area,
             ur.nombre AS revisado_por_nombre
           FROM checkin_fuera_sitio f
           LEFT JOIN usuarios u  ON u.id  COLLATE utf8mb4_general_ci = f.tecnico_id   COLLATE utf8mb4_general_ci

@@ -83,6 +83,7 @@ function calcActividadesTecnico(filtros) {
       area: (AREAS[x.t.area] || {}).label || x.t.area,
       estado: (AREA_FLOWS[x.t.area] || []).find(e => e.id === x.t.estado)?.label || x.t.estado,
       checkIn: '-', checkOut: '-', duracion: '-',
+      _tarea_id: x.t.id, _tarea_area: x.t.area,
     }));
 
   const filasVisitas = informesReportesVisita
@@ -98,6 +99,7 @@ function calcActividadesTecnico(filtros) {
       checkIn: r.check_in ? r.check_in.slice(11, 16) : '-',
       checkOut: r.check_out ? r.check_out.slice(11, 16) : '-',
       duracion: formatDuracionMin(r.check_in, r.check_out),
+      _tarea_id: r.tarea_id, _tarea_area: r.area,
     }));
 
   const filas = [...filasTareas, ...filasVisitas].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
@@ -129,6 +131,7 @@ function calcTarjetasCliente(filtros) {
       fechaCreacion: (t.createdAt || '').slice(0, 10) || '-',
       fechaProgramacion: t.fechaProg || '-',
       factura: t.factura || '-',
+      _tarea_id: t.id, _tarea_area: t.area,
     }))
     .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
   return {
@@ -213,7 +216,7 @@ function renderReportesBusquedaHTML(filtros) {
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Acciones</th>
     </tr></thead>
     <tbody>${filas.map(r => `<tr>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc((r.check_in || '').slice(0, 10))}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(r.tarea_id)}','${esc(r.area || '')}')" title="Abrir tarjeta">${esc((r.check_in || '').slice(0, 10))}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.titulo || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(getMember(r.tecnico_checkin_id)?.name || r.tecnico_checkin_id || '-')}</td>
@@ -267,6 +270,7 @@ async function renderTardiasHTML(filtros) {
       horaProg:     f.hora_programacion ? f.hora_programacion.slice(0, 5) : '-',
       horaLlegada:  f.check_in ? f.check_in.slice(11, 16) : '-',
       minutosTarde: minutosTarde !== null ? minutosTarde : '-',
+      _tarea_id:    f.tarea_id, _tarea_area: f.area,
     };
   });
 
@@ -285,7 +289,7 @@ async function renderTardiasHTML(filtros) {
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Min. tarde</th>
     </tr></thead>
     <tbody>${_informeFilas.map(f => `<tr>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.fecha)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(f._tarea_id)}','${esc(f._tarea_area || '')}')" title="Abrir tarjeta">${esc(f.fecha)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.cliente)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.tarea)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.tecnico)}</td>
@@ -362,6 +366,7 @@ async function renderFueraSitioHTML(filtros) {
     observacion:      f.observacion    || '',
     revisado_por:     f.revisado_por_nombre || '',
     revisado_en:      (f.revisado_en || '').slice(0, 16).replace('T', ' '),
+    _tarea_id:        f.tarea_id, _tarea_area: f.tarea_area,
   }));
 
   const empty = _fueraSitioArchivados
@@ -392,7 +397,7 @@ async function renderFueraSitioHTML(filtros) {
              onclick="gestionarFueraSitio('${r.id}', this)">✅ Gestionar</button>
          </td>`;
     return `<tr id="fs-row-${r.id}">
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${esc(r.fecha)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(r._tarea_id)}','${esc(r._tarea_area || '')}')" title="Abrir tarjeta">${esc(r.fecha)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tecnico)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tarea)}</td>
@@ -690,13 +695,26 @@ function recalcularInforme() {
   tablaEl.innerHTML = def.custom ? def.custom(filtros) : renderTablaInformeHTML(_informeColumnas, _informeFilas);
 }
 
+// Abre la tarjeta de una tarea desde una fila de informe y cambia a su pestaña de área.
+function abrirTarjetaInforme(tareaId, area) {
+  if (!tareaId) return;
+  openModal(tareaId);
+  if (area) setArea(area);
+}
+
 function renderTablaInformeHTML(columnas, filas) {
   if (!filas || !filas.length) {
     return '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Sin datos para los filtros seleccionados.</div>';
   }
   return `<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr>${columnas.map(c => `<th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">${esc(c.label)}</th>`).join('')}</tr></thead>
-    <tbody>${filas.map(fila => `<tr>${columnas.map(c => `<td style="padding:7px 10px;border-bottom:1px solid var(--border)">${formatCeldaInforme(fila[c.key], c.tipo)}</td>`).join('')}</tr>`).join('')}</tbody>
+    <tbody>${filas.map(fila => `<tr>${columnas.map((c, i) => {
+      const val = formatCeldaInforme(fila[c.key], c.tipo);
+      if (i === 0 && fila._tarea_id) {
+        return `<td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(fila._tarea_id)}','${esc(fila._tarea_area || '')}')" title="Abrir tarjeta">${val}</td>`;
+      }
+      return `<td style="padding:7px 10px;border-bottom:1px solid var(--border)">${val}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>
   </table>`;
 }
 
