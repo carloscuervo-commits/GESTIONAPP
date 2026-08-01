@@ -647,6 +647,18 @@
   </div>
 </div>
 
+<!-- MODAL: visitas en curso de días anteriores (sin checkout) -->
+<div class="modal-overlay" id="modal-visitas-pendientes" style="z-index:402">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title" id="visitas-pendientes-titulo" style="color:#dc2626">⚠️ Visitas en curso de días anteriores</div>
+    <p style="margin:0 0 10px;color:var(--text-muted);font-size:13px">
+      Ninguna visita debería quedar abierta después del día del check-in. Ciérralas cuanto antes.
+    </p>
+    <div id="visitas-pendientes-lista" style="max-height:50vh;overflow-y:auto;margin-bottom:14px"></div>
+    <button class="btn-save" style="width:100%;background:#dc2626;border-color:#dc2626" onclick="document.getElementById('modal-visitas-pendientes').classList.remove('open')">Entendido</button>
+  </div>
+</div>
+
 <!-- MODAL: alerta de retraso de técnico (solo admin) -->
 <div class="modal-overlay" id="retraso-modal" style="z-index:401">
   <div class="modal" style="max-width:440px">
@@ -766,7 +778,7 @@
 <script src="assets/js/tareas.js?v=20260801a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
-<script src="assets/js/reportes.js?v=20260731a"></script>
+<script src="assets/js/reportes.js?v=20260801a"></script>
 <script src="assets/js/informes.js?v=20260801f"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
 <script src="assets/js/usuarios.js?v=20260630b"></script>
@@ -778,6 +790,6 @@
 <script src="assets/js/bitacora.js?v=20260704m"></script>
 <script src="assets/js/configuracion.js?v=20260704p"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
-<script src="assets/js/app.js?v=20260704n"></script>
+<script src="assets/js/app.js?v=20260801a"></script>
 </body>
 </html>

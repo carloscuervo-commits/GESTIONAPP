@@ -71,6 +71,7 @@ async function iniciarApp(){
   updateCarteraCount();
   migrarSeedLocal();
   await cargarVisitasActivas();
+  if (typeof revisarVisitasEnCursoAntiguas === 'function') revisarVisitasEnCursoAntiguas();
   aplicarPermisosUI();
   iniciarAlarmaChecker();
   iniciarAutoSync();

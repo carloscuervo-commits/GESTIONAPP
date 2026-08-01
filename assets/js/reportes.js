@@ -84,6 +84,65 @@ async function cargarVisitasActivas() {
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
 
+// ----------------- Alerta: visitas en curso de días anteriores -----------------
+// Regla del negocio: ninguna visita debería quedar sin checkout el mismo día del
+// check-in. Al abrir sesión (login o recarga con sesión guardada) se revisa si hay
+// participantes activos (sin check_out) cuyo check-in fue en un día anterior a hoy
+// (hora Colombia) y se avisa con un popup. Técnicos ven solo las suyas; admin ve
+// todas, con el nombre del técnico en cada una.
+function revisarVisitasEnCursoAntiguas() {
+  if (!currentUser) return;
+  const hoyISO = new Date().toLocaleDateString('sv', { timeZone: 'America/Bogota' });
+  const esAdmin = currentUser.perfil === 'admin';
+
+  const pendientes = [];
+  Object.values(visitasActivas).forEach(r => {
+    (r.participantes || []).forEach(p => {
+      if (p.check_out) return; // ya cerró
+      const fechaCheckIn = (p.check_in || '').slice(0, 10);
+      if (!fechaCheckIn || fechaCheckIn >= hoyISO) return; // hoy o sin fecha: no es "de días pasados"
+      if (!esAdmin && p.tecnico_id !== currentUser.id) return;
+      const t = tasks.find(x => x.id === r.tarea_id);
+      pendientes.push({
+        tareaId: r.tarea_id,
+        area: t?.area || '',
+        cliente: t?.cliente || r.cliente || '-',
+        titulo: t?.titulo || r.titulo || '-',
+        tecnico: getMember(p.tecnico_id)?.name || p.tecnico_id || '-',
+        fecha: fechaCheckIn,
+      });
+    });
+  });
+
+  if (!pendientes.length) return;
+  pendientes.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  const lista = document.getElementById('visitas-pendientes-lista');
+  if (!lista) return;
+  lista.innerHTML = pendientes.map(p => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer"
+      onclick="irATarjetaVisitaPendiente('${p.tareaId}','${esc(p.area)}')">
+      <div>
+        <div style="font-weight:700;font-size:13px">${esc(p.cliente)} · ${esc(p.titulo)}</div>
+        <div style="font-size:12px;color:var(--text-muted)">📅 Check-in: ${esc(p.fecha)}${esAdmin ? ` · 👤 ${esc(p.tecnico)}` : ''}</div>
+      </div>
+      <span style="font-size:12px;color:var(--primary);font-weight:700;white-space:nowrap">Ir →</span>
+    </div>`).join('');
+
+  const titulo = document.getElementById('visitas-pendientes-titulo');
+  if (titulo) {
+    titulo.textContent = esAdmin
+      ? `⚠️ ${pendientes.length} visita${pendientes.length !== 1 ? 's' : ''} en curso de días anteriores`
+      : `⚠️ Tienes ${pendientes.length} visita${pendientes.length !== 1 ? 's' : ''} en curso de días anteriores`;
+  }
+  document.getElementById('modal-visitas-pendientes')?.classList.add('open');
+}
+
+function irATarjetaVisitaPendiente(tareaId, area) {
+  document.getElementById('modal-visitas-pendientes')?.classList.remove('open');
+  if (area) setArea(area);
+}
+
 // ----------------- Info horas de contrato (async) -----------------
 async function _cargarHorasContratoCard(tareaId, elId) {
   if (!API_BASE) return;
