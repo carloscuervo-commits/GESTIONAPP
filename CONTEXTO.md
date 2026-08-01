@@ -4,9 +4,9 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
-## Estado actual (última actualización: 2026-08-01 — informe para cliente con PDF)
+## Estado actual (última actualización: 2026-08-01 — informe para cliente v20260801c)
 
-### feat: Informe para cliente con PDF (`informes.js?v=20260801a` + nuevo `backend/api/informe_cliente.php`)
+### feat: Informe para cliente con PDF (`informes.js?v=20260801c` + nuevo `backend/api/informe_cliente.php`)
 
 Nueva opción **"📄 Informe para cliente"** en la pestaña Informes (solo admin).
 
@@ -27,7 +27,9 @@ Nueva opción **"📄 Informe para cliente"** en la pestaña Informes (solo admi
 - Botón **🖨️ Guardar PDF**: abre nueva ventana con HTML estilizado (brand Innovate: `#0D3B40`/`#169BBC`), llama `window.print()` automáticamente; incluye CSS `@page { size: A4; }` y `print-color-adjust: exact`
 - No depende de bibliotecas externas — solo DOM + fetch
 
-`tareas-equipo.html` bumpeado a `informes.js?v=20260801a`.
+**Refinamientos aplicados (v20260801b→c):** email footer → `info@innovate.com.co`; fix `about:blank` vía `@page{margin:0}` + `body{padding:18mm 20mm}`; texto actividades justificado; badge 📍 En sitio / 💻 Remoto por visita; checkbox "Redondear horas" (mín 1h + redondeo 30min para `en_sitio`); campo Materiales oculto si vacío; botones **"📅 Este mes"** / **"⬅️ Mes anterior"** para selección rápida del periodo (aparecen en todos los informes que usan fechas, función `setPeriodoRapido(tipo)`).
+
+`tareas-equipo.html` bumpeado a `informes.js?v=20260801c`.
 
 ---
 

@@ -581,6 +581,10 @@ async function renderInformesView() {
         <div id="informe-campo-cliente" style="display:none"></div>
         <label id="informe-campo-desde" style="font-size:12px;color:var(--text-muted);display:none;align-items:center;gap:4px">Desde <input type="date" id="informe-desde" onchange="recalcularInforme()"></label>
         <label id="informe-campo-hasta" style="font-size:12px;color:var(--text-muted);display:none;align-items:center;gap:4px">Hasta <input type="date" id="informe-hasta" onchange="recalcularInforme()"></label>
+        <div id="informe-campo-periodo-rapido" style="display:none;gap:4px;align-items:center">
+          <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="setPeriodoRapido('este-mes')">📅 Este mes</button>
+          <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="setPeriodoRapido('mes-anterior')">⬅️ Mes anterior</button>
+        </div>
         <div id="informe-campo-archivados" style="display:none">
           <button id="fs-toggle-archivados" class="btn-cancel" style="padding:7px 12px;font-size:13px"
             onclick="toggleFueraSitioArchivados()">📦 Ver archivados</button>
@@ -628,6 +632,8 @@ function actualizarCamposInforme() {
   const wrapHasta = document.getElementById('informe-campo-hasta');
   if (wrapDesde) wrapDesde.style.display = campos.includes('desde') ? 'flex' : 'none';
   if (wrapHasta) wrapHasta.style.display = campos.includes('hasta') ? 'flex' : 'none';
+  const wrapPeriodo = document.getElementById('informe-campo-periodo-rapido');
+  if (wrapPeriodo) wrapPeriodo.style.display = campos.includes('desde') ? 'flex' : 'none';
 
   // Toggle archivados: solo visible en el informe de checks fuera de sitio
   const wrapArch = document.getElementById('informe-campo-archivados');
@@ -651,6 +657,8 @@ function seleccionarInforme(id) {
   actualizarCamposInforme();
 }
 
+let _informeReqId = 0; // secuencia para descartar respuestas async fuera de orden
+
 function recalcularInforme() {
   const def = INFORMES[_informeActual];
   if (!def) return;
@@ -664,8 +672,15 @@ function recalcularInforme() {
   if (!tablaEl) return;
 
   // Informe asíncrono (ej. llegadas tardías): renderTardiasHTML devuelve Promise<HTML>
+  // Cada tecla escrita en "cliente" dispara una llamada nueva; si una respuesta
+  // vieja (nombre a medio escribir) llega después de la más reciente, se descarta
+  // para no pisar el resultado bueno con uno vacío.
   if (def.customAsync) {
-    def.customAsync(filtros).then(html => { if (tablaEl) tablaEl.innerHTML = html; });
+    const reqId = ++_informeReqId;
+    def.customAsync(filtros).then(html => {
+      if (reqId !== _informeReqId) return;
+      if (tablaEl) tablaEl.innerHTML = html;
+    });
     return;
   }
 
@@ -1055,4 +1070,22 @@ function generarInformeClientePDF() {
   win.document.close();
 }
 // ===================== FIN INFORME PARA CLIENTE =====================
+
+function setPeriodoRapido(tipo) {
+  const hoy = new Date();
+  let d, h;
+  if (tipo === 'este-mes') {
+    d = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    h = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  } else { // mes-anterior
+    d = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    h = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+  }
+  const fmt = dt => dt.toISOString().slice(0, 10);
+  const elD = document.getElementById('informe-desde');
+  const elH = document.getElementById('informe-hasta');
+  if (elD) elD.value = fmt(d);
+  if (elH) elH.value = fmt(h);
+  recalcularInforme();
+}
 
