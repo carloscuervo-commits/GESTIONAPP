@@ -44,6 +44,7 @@ function obtenerClientesUnicos() {
   tasks.forEach(t => { if (t.cliente && t.cliente.trim()) set.add(t.cliente.trim()); });
   informesReportesVisita.forEach(r => { if (r.cliente && r.cliente.trim()) set.add(r.cliente.trim()); });
   informesFacturas.forEach(f => { if (f.cliente_nombre && f.cliente_nombre.trim()) set.add(f.cliente_nombre.trim()); });
+  (_clientes || []).forEach(c => { if (c.nombre && c.nombre.trim()) set.add(c.nombre.trim()); });
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
@@ -555,6 +556,7 @@ const INFORMES = {
   tardias_llegada: { nombre: '⏰ Llegadas tardías', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderTardiasHTML },
   fuera_sitio: { nombre: '📍 Checks fuera de sitio', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderFueraSitioHTML },
   sin_reporte: { nombre: '🚫 Visitas sin reporte', campos: ['desde', 'hasta'], customAsync: renderSinReporteHTML },
+  informe_cliente_pdf: { nombre: '📄 Informe para cliente', campos: ['cliente', 'desde', 'hasta'], customAsync: renderInformeClientePDF },
 };
 
 // --------------------------------------------------------------
@@ -714,3 +716,311 @@ async function exportarInformeExcel() {
   XLSX.writeFile(wb, `informe-${_informeActual}-${fecha}.xlsx`);
 }
 // ===================== FIN INFORMES =====================
+
+// ===================== INFORME PARA CLIENTE (PDF) =====================
+let _icData       = null;        // último resultado del endpoint
+let _icOcultos    = new Set();   // reporte_ids excluidos de la vista/PDF
+let _icCacheKey   = '';          // detectar cambio de filtros
+
+async function renderInformeClientePDF(filtros) {
+  const cacheKey = filtros.cliente + '|' + filtros.desde + '|' + filtros.hasta;
+
+  if (!filtros.cliente) {
+    return '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Selecciona un cliente para generar el informe.</div>';
+  }
+  if (!filtros.desde || !filtros.hasta) {
+    return '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Selecciona el rango de fechas.</div>';
+  }
+
+  // Reset excluded visits when filters change
+  if (_icCacheKey !== cacheKey) {
+    _icOcultos  = new Set();
+    _icCacheKey = cacheKey;
+    _icData     = null;
+  }
+
+  if (!_icData) {
+    const tablaEl = document.getElementById('informe-tabla');
+    if (tablaEl) tablaEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Cargando...</div>';
+    // Ensure _clientes is populated
+    if ((!_clientes || !_clientes.length) && typeof cargarClientes === 'function') {
+      await cargarClientes();
+    }
+    try {
+      const params = new URLSearchParams({ cliente: filtros.cliente, fecha_inicio: filtros.desde, fecha_fin: filtros.hasta });
+      const res  = await fetch(API_BASE + '/informe_cliente.php?' + params);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      _icData = data;
+    } catch(e) {
+      return '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">Error: ' + esc(e.message) + '</div>';
+    }
+  }
+
+  const clienteInfo  = (_clientes || []).find(c => c.nombre.toLowerCase() === (filtros.cliente || '').toLowerCase());
+  const tieneContrato = !!(clienteInfo && clienteInfo.contrato_horas_mes != null);
+  return _renderInformeClienteHTML(_icData, tieneContrato);
+}
+
+function _icToggleSoloContrato() {
+  if (!_icData) return;
+  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
+  const el = document.getElementById('informe-tabla');
+  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, !!(ci && ci.contrato_horas_mes != null));
+}
+
+function _icToggleOculto(reporteId) {
+  if (_icOcultos.has(reporteId)) { _icOcultos.delete(reporteId); } else { _icOcultos.add(reporteId); }
+  if (!_icData) return;
+  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
+  const el = document.getElementById('informe-tabla');
+  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, !!(ci && ci.contrato_horas_mes != null));
+}
+
+function _renderInformeClienteHTML(data, tieneContrato) {
+  const soloContratoChecked = tieneContrato && !!(document.getElementById('ic-solo-contrato') || {}).checked;
+
+  let visitas = data.visitas || [];
+  if (soloContratoChecked) visitas = visitas.filter(v => v.es_contrato);
+
+  const visibles = visitas.filter(v => !_icOcultos.has(v.reporte_id));
+
+  function totalHH(lista) {
+    return lista.reduce((s, v) => s + v.participantes.reduce((ps, p) => ps + (p.duracion_minutos || 0), 0), 0);
+  }
+  const totalMin = totalHH(visibles);
+  const thV = Math.floor(totalMin / 60), tmV = totalMin % 60;
+  const tecUnicos = [...new Set(visibles.flatMap(v => v.participantes.map(p => p.tecnico_nombre || p.tecnico_id)))].filter(Boolean);
+
+  function fmtFecha(iso) {
+    if (!iso) return '-';
+    const [y, m, d] = iso.slice(0, 10).split('-');
+    const dias  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const dt = new Date(+y, +m - 1, +d);
+    return dias[dt.getDay()] + ' ' + (+d) + ' de ' + meses[+m - 1] + ' de ' + y;
+  }
+  function fmtHora(dt)  { return dt ? dt.slice(11, 16) : '-'; }
+  function fmtMin(min)  {
+    if (min === null || min === undefined) return '-';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + 'm';
+  }
+  function periodoLabel(fi, ff) {
+    if (!fi || !ff) return fi + ' – ' + ff;
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const [yi, mi] = fi.split('-'), [yf, mf] = ff.split('-');
+    if (yi === yf && mi === mf) return meses[+mi - 1] + ' ' + yi;
+    if (yi === yf) return meses[+mi - 1] + ' – ' + meses[+mf - 1] + ' ' + yi;
+    return meses[+mi - 1] + ' ' + yi + ' – ' + meses[+mf - 1] + ' ' + yf;
+  }
+
+  const periodo = periodoLabel(data.fecha_inicio, data.fecha_fin);
+
+  const contratoToggle = tieneContrato
+    ? '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-secondary);cursor:pointer">'
+    + '<input type="checkbox" id="ic-solo-contrato"' + (soloContratoChecked ? ' checked' : '')
+    + ' onchange="_icToggleSoloContrato()"'
+    + ' style="width:15px;height:15px;accent-color:#169BBC;cursor:pointer">'
+    + 'Solo visitas de contrato</label>'
+    : '';
+
+  const statCards = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">'
+    + '<div style="background:var(--surface-1);border-radius:8px;padding:13px 16px">'
+    + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Horas hombre</div>'
+    + '<div style="font-size:22px;font-weight:500;color:var(--text-primary)">' + thV + 'h ' + String(tmV).padStart(2,'0') + 'm</div></div>'
+    + '<div style="background:var(--surface-1);border-radius:8px;padding:13px 16px">'
+    + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Visitas incluidas</div>'
+    + '<div style="font-size:22px;font-weight:500;color:var(--text-primary)">' + visibles.length
+    + (_icOcultos.size > 0 ? '<span style="font-size:13px;color:var(--text-muted);font-weight:400"> / ' + visitas.length + '</span>' : '')
+    + '</div></div>'
+    + '<div style="background:var(--surface-1);border-radius:8px;padding:13px 16px">'
+    + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Técnicos</div>'
+    + '<div style="font-size:22px;font-weight:500;color:var(--text-primary)">' + tecUnicos.length + '</div></div>'
+    + '</div>';
+
+  if (!visitas.length) {
+    return '<div style="padding:24px">'
+      + (contratoToggle ? '<div style="display:flex;justify-content:flex-end;margin-bottom:16px">' + contratoToggle + '</div>' : '')
+      + '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">Sin visitas completadas para este cliente en el período seleccionado.</div>'
+      + '</div>';
+  }
+
+  const visitasHTML = visitas.map(function(v) {
+    const oculta = _icOcultos.has(v.reporte_id);
+    const minHH  = v.participantes.reduce(function(s, p) { return s + (p.duracion_minutos || 0); }, 0);
+
+    const contratoBadge = v.es_contrato
+      ? '<span style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500;margin-left:6px">Contrato</span>'
+      : '';
+
+    const tecsList = v.participantes.map(function(p) {
+      return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--surface-1);border:0.5px solid var(--border);border-radius:99px;padding:3px 10px;font-size:12px;color:var(--text-secondary);margin:2px">'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:#169BBC;flex-shrink:0"></span>'
+        + esc(p.tecnico_nombre || p.tecnico_id) + ' · ' + esc(fmtHora(p.check_in)) + '–' + esc(fmtHora(p.check_out))
+        + ' <span style="color:var(--text-muted)">(' + esc(fmtMin(p.duracion_minutos)) + ')</span>'
+        + '</span>';
+    }).join('');
+
+    const descHTML = v.descripcion_acciones
+      ? '<div style="margin-top:10px"><div style="font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Actividades realizadas</div>'
+      + '<div style="font-size:13px;color:var(--text-primary);line-height:1.55">' + esc(v.descripcion_acciones) + '</div></div>' : '';
+
+    const matHTML = v.materiales
+      ? '<div style="margin-top:8px"><div style="font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Materiales utilizados</div>'
+      + '<div style="font-size:13px;color:var(--text-primary);line-height:1.55">' + esc(v.materiales) + '</div></div>' : '';
+
+    const pendHTML = v.pendientes
+      ? '<div style="margin-top:8px"><span style="display:inline-block;background:#FFF4E0;color:#A06A00;font-size:12px;padding:3px 10px;border-radius:12px">' + esc(v.pendientes) + '</span></div>' : '';
+
+    return '<div id="ic-visit-' + v.reporte_id + '" style="padding:15px 20px;border-bottom:0.5px solid var(--border);' + (oculta ? 'opacity:0.38;' : '') + '">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px">'
+      + '<div><div style="font-size:14px;font-weight:500;color:var(--text-primary)">' + esc(fmtFecha(v.fecha_visita)) + contratoBadge + '</div>'
+      + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">' + esc(v.titulo) + '</div></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:12px">'
+      + '<span style="background:#D6F3F4;color:#0D3B40;font-size:13px;font-weight:500;padding:3px 11px;border-radius:99px">' + esc(fmtMin(minHH)) + '</span>'
+      + '<button title="' + (oculta ? 'Incluir en PDF' : 'Excluir del PDF') + '" onclick="_icToggleOculto(\'' + v.reporte_id + '\')"'
+      + ' style="background:none;border:0.5px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:14px;color:var(--text-secondary);line-height:1">'
+      + (oculta ? '👁️' : '🙈') + '</button></div></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:2px">' + tecsList + '</div>'
+      + descHTML + matHTML + pendHTML
+      + '</div>';
+  }).join('');
+
+  return '<div style="padding:16px 20px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+    + '<div><div style="font-size:18px;font-weight:500;color:var(--text-primary)">' + esc(data.cliente_nombre) + '</div>'
+    + '<div style="font-size:13px;color:var(--text-secondary);margin-top:2px">' + esc(periodo) + ' · ' + visibles.length + ' visita' + (visibles.length !== 1 ? 's' : '') + '</div></div>'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + contratoToggle
+    + '<button onclick="generarInformeClientePDF()" style="background:#169BBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer">🖨️ Guardar PDF</button>'
+    + '</div></div>'
+    + statCards
+    + '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;padding-left:2px">Usa 🙈 para excluir visitas del PDF · 👁️ para volver a incluirlas</div>'
+    + '</div>'
+    + '<div style="background:var(--surface-2);border-top:0.5px solid var(--border)">' + visitasHTML + '</div>';
+}
+
+function generarInformeClientePDF() {
+  if (!_icData) return;
+  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
+  const tieneContrato = !!(ci && ci.contrato_horas_mes != null);
+  const soloContrato  = tieneContrato && !!(document.getElementById('ic-solo-contrato') || {}).checked;
+
+  let visitas = _icData.visitas || [];
+  if (soloContrato) visitas = visitas.filter(v => v.es_contrato);
+  const visibles = visitas.filter(v => !_icOcultos.has(v.reporte_id));
+
+  const totalMin = visibles.reduce((s, v) => s + v.participantes.reduce((ps, p) => ps + (p.duracion_minutos || 0), 0), 0);
+  const thV = Math.floor(totalMin / 60), tmV = totalMin % 60;
+  const tecUnicos = [...new Set(visibles.flatMap(v => v.participantes.map(p => p.tecnico_nombre || p.tecnico_id)))].filter(Boolean);
+
+  function fmtH(dt)  { return dt ? dt.slice(11, 16) : '-'; }
+  function fmtM(min) {
+    if (min === null || min === undefined) return '-';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + 'm';
+  }
+  function fmtFechaPDF(iso) {
+    if (!iso) return '-';
+    const [y, m, d] = iso.slice(0, 10).split('-');
+    const dias  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const dt = new Date(+y, +m - 1, +d);
+    return dias[dt.getDay()] + ' ' + (+d) + ' de ' + meses[+m - 1] + ' de ' + y;
+  }
+  function periodoLabelPDF(fi, ff) {
+    if (!fi || !ff) return fi + ' – ' + ff;
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const [yi, mi] = fi.split('-'), [yf, mf] = ff.split('-');
+    if (yi === yf && mi === mf) return meses[+mi - 1] + ' ' + yi;
+    if (yi === yf) return meses[+mi - 1] + ' – ' + meses[+mf - 1] + ' ' + yi;
+    return meses[+mi - 1] + ' ' + yi + ' – ' + meses[+mf - 1] + ' ' + yf;
+  }
+  function escHTML(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  const periodo  = periodoLabelPDF(_icData.fecha_inicio, _icData.fecha_fin);
+  const fechaGen = new Date().toLocaleDateString('es-CO', { day:'2-digit', month:'long', year:'numeric', timeZone:'America/Bogota' });
+
+  const visitasHTML = visibles.map(v => {
+    const minHH = v.participantes.reduce((s, p) => s + (p.duracion_minutos || 0), 0);
+    const badge = v.es_contrato ? '<span class="badge-contrato">Contrato</span>' : '';
+    const tecs  = v.participantes.map(p =>
+      '<span class="tech-pill"><span class="tech-dot"></span>'
+      + escHTML(p.tecnico_nombre || p.tecnico_id) + ' &middot; ' + escHTML(fmtH(p.check_in)) + '&ndash;' + escHTML(fmtH(p.check_out))
+      + ' (' + escHTML(fmtM(p.duracion_minutos)) + ')</span>'
+    ).join('');
+    const desc = v.descripcion_acciones
+      ? '<div class="sb"><div class="sl">Actividades realizadas</div><div class="st">' + escHTML(v.descripcion_acciones) + '</div></div>' : '';
+    const mat  = v.materiales
+      ? '<div class="sb"><div class="sl">Materiales utilizados</div><div class="st">' + escHTML(v.materiales) + '</div></div>' : '';
+    const pend = v.pendientes
+      ? '<div class="sb"><div class="sl">Pendientes</div><div class="pend">' + escHTML(v.pendientes) + '</div></div>' : '';
+    return '<div class="vc">'
+      + '<div class="vh"><div><div class="vd">' + escHTML(fmtFechaPDF(v.fecha_visita)) + badge + '</div>'
+      + '<div class="vt">' + escHTML(v.titulo) + '</div></div>'
+      + '<div class="vhh">' + escHTML(fmtM(minHH)) + '</div></div>'
+      + '<div class="techs">' + tecs + '</div>'
+      + desc + mat + pend + '</div>';
+  }).join('');
+
+  const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+    + '<title>Informe – ' + escHTML(_icData.cliente_nombre) + ' – ' + escHTML(periodo) + '</title>'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0}'
+    + 'body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff}'
+    + '@page{size:A4;margin:18mm 20mm}'
+    + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+    + '.rh{background:#0D3B40;color:#fff;padding:20px 22px 16px;border-radius:6px;margin-bottom:12px}'
+    + '.bl{display:flex;align-items:center;gap:8px;margin-bottom:10px}'
+    + '.bd{width:20px;height:20px;background:#169BBC;border-radius:4px}'
+    + '.bn{font-size:10px;font-weight:600;color:#D6F3F4;letter-spacing:.6px;text-transform:uppercase}'
+    + '.rt{font-size:17px;font-weight:600;color:#fff;margin-bottom:2px}'
+    + '.rp{font-size:11px;color:#D6F3F4}'
+    + '.rm{display:flex;gap:8px;margin-top:10px}'
+    + '.mp{background:rgba(255,255,255,.12);border-radius:99px;padding:3px 10px;font-size:10px;color:#D6F3F4}'
+    + '.sb2{display:grid;grid-template-columns:repeat(3,1fr);background:#169BBC;border-radius:6px;margin-bottom:12px;overflow:hidden}'
+    + '.si{padding:11px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.2)}'
+    + '.si:last-child{border-right:none}'
+    + '.sn{font-size:17px;font-weight:700;color:#fff}'
+    + '.sl2{font-size:9px;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}'
+    + '.stl{font-size:9px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:0 0 7px;border-bottom:1px solid #e2e8f0;margin-bottom:0}'
+    + '.vc{padding:11px 0;border-bottom:.5px solid #e2e8f0;page-break-inside:avoid}'
+    + '.vc:last-child{border-bottom:none}'
+    + '.vh{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}'
+    + '.vd{font-size:13px;font-weight:600;color:#0f172a}'
+    + '.vt{font-size:11px;color:#64748b;margin-top:1px}'
+    + '.vhh{background:#D6F3F4;color:#0D3B40;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0;margin-left:10px}'
+    + '.techs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px}'
+    + '.tech-pill{display:inline-flex;align-items:center;gap:4px;background:#f8fafc;border:.5px solid #e2e8f0;border-radius:99px;padding:2px 8px;font-size:11px;color:#475569}'
+    + '.tech-dot{width:5px;height:5px;border-radius:50%;background:#169BBC;flex-shrink:0}'
+    + '.badge-contrato{background:#e0f2fe;color:#0369a1;font-size:9px;padding:1px 7px;border-radius:99px;font-weight:600;margin-left:6px;vertical-align:middle}'
+    + '.sb{margin-top:5px}'
+    + '.sl{font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}'
+    + '.st{font-size:11px;color:#0f172a;line-height:1.5}'
+    + '.pend{display:inline-block;background:#FFF4E0;color:#92400e;font-size:10px;padding:2px 8px;border-radius:8px}'
+    + '.ft{margin-top:16px;padding-top:8px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8}'
+    + '</style></head><body>'
+    + '<div class="rh"><div class="bl"><div class="bd"></div><span class="bn">Grupo Innovate — Informe de servicio</span></div>'
+    + '<div class="rt">' + escHTML(_icData.cliente_nombre) + '</div>'
+    + '<div class="rp">' + escHTML(periodo) + '</div>'
+    + '<div class="rm"><span class="mp">Generado: ' + escHTML(fechaGen) + '</span>'
+    + '<span class="mp">' + visibles.length + ' visita' + (visibles.length !== 1 ? 's' : '') + ' incluida' + (visibles.length !== 1 ? 's' : '') + '</span></div></div>'
+    + '<div class="sb2">'
+    + '<div class="si"><div class="sn">' + thV + 'h ' + String(tmV).padStart(2,'0') + 'm</div><div class="sl2">Horas hombre</div></div>'
+    + '<div class="si"><div class="sn">' + visibles.length + '</div><div class="sl2">Visitas realizadas</div></div>'
+    + '<div class="si"><div class="sn">' + tecUnicos.length + '</div><div class="sl2">Técnicos asignados</div></div>'
+    + '</div>'
+    + '<div class="stl">Detalle de visitas</div>'
+    + visitasHTML
+    + '<div class="ft"><span>Grupo Innovate · carlos.cuervo@innovate.com.co</span><span>Ginno — Sistema de Gestión</span></div>'
+    + '<script>setTimeout(function(){window.print();},400);<\/script>'
+    + '</body></html>';
+
+  const win = window.open('', '_blank');
+  if (!win) { alert('Permite ventanas emergentes para generar el PDF.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+// ===================== FIN INFORME PARA CLIENTE =====================
+

@@ -4,6 +4,33 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-08-01 — informe para cliente con PDF)
+
+### feat: Informe para cliente con PDF (`informes.js?v=20260801a` + nuevo `backend/api/informe_cliente.php`)
+
+Nueva opción **"📄 Informe para cliente"** en la pestaña Informes (solo admin).
+
+**Backend** (`backend/api/informe_cliente.php` — nuevo):
+- GET `?cliente=<nombre>&fecha_inicio=YYYY-MM-DD&fecha_fin=YYYY-MM-DD`
+- Une `tareas` → `reportes` (estado='enviado') → `visita_participantes` (check_out IS NOT NULL) → `usuarios`
+- Filtra por `DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00'))` (Colombia UTC-5)
+- COLLATE `utf8mb4_general_ci` en todos los JOINs (regla activa del proyecto)
+- Retorna visitas agrupadas por `reporte_id` con: `descripcion_acciones`, `materiales`, `pendientes` (sin fotos), array de participantes con `duracion_minutos` individual, flag `es_contrato` si `horas_contrato IS NOT NULL`
+
+**Frontend** (`assets/js/informes.js?v=20260801a`):
+- Entrada `informe_cliente_pdf` en el objeto `INFORMES` con `campos: ['cliente', 'desde', 'hasta']`
+- `obtenerClientesUnicos()` ahora incluye `_clientes` (tabla de clientes) además de tareas/reportes/facturas
+- Selector de cliente: `<input type="text">` + `<datalist>` (ya existía este patrón; la lista ahora incluye todos los clientes del BD)
+- Si el cliente tiene `contrato_horas_mes` aparece toggle **"Solo visitas de contrato"** (filtra visitas con `vp.horas_contrato IS NOT NULL`)
+- Cada visita tiene botón 🙈/👁️ para excluirla/incluirla del PDF — resumen de totales se actualiza en tiempo real
+- **Horas**: muestra **horas hombre** (suma de minutos de cada técnico por separado, no solo duración de la visita) — coherente con facturación por técnico
+- Botón **🖨️ Guardar PDF**: abre nueva ventana con HTML estilizado (brand Innovate: `#0D3B40`/`#169BBC`), llama `window.print()` automáticamente; incluye CSS `@page { size: A4; }` y `print-color-adjust: exact`
+- No depende de bibliotecas externas — solo DOM + fetch
+
+`tareas-equipo.html` bumpeado a `informes.js?v=20260801a`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-29 — edición de horarios de pausa restringida a admin)
 
 ### feat: editar horario de una pausa (solo admin)
