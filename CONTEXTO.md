@@ -34,6 +34,32 @@ URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.ht
 
 ---
 
+## Estado actual (última actualización: 2026-07-31 — fix doble check-in + checkout robusto)
+
+### fix: Tres bugs de consistencia en el flujo checkout/reporte (`reportes.js?v=20260731a`)
+
+**Bug 1 — "Iniciar visita hoy" aparecía junto a borrador de día anterior (causa del caso MS9C)**
+
+En `renderVisitaBoton`, la rama de borradores mostraba "🚀 Iniciar visita hoy" aunque ya hubiera un "📝 Reporte pendiente" de un día anterior, permitiendo crear un segundo check-in duplicado.
+
+Fix: para tareas de un solo día (`diasProg <= 1`), el botón "Iniciar visita hoy" solo aparece si `anteriores.length === 0`. Las tareas multi-día conservan el botón (el técnico legítimamente trabaja varios días).
+
+**Bug 2 — `_pendingCheckout` se perdía al refrescar la página**
+
+`_pendingCheckout` y `borradoresActivos` solo vivían en memoria JS. Al refrescar, el reporte volvía a aparecer como "activo" en el servidor y el técnico volvía a ver "Finalizar mi visita", capturando una hora de checkout incorrecta.
+
+Fix: `_pendingCheckout` se persiste en `sessionStorage`. Al correr `cargarVisitasActivas()`, si se detecta un checkout pendiente guardado y la visita sigue activa en el servidor, se restaura el estado local (`borradoresActivos` + `visitasActivas`) para que la tarjeta muestre "📝 Continuar reporte" en lugar de los botones de checkout.
+
+**Bug 3 — El email se enviaba aunque el checkout PUT fallara**
+
+El checkout se registraba DESPUÉS del correo. Si el PUT fallaba silenciosamente, `visita_participantes.check_out` quedaba NULL con el reporte ya marcado como `enviado` → PDF mostraba "(En curso)".
+
+Fix: `_completarCheckout()` ahora devuelve `true/false`. Si falla, restaura `_pendingCheckout` y sessionStorage para reintentar. En `enviarCorreoCliente()`, el checkout va PRIMERO; si falla, se muestra error al técnico y el correo NO se envía.
+
+`tareas-equipo.html` bumpeado a `reportes.js?v=20260731a`.
+
+---
+
 ## Estado actual (última actualización: 2026-07-28 — fix hora checkout en PDF)
 
 ### fix: Hora de checkout incorrecta en PDF (mostraba la hora del envío del correo, no del checkout real)

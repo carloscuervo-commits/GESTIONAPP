@@ -47,6 +47,32 @@ async function cargarVisitasActivas() {
       activos.forEach(r => { visitasActivas[r.tarea_id] = r; });
     }
     borradoresActivos = {}; // solo se usa localmente durante _pendingCheckout
+    // Restaurar checkout diferido que sobrevivió un refresh de página
+    if (!_pendingCheckout) {
+      try {
+        const _savedPending = sessionStorage.getItem('_pendingCheckout');
+        if (_savedPending) {
+          const _p = JSON.parse(_savedPending);
+          const _reporteActivo = Array.isArray(activos) && activos.find(r => r.id === _p.visita?.id);
+          if (_reporteActivo) {
+            // La visita sigue activa en el servidor → restaurar estado local
+            _pendingCheckout = _p;
+            delete visitasActivas[_p.tareaId];
+            if (!borradoresActivos[_p.tareaId]) borradoresActivos[_p.tareaId] = [];
+            const _visitaLocal = Object.assign({}, _p.visita, {
+              estado: 'enviado',
+              participantes: (_p.visita.participantes || []).map(p =>
+                p.id === _p.participanteId ? Object.assign({}, p, { check_out: _p.checkoutAt }) : p
+              )
+            });
+            borradoresActivos[_p.tareaId].push(_visitaLocal);
+          } else if (Array.isArray(activos)) {
+            // La visita ya no está activa (completada por otra sesión)
+            sessionStorage.removeItem('_pendingCheckout');
+          }
+        }
+      } catch (_e) { sessionStorage.removeItem('_pendingCheckout'); }
+    }
     reportesEnviados      = new Set(Array.isArray(enviados)      ? enviados      : []);
     reportesTodosEnviados = new Set(Array.isArray(todosEnviados) ? todosEnviados : []);
     sinReporteHoy = new Set(
@@ -165,8 +191,9 @@ function renderVisitaBoton(t) {
     deHoy.forEach(b => {
       html += `<button class="btn-archivar" style="background:#6366f1;color:#fff" onclick="continuarReporte('${b.id}',event)">📝 Continuar reporte</button>`;
     });
-    // Tarea multi-día sin visita de hoy → permitir nuevo check-in
-    if (deHoy.length === 0 && ((t.diasProg || 1) > 1 || t.fechaProg === new Date().toLocaleDateString('sv', { timeZone: 'America/Bogota' }))) {
+    // Tarea multi-día sin visita de hoy → permitir nuevo check-in.
+    // Tarea de un día: solo si NO hay borradores de días anteriores (evita doble check-in).
+    if (deHoy.length === 0 && ((t.diasProg || 1) > 1 || (t.fechaProg === new Date().toLocaleDateString('sv', { timeZone: 'America/Bogota' }) && anteriores.length === 0))) {
       html += `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita hoy</button>`;
     }
     // Admin: si hay miembros del equipo que no han llegado hoy, mostrar botón de registro
@@ -565,6 +592,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       // Último participante: diferir checkout hasta que el técnico envíe el reporte.
       // Mover visita a borradoresActivos localmente para que el UI refleje fin de visita.
       _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt: new Date().toISOString().replace('T',' ').substring(0,19) };
+      sessionStorage.setItem('_pendingCheckout', JSON.stringify(_pendingCheckout));
       delete visitasActivas[tareaId];
       if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
       // Marcar localmente el participante como terminado (sin hora real aún)
@@ -675,21 +703,31 @@ function cerrarFormularioReporte() {
 }
 
 // Llamado cuando el técnico envía el reporte: escribe el checkout real en el servidor.
+// Devuelve true en éxito, false en fallo (restaura _pendingCheckout para reintentar).
 async function _completarCheckout() {
-  if (!_pendingCheckout) return;
-  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt } = _pendingCheckout;
+  if (!_pendingCheckout) return true;
+  const pending = _pendingCheckout;
   _pendingCheckout = null;
+  sessionStorage.removeItem('_pendingCheckout');
   try {
-    const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
+    const res = await fetch(`${API_BASE}/reportes.php?id=${pending.visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng, checkoutAt }),
+      body: JSON.stringify({ accion: 'checkout', participanteId: pending.participanteId, tecnicoCheckoutId: pending.tecnicoId, lat: pending.geoLat, lng: pending.geoLng, checkoutAt: pending.checkoutAt }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (!data.error && borradoresActivos[tareaId]) {
-      const idx = borradoresActivos[tareaId].findIndex(b => b.id === visita.id);
-      if (idx >= 0) borradoresActivos[tareaId][idx] = data;
+    if (data.error) throw new Error(data.error);
+    if (borradoresActivos[pending.tareaId]) {
+      const idx = borradoresActivos[pending.tareaId].findIndex(b => b.id === pending.visita.id);
+      if (idx >= 0) borradoresActivos[pending.tareaId][idx] = data;
     }
-  } catch (e) { console.error('_completarCheckout:', e); }
+    return true;
+  } catch (e) {
+    console.error('_completarCheckout:', e);
+    _pendingCheckout = pending; // restaurar para reintentar
+    sessionStorage.setItem('_pendingCheckout', JSON.stringify(pending));
+    return false;
+  }
 }
 
 // Llamado cuando el técnico confirma que no completará el reporte.
@@ -704,6 +742,7 @@ async function confirmarSinReporte() {
   }
   const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt } = _pendingCheckout;
   _pendingCheckout = null;
+  sessionStorage.removeItem('_pendingCheckout');
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1295,8 +1334,19 @@ async function enviarCorreoReporte(btn) {
     botonEl.style.cursor = 'wait';
     botonEl.innerHTML = '⏳ Enviando...';
   }
-  statusEl.innerHTML = '⏳ Enviando correo, espera un momento...';
+  statusEl.innerHTML = '⏳ Enviando...';
   try {
+    // Paso 1: registrar checkout ANTES de enviar el correo.
+    // Si falla → abortar y no enviar el correo (evita estado inconsistente).
+    if (_pendingCheckout) {
+      statusEl.innerHTML = '⏳ Registrando salida...';
+      const _coOk = await _completarCheckout();
+      if (!_coOk) {
+        statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo registrar la hora de salida. Verifica tu conexión e intenta de nuevo.</span>';
+        return;
+      }
+    }
+    statusEl.innerHTML = '⏳ Enviando correo...';
     const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reporteId: reporteActual.id, correos: correoCliente ? [correoCliente] : [] }),
@@ -1307,8 +1357,6 @@ async function enviarCorreoReporte(btn) {
     // Actualizar estado local del reporte y del Set global
     reporteActual.estado = 'enviado';
     if (reporteActual.tarea_id) { reportesEnviados.add(reporteActual.tarea_id); reportesTodosEnviados.add(reporteActual.tarea_id); }
-    // Checkout diferido: escribir la hora real de checkout ahora que el reporte fue enviado
-    if (_pendingCheckout) await _completarCheckout();
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo enviar el correo. Verifica tu conexión e intenta de nuevo.</span>';

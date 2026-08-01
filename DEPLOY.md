@@ -54,6 +54,17 @@ Sin migraciones de BD.
 
 ---
 
+## Cambios pendientes de deploy (2026-07-31)
+
+Sin migraciones de BD.
+
+| Archivo | Cambio |
+|---|---|
+| `assets/js/reportes.js?v=20260731a` | Fix 1: "Iniciar visita hoy" bloqueado si hay borrador de día anterior (solo tareas 1 día). Fix 2: `_pendingCheckout` persiste en `sessionStorage`, se restaura en refresh. Fix 3: checkout va ANTES del email; si falla, aborta el envío y restaura para reintentar. |
+| `tareas-equipo.html` | Bump `reportes.js?v=20260731a` |
+
+---
+
 ## Cambios pendientes de deploy (2026-07-28)
 
 Sin migraciones de BD.
