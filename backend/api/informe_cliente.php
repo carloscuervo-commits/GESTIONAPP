@@ -38,6 +38,7 @@ $sql = "
     t.area,
     t.fecha_programacion,
     t.cliente,
+    t.modalidad,
     r.id              AS reporte_id,
     r.datos,
     r.estado          AS reporte_estado,
@@ -89,6 +90,7 @@ foreach ($rows as $row) {
             'descripcion_acciones'  => $datos['descripcion_acciones'] ?? '',
             'materiales'            => $datos['materiales']           ?? '',
             'pendientes'            => $datos['pendientes']           ?? '',
+            'modalidad'             => $row['modalidad'] ?? null,
             'es_contrato'           => false,
             'participantes'         => [],
         ];
