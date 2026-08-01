@@ -62,10 +62,10 @@ function getFiltered() {
   const q = document.getElementById('search').value.toLowerCase();
   const est = document.getElementById('f-estado').value;
   const resp = document.getElementById('f-responsable').value;
-  const showArchivado = document.getElementById('show-archivado').checked;
+  const incluirArchivados = document.getElementById('incluir-archivados').checked;
   return tareasVisibles().filter(t => {
     if (currentArea !== 'all' && t.area !== currentArea) return false;
-    if (t.estado === 'archivado' && !showArchivado && est !== 'archivado') return false;
+    if (t.estado === 'archivado' && !incluirArchivados && est !== 'archivado') return false;
     const teamNames = (t.team||[]).map(id=>getMember(id)?.name||'').join(' ').toLowerCase();
     const teamInitials = (t.team||[]).join(' ').toLowerCase();
     if (q && !((t.titulo||'').toLowerCase().includes(q)||(t.cliente||'').toLowerCase().includes(q)||teamNames.includes(q)||teamInitials.includes(q))) return false;
@@ -252,17 +252,34 @@ function renderKanban() {
   // Archived section below the board
   const archPool = currentArea==='all' ? tareasVisibles() : tareasVisibles().filter(t=>t.area===currentArea);
   const arch = archPool.filter(t=>t.estado==='archivado');
+
+  // Cuando "Incluir archivados" está marcado, las tarjetas archivadas también
+  // se filtran por el buscador y el responsable seleccionado.
+  const incluirArchivados = document.getElementById('incluir-archivados')?.checked;
+  const q = document.getElementById('search').value.toLowerCase();
+  const resp = document.getElementById('f-responsable').value;
+  const archVisible = incluirArchivados
+    ? arch.filter(t => {
+        const teamNames = (t.team||[]).map(id=>getMember(id)?.name||'').join(' ').toLowerCase();
+        const teamInitials = (t.team||[]).join(' ').toLowerCase();
+        if (q && !((t.titulo||'').toLowerCase().includes(q)||(t.cliente||'').toLowerCase().includes(q)||teamNames.includes(q)||teamInitials.includes(q))) return false;
+        if (resp && !(t.team||[]).includes(resp)) return false;
+        return true;
+      })
+    : arch;
+
   const archDiv = document.getElementById('arch-section');
   if (archDiv) {
-    if (arch.length) {
+    if (archVisible.length) {
       const areaKey = currentArea || 'all';
-      const expanded = localStorage.getItem(`arch-open-${areaKey}`) === '1';
+      const hayCoincidencias = incluirArchivados && !!q && archVisible.length > 0;
+      const expanded = hayCoincidencias || localStorage.getItem(`arch-open-${areaKey}`) === '1';
       archDiv.innerHTML = `
         <button class="arch-toggle" onclick="toggleArchSection('${areaKey}')">
-          📦 Archivadas (${arch.length}) ${expanded ? '▴' : '▾'}
+          📦 Archivadas (${archVisible.length}) ${expanded ? '▴' : '▾'}
         </button>
         <div id="arch-cards" style="display:${expanded ? 'flex' : 'none'};gap:12px;flex-wrap:wrap;opacity:0.72">
-          ${arch.map(taskCard).join('')}
+          ${archVisible.map(taskCard).join('')}
         </div>`;
     } else {
       archDiv.innerHTML = '';
