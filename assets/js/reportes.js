@@ -140,6 +140,7 @@ function revisarVisitasEnCursoAntiguas() {
 
 function irATarjetaVisitaPendiente(tareaId, area) {
   document.getElementById('modal-visitas-pendientes')?.classList.remove('open');
+  if (tareaId) openModal(tareaId);
   if (area) setArea(area);
 }
 
