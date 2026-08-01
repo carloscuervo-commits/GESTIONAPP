@@ -173,11 +173,20 @@ function calcFacturasModulo(filtros) {
 // --------------------------------------------------------------
 // 4) Reportes de tarjetas operativas: buscar, editar, descargar PDF
 // --------------------------------------------------------------
+// estadoReporte: '' = todos | 'activo' = en curso (sin checkout) | 'sin_reporte' = checkout
+// sin reporte | 'no_enviado' = activo + sin_reporte (aún no llega a "enviado") | 'enviado'
+function pasaFiltroEstadoReporte(r, estadoReporte) {
+  if (!estadoReporte) return true;
+  if (estadoReporte === 'no_enviado') return r.estado !== 'enviado';
+  return r.estado === estadoReporte;
+}
+
 function calcReportesBusqueda(filtros) {
   // Versión plana (sin botones) usada para exportar a Excel.
   const filas = informesReportesVisita
     .filter(r => dentroDeRango(r.check_in, filtros.desde, filtros.hasta))
     .filter(r => !filtros.cliente || (r.cliente || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
+    .filter(r => pasaFiltroEstadoReporte(r, filtros.estadoReporte))
     .map(r => ({
       fecha: (r.check_in || '').slice(0, 10),
       cliente: r.cliente || '-',
@@ -200,6 +209,7 @@ function renderReportesBusquedaHTML(filtros) {
   const filas = informesReportesVisita
     .filter(r => dentroDeRango(r.check_in, filtros.desde, filtros.hasta))
     .filter(r => !filtros.cliente || (r.cliente || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
+    .filter(r => pasaFiltroEstadoReporte(r, filtros.estadoReporte))
     .sort((a, b) => (b.check_in || '').localeCompare(a.check_in || ''));
 
   if (!filas.length) {
@@ -557,7 +567,7 @@ const INFORMES = {
   actividades_tecnico: { nombre: '👷 Actividades de un técnico', campos: ['tecnico', 'desde', 'hasta'], calcular: calcActividadesTecnico },
   tarjetas_cliente: { nombre: '📋 Tarjetas de un cliente', campos: ['cliente'], calcular: calcTarjetasCliente },
   facturas_modulo: { nombre: '🧾 Facturas generadas (módulo Facturación)', campos: ['desde', 'hasta', 'cliente'], calcular: calcFacturasModulo },
-  reportes_busqueda: { nombre: '🔍 Reportes de tarjetas operativas', campos: ['desde', 'hasta', 'cliente'], calcular: calcReportesBusqueda, custom: renderReportesBusquedaHTML },
+  reportes_busqueda: { nombre: '🔍 Reportes de tarjetas operativas', campos: ['desde', 'hasta', 'cliente', 'estadoReporte'], calcular: calcReportesBusqueda, custom: renderReportesBusquedaHTML },
   tardias_llegada: { nombre: '⏰ Llegadas tardías', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderTardiasHTML },
   fuera_sitio: { nombre: '📍 Checks fuera de sitio', campos: ['desde', 'hasta', 'tecnico'], customAsync: renderFueraSitioHTML },
   sin_reporte: { nombre: '🚫 Visitas sin reporte', campos: ['desde', 'hasta'], customAsync: renderSinReporteHTML },
@@ -584,6 +594,7 @@ async function renderInformesView() {
         <select id="informe-select" onchange="seleccionarInforme(this.value)" style="flex:1;min-width:260px;padding:8px">${opciones}</select>
         <div id="informe-campo-tecnico" style="display:none"></div>
         <div id="informe-campo-cliente" style="display:none"></div>
+        <div id="informe-campo-estado-reporte" style="display:none"></div>
         <label id="informe-campo-desde" style="font-size:12px;color:var(--text-muted);display:none;align-items:center;gap:4px">Desde <input type="date" id="informe-desde" onchange="recalcularInforme()"></label>
         <label id="informe-campo-hasta" style="font-size:12px;color:var(--text-muted);display:none;align-items:center;gap:4px">Hasta <input type="date" id="informe-hasta" onchange="recalcularInforme()"></label>
         <div id="informe-campo-periodo-rapido" style="display:none;gap:4px;align-items:center">
@@ -633,6 +644,21 @@ function actualizarCamposInforme() {
     wrapCli.style.display = '';
   } else if (wrapCli) wrapCli.style.display = 'none';
 
+  const wrapEstadoRep = document.getElementById('informe-campo-estado-reporte');
+  if (campos.includes('estadoReporte')) {
+    if (!wrapEstadoRep.dataset.built) {
+      wrapEstadoRep.innerHTML = `<select id="informe-estado-reporte" onchange="recalcularInforme()" style="min-width:190px;padding:8px">
+        <option value="">Todos los estados</option>
+        <option value="activo">⏳ En curso (sin checkout)</option>
+        <option value="sin_reporte">🚫 Sin reporte</option>
+        <option value="no_enviado">❌ No enviado (en curso + sin reporte)</option>
+        <option value="enviado">✅ Enviado</option>
+      </select>`;
+      wrapEstadoRep.dataset.built = '1';
+    }
+    wrapEstadoRep.style.display = '';
+  } else if (wrapEstadoRep) wrapEstadoRep.style.display = 'none';
+
   const wrapDesde = document.getElementById('informe-campo-desde');
   const wrapHasta = document.getElementById('informe-campo-hasta');
   if (wrapDesde) wrapDesde.style.display = campos.includes('desde') ? 'flex' : 'none';
@@ -672,6 +698,7 @@ function recalcularInforme() {
     cliente: document.getElementById('informe-cliente')?.value || '',
     desde: document.getElementById('informe-desde')?.value || '',
     hasta: document.getElementById('informe-hasta')?.value || '',
+    estadoReporte: document.getElementById('informe-estado-reporte')?.value || '',
   };
   const tablaEl = document.getElementById('informe-tabla');
   if (!tablaEl) return;
