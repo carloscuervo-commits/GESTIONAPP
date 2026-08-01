@@ -49,8 +49,9 @@ Sin migraciones de BD.
 | Archivo | Cambio |
 |---|---|
 | `backend/api/informe_cliente.php` | **Nuevo**. Endpoint GET `?cliente=&fecha_inicio=&fecha_fin=`. Retorna visitas completadas agrupadas con horas hombre por técnico, campos de texto del reporte (sin fotos), y `modalidad` de la tarea. |
-| `assets/js/informes.js?v=20260801c` | Nueva opción "📄 Informe para cliente": selector cliente autocomplete, toggle contrato, botón 🙈 por visita, botón "🖨️ Guardar PDF". Refinamientos: email→info@innovate.com.co, fix about:blank (`@page{margin:0}`), texto justificado, badge presencial/remoto, checkbox "Redondear horas" (mín 1h+30min para en_sitio), ocultar materiales vacíos. Botones "📅 Este mes" / "⬅️ Mes anterior" para selección rápida del periodo (visibles en todos los informes con fechas). |
-| `tareas-equipo.html` | Bump `informes.js?v=20260801c` |
+| `assets/js/informes.js?v=20260801d` | Nueva opción "📄 Informe para cliente": selector cliente autocomplete, toggle contrato, botón 🙈 por visita, botón "🖨️ Guardar PDF". Refinamientos: email→info@innovate.com.co, fix about:blank (`@page{margin:0}`), texto justificado, badge presencial/remoto, checkbox "Redondear horas" (mín 1h+30min para en_sitio), ocultar materiales vacíos. Botones "📅 Este mes" / "⬅️ Mes anterior" para selección rápida del periodo (visibles en todos los informes con fechas). Fix: informe de cliente quedaba vacío al cambiar de cliente por respuestas async fuera de orden (oninput dispara una petición por tecla); ahora `recalcularInforme()` descarta respuestas viejas con un `reqId` de secuencia. |
+| `assets/js/tareas.js?v=20260801a` | Checkbox "Ver archivados" (no hacía nada en el tablero kanban) renombrado a "Incluir archivados": ahora filtra las tarjetas archivadas por el buscador/responsable igual que las activas, y expande automáticamente la sección "Archivadas" cuando hay coincidencias. |
+| `tareas-equipo.html` | Bump `informes.js?v=20260801d` y `tareas.js?v=20260801a`; checkbox `#show-archivado` renombrado a `#incluir-archivados` con label "Incluir archivados" |
 
 ✅ `.cpanel.yml` copia `backend/api/` completo — el archivo nuevo se despliega automáticamente.
 
