@@ -1431,6 +1431,8 @@ async function saveTask() {
   const factura = document.getElementById('f-factura').value.trim();
   if (!titulo) { alert('El título es obligatorio'); return; }
 
+  const prevParaFecha = editingId ? tasks.find(t => t.id === editingId) : null;
+
   // Si una tarjeta operativa "En ejecución" recibe el reporte del servicio
   // (texto y/o archivo adjunto), preguntar si se quiere mover a "Por facturar"
   if (['it','if'].includes(area) && ['solicitud','programado'].includes(estado)) {
@@ -1444,8 +1446,11 @@ async function saveTask() {
     }
   }
 
-  // Si estaba por_reprogramar y se asignó fecha → pasar a programado automáticamente
-  if (['it','if'].includes(area) && estado === 'por_reprogramar' && fechaProg) {
+  // Si estaba por_reprogramar y se le ASIGNÓ una fecha NUEVA en este guardado
+  // → pasar a programado automáticamente. Si la fecha ya venía de antes (sin
+  // cambios) y el admin eligió explícitamente "Por reprogramar", se respeta
+  // su elección en vez de revertirla sola.
+  if (['it','if'].includes(area) && estado === 'por_reprogramar' && fechaProg && fechaProg !== (prevParaFecha?.fechaProg || '')) {
     estado = 'programado';
     document.getElementById('f-est').value = estado;
   }
