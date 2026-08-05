@@ -102,18 +102,19 @@ if ($method === 'POST') {
 
   // ── Aviso asignación de tarea ─────────────────────────────────
   if (!empty($d['team']) && in_array($d['area'] ?? '', ['it', 'if'])) {
+    $tareaArr = [
+      'titulo'             => $d['titulo'],
+      'cliente'            => $d['cliente']    ?? null,
+      'descripcion'        => $d['desc']       ?? null,
+      'fecha_programacion' => $d['fechaProg']  ?? null,
+      'hora_programacion'  => $d['horaProg']   ?? null,
+      'dias_programacion'  => $d['diasProg']   ?? 1,
+      'modalidad'          => $d['modalidad']  ?? null,
+    ];
+    // Email
     try {
       require_once __DIR__ . '/../lib/avisos_tecnicos.php';
       if (configGet($pdo, 'aviso_asignacion_tarea') === '1') {
-        $tareaArr = [
-          'titulo'             => $d['titulo'],
-          'cliente'            => $d['cliente']    ?? null,
-          'descripcion'        => $d['desc']       ?? null,
-          'fecha_programacion' => $d['fechaProg']  ?? null,
-          'hora_programacion'  => $d['horaProg']   ?? null,
-          'dias_programacion'  => $d['diasProg']   ?? 1,
-          'modalidad'          => $d['modalidad']  ?? null,
-        ];
         foreach (tecnicosConEmail($pdo, $id) as $tec) {
           $cuerpo = htmlAvisoTecnico(
             $tec['nombre'],
@@ -126,6 +127,19 @@ if ($method === 'POST') {
             $cuerpo
           );
         }
+      }
+    } catch (Throwable $e) { /* silencioso */ }
+    // Telegram
+    try {
+      require_once __DIR__ . '/../lib/telegram.php';
+      $label = $d['cliente'] ?? $d['titulo'];
+      foreach (tecnicosConTelegram($pdo, $id) as $tec) {
+        $msg = "📋 <b>Nueva tarea asignada</b>\n\n"
+             . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+             . "tienes una nueva tarea.\n\n"
+             . telegramTareaInfo($tareaArr) . "\n\n"
+             . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+        sendTelegramMsg($tec['telegram_chat_id'], $msg);
       }
     } catch (Throwable $e) { /* silencioso */ }
   }
@@ -248,6 +262,48 @@ if ($method === 'PUT') {
               '✏️ Tarea modificada — ' . ($prev['cliente'] ?? $prev['titulo']),
               $cuerpo
             );
+          }
+        }
+      }
+    } catch (Throwable $e) { /* silencioso */ }
+    // Telegram — cambio de programación / descripción
+    try {
+      require_once __DIR__ . '/../lib/telegram.php';
+      $tecsTg = tecnicosConTelegram($pdo, $id);
+      if (!empty($tecsTg)) {
+        $stmtCurrTg = $pdo->prepare("SELECT * FROM tareas WHERE id = ?");
+        $stmtCurrTg->execute([$id]);
+        $currTg = $stmtCurrTg->fetch();
+
+        $cambioFechaTg = ($nuevaFechaProg !== $prev['fecha_programacion']);
+        $cambioHoraTg  = (($d['horaProg'] ?? '08:00') !== ($prev['hora_programacion'] ?? '08:00'));
+        if ($cambioFechaTg || $cambioHoraTg) {
+          $extras = '';
+          if ($cambioFechaTg) $extras .= "\n📅 <b>Nueva fecha:</b> " . htmlspecialchars($nuevaFechaProg ?? '—');
+          if ($cambioHoraTg)  $extras .= "\n🕗 <b>Nueva hora:</b> "  . htmlspecialchars($d['horaProg'] ?? '—');
+          foreach ($tecsTg as $tec) {
+            $msg = "📅 <b>Cambio de programación</b>\n\n"
+                 . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+                 . "la programación de una de tus tareas cambió.\n\n"
+                 . telegramTareaInfo($currTg) . $extras . "\n\n"
+                 . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+            sendTelegramMsg($tec['telegram_chat_id'], $msg);
+          }
+        }
+
+        $cambioTituloTg = ($d['titulo'] !== $prev['titulo']);
+        $cambioDescTg   = (($d['desc'] ?? null) !== $prev['descripcion']);
+        if ($cambioTituloTg || $cambioDescTg) {
+          $extras = '';
+          if ($cambioTituloTg) $extras .= "\n📋 <b>Nuevo título:</b> "      . htmlspecialchars($d['titulo']);
+          if ($cambioDescTg)   $extras .= "\n📝 <b>Nueva descripción:</b> " . htmlspecialchars(mb_strimwidth($d['desc'] ?? '', 0, 200, '…'));
+          foreach ($tecsTg as $tec) {
+            $msg = "✏️ <b>Tarea modificada</b>\n\n"
+                 . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+                 . "una de tus tareas fue modificada.\n\n"
+                 . telegramTareaInfo($currTg) . $extras . "\n\n"
+                 . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+            sendTelegramMsg($tec['telegram_chat_id'], $msg);
           }
         }
       }

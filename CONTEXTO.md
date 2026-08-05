@@ -4,6 +4,30 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-08-05 — integración Telegram Bot)
+
+### feat: Notificaciones Telegram a técnicos (`backend/lib/telegram.php` + `tareas.php`)
+
+**Infraestructura** (`backend/lib/telegram.php` — nuevo):
+- `sendTelegramMsg($chatId, $texto)`: envía mensaje HTML al Bot API con timeout 5 s; silencioso si `TELEGRAM_BOT_TOKEN` no está definido
+- `tecnicosConTelegram($pdo, $tareaId)`: igual que `tecnicosConEmail` pero filtra por `telegram_chat_id IS NOT NULL`
+- `telegramTareaInfo($tarea)`: formatea cliente, título, fecha, hora, modalidad como texto HTML para Telegram
+
+**Disparadores en `tareas.php`:**
+- POST (nueva tarea): después del bloque de email, envía "📋 Nueva tarea asignada" a técnicos con `telegram_chat_id`
+- PUT (cambio de fecha/hora): envía "📅 Cambio de programación"
+- PUT (cambio de título/descripción): envía "✏️ Tarea modificada"
+
+**Config del servidor** (`config.php` — NO en git): agregar:
+```php
+define('TELEGRAM_BOT_TOKEN', 'TOKEN_DEL_BOT');
+```
+Sin este define, las funciones retornan `false` silenciosamente — no rompe nada.
+
+**Para registrar un técnico**: en Ginno → Usuarios → editar → campo "Telegram Chat ID". El técnico obtiene su ID escribiendo a `@userinfobot` en Telegram.
+
+---
+
 ## Estado actual (última actualización: 2026-08-05 — campo Telegram Chat ID en usuarios)
 
 ### feat: Campo Telegram Chat ID en módulo de usuarios (`usuarios.js?v=20260805a`)

@@ -42,6 +42,37 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-05 — fix z-index modal usuarios + Telegram Bot)
+
+Sin migraciones adicionales de BD.
+
+| Archivo | Cambio |
+|---|---|
+| `tareas-equipo.html` | Fix: `#usuarios-modal` sube a `z-index:450` para quedar por encima del panel de Configuración (`z-index:400`). El campo Telegram Chat ID ya estaba en el HTML — era invisible por este bug. |
+
+---
+
+## Cambios pendientes de deploy (2026-08-05 — integración Telegram Bot)
+
+⚠️ **Acción manual en el servidor ANTES del deploy:**
+1. Migración de BD (si no se hizo antes):
+   ```sql
+   ALTER TABLE usuarios ADD COLUMN telegram_chat_id VARCHAR(20) NULL DEFAULT NULL;
+   ```
+2. Agregar a `config.php` en el servidor (el que no está en git):
+   ```php
+   define('TELEGRAM_BOT_TOKEN', 'TOKEN_DEL_BOT');
+   ```
+
+| Archivo | Cambio |
+|---|---|
+| `backend/lib/telegram.php` | **Nuevo**. `sendTelegramMsg()`, `tecnicosConTelegram()`, `telegramTareaInfo()`. Silencioso si falta el token. |
+| `backend/api/tareas.php` | POST: envía Telegram al asignar tarea. PUT: envía Telegram al cambiar fecha/hora o título/descripción. |
+
+✅ `.cpanel.yml` copia `backend/lib/` y `backend/api/` — ambos archivos se despliegan automáticamente.
+
+---
+
 ## Cambios pendientes de deploy (2026-08-05 — campo Telegram Chat ID en usuarios)
 
 ⚠️ **Requiere migración de BD antes del deploy:**
