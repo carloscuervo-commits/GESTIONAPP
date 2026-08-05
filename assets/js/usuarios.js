@@ -118,6 +118,7 @@ function abrirModalUsuario(id) {
     }
   }
   document.getElementById('um-perfil').value    = u?.perfil    || 'tecnico';
+  document.getElementById('um-telegram').value  = u?.telegram_chat_id || '';
   document.getElementById('um-activo').checked  = u ? u.activo == 1 : true;
   document.getElementById('um-pin').value         = '';
   document.getElementById('um-pin-confirm').value = '';
@@ -211,8 +212,10 @@ async function guardarUsuario() {
     if (pin !== pinConf)      { alert('Los PINs no coinciden'); return; }
   }
 
-  const cedula = document.getElementById('um-cedula').value.trim();
-  const payload = { nombre, iniciales, email: email || null, cedula: cedula || null, rol: rol || null, perfil, color };
+  const cedula    = document.getElementById('um-cedula').value.trim();
+  const telegram  = document.getElementById('um-telegram').value.trim();
+  const payload = { nombre, iniciales, email: email || null, cedula: cedula || null, rol: rol || null, perfil, color,
+                    telegram_chat_id: telegram || null };
   if (!esNuevo) payload.activo = activo;
   if (esNuevo)  payload.id = id;
   if (pin)      payload.pin = pin;

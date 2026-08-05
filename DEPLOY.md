@@ -42,6 +42,23 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-05 — campo Telegram Chat ID en usuarios)
+
+⚠️ **Requiere migración de BD antes del deploy:**
+```sql
+ALTER TABLE usuarios ADD COLUMN telegram_chat_id VARCHAR(20) NULL DEFAULT NULL;
+```
+
+| Archivo | Cambio |
+|---|---|
+| `backend/api/usuarios.php` | SELECT, INSERT y UPDATE incluyen `telegram_chat_id`. Campo opcional; NULL si vacío. |
+| `assets/js/usuarios.js?v=20260805a` | Modal de usuario: nuevo campo "Telegram Chat ID". Se pobla al abrir y se envía en payload. |
+| `tareas-equipo.html` | Bump `usuarios.js?v=20260805a`; nuevo campo `#um-telegram` en el modal. |
+
+✅ Sin cambios en `.cpanel.yml` — archivos ya incluidos en el deploy.
+
+---
+
 ## Cambios pendientes de deploy (2026-08-01 — informe para cliente con PDF + refinamientos + periodo rápido)
 
 Sin migraciones de BD.

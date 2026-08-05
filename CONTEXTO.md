@@ -4,6 +4,19 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-08-05 — campo Telegram Chat ID en usuarios)
+
+### feat: Campo Telegram Chat ID en módulo de usuarios (`usuarios.js?v=20260805a`)
+
+Preparación para integración con Telegram Bot. El campo es opcional — si está vacío (`NULL`) no se envía ningún mensaje.
+
+- **BD**: nueva columna `usuarios.telegram_chat_id VARCHAR(20) NULL` (requiere `ALTER TABLE` manual antes del deploy)
+- **Backend** (`usuarios.php`): SELECT, INSERT y UPDATE incluyen `telegram_chat_id`
+- **Frontend** (`usuarios.js`): modal de usuario tiene nuevo input `#um-telegram`; se pobla al abrir y se incluye en el payload al guardar
+- **Modal** (`tareas-equipo.html`): texto de ayuda indica que el técnico debe escribir a `@userinfobot` para obtener su ID
+
+---
+
 ## Estado actual (última actualización: 2026-08-01 — informe para cliente v20260801c)
 
 ### feat: Informe para cliente con PDF (`informes.js?v=20260801c` + nuevo `backend/api/informe_cliente.php`)

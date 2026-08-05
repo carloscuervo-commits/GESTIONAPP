@@ -264,6 +264,14 @@
         <label>Cargo / rol descriptivo</label>
         <input type="text" id="um-rol" placeholder="ej: Técnico de campo, Gerente..." autocomplete="off">
       </div>
+      <!-- Telegram -->
+      <div class="form-group">
+        <label>Telegram Chat ID</label>
+        <input type="text" id="um-telegram" placeholder="ej: 123456789" autocomplete="off" inputmode="numeric">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+          El usuario debe enviar <strong>/start</strong> al bot y luego escribir a <strong>@userinfobot</strong> para obtener su ID. Dejar vacío si no usa Telegram.
+        </div>
+      </div>
       <!-- Perfil -->
       <div class="form-group">
         <label>Perfil de acceso</label>
@@ -781,7 +789,7 @@
 <script src="assets/js/reportes.js?v=20260801b"></script>
 <script src="assets/js/informes.js?v=20260801f"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
-<script src="assets/js/usuarios.js?v=20260630b"></script>
+<script src="assets/js/usuarios.js?v=20260805a"></script>
 <script src="assets/js/clientes.js?v=20260708e"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
