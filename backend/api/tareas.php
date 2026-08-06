@@ -132,14 +132,17 @@ if ($method === 'POST') {
     // Telegram
     try {
       require_once __DIR__ . '/../lib/telegram.php';
-      $label = $d['cliente'] ?? $d['titulo'];
-      foreach (tecnicosConTelegram($pdo, $id) as $tec) {
-        $msg = "📋 <b>Nueva tarea asignada</b>\n\n"
-             . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
-             . "tienes una nueva tarea.\n\n"
-             . telegramTareaInfo($tareaArr) . "\n\n"
-             . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
-        sendTelegramMsg($tec['telegram_chat_id'], $msg);
+      require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+      if (configGet($pdo, 'aviso_asignacion_tarea_tg') === '1') {
+        $label = $d['cliente'] ?? $d['titulo'];
+        foreach (tecnicosConTelegram($pdo, $id) as $tec) {
+          $msg = "📋 <b>Nueva tarea asignada</b>\n\n"
+               . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+               . "tienes una nueva tarea.\n\n"
+               . telegramTareaInfo($tareaArr) . "\n\n"
+               . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+          sendTelegramMsg($tec['telegram_chat_id'], $msg);
+        }
       }
     } catch (Throwable $e) { /* silencioso */ }
   }
@@ -269,6 +272,7 @@ if ($method === 'PUT') {
     // Telegram — cambio de programación / descripción
     try {
       require_once __DIR__ . '/../lib/telegram.php';
+      require_once __DIR__ . '/../lib/avisos_tecnicos.php';
       $tecsTg = tecnicosConTelegram($pdo, $id);
       if (!empty($tecsTg)) {
         $stmtCurrTg = $pdo->prepare("SELECT * FROM tareas WHERE id = ?");
@@ -277,7 +281,7 @@ if ($method === 'PUT') {
 
         $cambioFechaTg = ($nuevaFechaProg !== $prev['fecha_programacion']);
         $cambioHoraTg  = (($d['horaProg'] ?? '08:00') !== ($prev['hora_programacion'] ?? '08:00'));
-        if ($cambioFechaTg || $cambioHoraTg) {
+        if (($cambioFechaTg || $cambioHoraTg) && configGet($pdo, 'aviso_cambio_programacion_tg') === '1') {
           $extras = '';
           if ($cambioFechaTg) $extras .= "\n📅 <b>Nueva fecha:</b> " . htmlspecialchars($nuevaFechaProg ?? '—');
           if ($cambioHoraTg)  $extras .= "\n🕗 <b>Nueva hora:</b> "  . htmlspecialchars($d['horaProg'] ?? '—');
@@ -293,7 +297,7 @@ if ($method === 'PUT') {
 
         $cambioTituloTg = ($d['titulo'] !== $prev['titulo']);
         $cambioDescTg   = (($d['desc'] ?? null) !== $prev['descripcion']);
-        if ($cambioTituloTg || $cambioDescTg) {
+        if (($cambioTituloTg || $cambioDescTg) && configGet($pdo, 'aviso_cambio_descripcion_tg') === '1') {
           $extras = '';
           if ($cambioTituloTg) $extras .= "\n📋 <b>Nuevo título:</b> "      . htmlspecialchars($d['titulo']);
           if ($cambioDescTg)   $extras .= "\n📝 <b>Nueva descripción:</b> " . htmlspecialchars(mb_strimwidth($d['desc'] ?? '', 0, 200, '…'));

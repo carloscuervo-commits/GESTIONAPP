@@ -41,6 +41,23 @@ function tecnicosConEmail(PDO $pdo, string $tareaId): array {
   return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * Retorna [{id, nombre, email}] de los administradores activos con email.
+ * Usado para avisos que van al equipo administrativo (retraso, fuera de
+ * sitio, horas de contrato, etc.) en vez de a un técnico puntual.
+ */
+function adminsConEmail(PDO $pdo): array {
+  $stmt = $pdo->query("
+    SELECT id, nombre, email
+    FROM usuarios
+    WHERE perfil = 'admin'
+      AND activo = 1
+      AND email IS NOT NULL
+      AND email != ''
+  ");
+  return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 // ──────────────────────────────────────────────
 // Envío
 // ──────────────────────────────────────────────

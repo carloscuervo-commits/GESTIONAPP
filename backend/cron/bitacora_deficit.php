@@ -16,6 +16,8 @@
 
 define('CRON_RUN', true);
 require_once __DIR__ . '/../lib/db.php';
+require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+require_once __DIR__ . '/../lib/telegram.php';
 
 @ini_set('display_errors', '0');
 error_reporting(0);
@@ -37,7 +39,7 @@ try {
 
   // Técnicos activos que deben trabajar ese día de semana
   $stmt = $pdo->prepare(
-    "SELECT id AS tecnico_id, $col AS horas_esp
+    "SELECT id AS tecnico_id, nombre, email, telegram_chat_id, $col AS horas_esp
      FROM usuarios
      WHERE activo = 1 AND $col IS NOT NULL AND $col > 0"
   );
@@ -86,6 +88,45 @@ try {
            VALUES(estado)
          )"
     )->execute([$id, $uid, $ayer, $horasReal, $horasEsp, $estadoNuevo]);
+
+    // ── Aviso al técnico: déficit de horario detectado ────────────────
+    if ($estadoNuevo === 'deficit_sin_nota' && !avisoYaEnviado($pdo, 'bitacora_deficit', $uid, 'bitacora', $ayer)) {
+      try {
+        $avisaCorreo = configGet($pdo, 'aviso_bitacora_deficit') === '1';
+        $avisaTg     = configGet($pdo, 'aviso_bitacora_deficit_tg') === '1';
+        if ($avisaCorreo || $avisaTg) {
+          $faltante = round($horasEsp - $horasReal, 2);
+          $fechaFmt = (new DateTime($ayer))->format('d/m/Y');
+
+          if ($avisaCorreo && !empty($tec['email'])) {
+            $extraBit = "<p style='margin:8px 0'>📅 <b>Fecha:</b> {$fechaFmt}</p>"
+                      . "<p style='margin:8px 0'>🕐 <b>Horario esperado:</b> {$horasEsp}h</p>"
+                      . "<p style='margin:8px 0'>✅ <b>Horas registradas:</b> {$horasReal}h</p>"
+                      . "<p style='margin:8px 0;color:#dc2626;font-weight:700'>⚠️ Déficit: {$faltante}h</p>";
+            $cuerpo = htmlAvisoTecnico(
+              $tec['nombre'],
+              'ayer tu registro de horario quedó por debajo de lo esperado.',
+              $extraBit
+            );
+            enviarAvisoTecnico($tec['email'], $tec['nombre'], '⏱ Déficit de horario — ' . $fechaFmt, $cuerpo);
+          }
+
+          if ($avisaTg && !empty($tec['telegram_chat_id'])) {
+            $msg = "⏱ <b>Déficit de horario</b>\n\n"
+                 . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+                 . "ayer tu registro de horario quedó por debajo de lo esperado.\n\n"
+                 . "📅 <b>Fecha:</b> {$fechaFmt}\n"
+                 . "🕐 <b>Horario esperado:</b> {$horasEsp}h\n"
+                 . "✅ <b>Horas registradas:</b> {$horasReal}h\n"
+                 . "⚠️ <b>Déficit:</b> {$faltante}h\n\n"
+                 . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+            sendTelegramMsg($tec['telegram_chat_id'], $msg);
+          }
+
+          registrarAvisoEnviado($pdo, 'bitacora_deficit', $uid, 'bitacora', $ayer);
+        }
+      } catch (Throwable $e) { /* silencioso, no debe romper el loop de otros técnicos */ }
+    }
   }
 
 } catch (Throwable $e) {

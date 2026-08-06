@@ -120,6 +120,64 @@ if ($method === 'POST') {
     $d['accion'],
   ]);
 
+  // ── Aviso a administradores ──────────────────────────────────────
+  try {
+    require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+    require_once __DIR__ . '/../lib/telegram.php';
+
+    $avisaCorreo = configGet($pdo, 'aviso_fuera_sitio') === '1';
+    $avisaTg     = configGet($pdo, 'aviso_fuera_sitio_tg') === '1';
+
+    if ($avisaCorreo || $avisaTg) {
+      $stmtT = $pdo->prepare("SELECT titulo, cliente FROM tareas WHERE id = ?");
+      $stmtT->execute([$d['tareaId']]);
+      $tareaFS = $stmtT->fetch() ?: [];
+
+      $stmtU = $pdo->prepare("SELECT nombre FROM usuarios WHERE id = ?");
+      $stmtU->execute([$d['tecnicoId']]);
+      $tecFS = $stmtU->fetch() ?: [];
+
+      $tipoLabel   = $d['tipo'] === 'checkin' ? 'Check-in' : 'Checkout';
+      $accionLabel = $d['accion'] === 'aceptado' ? 'Aceptó continuar' : 'Canceló';
+      $clienteFS   = $tareaFS['cliente'] ?? '-';
+      $tituloFS    = $tareaFS['titulo']  ?? '-';
+      $nombreFS    = $tecFS['nombre']    ?? $d['tecnicoId'];
+      $distFS      = (int)$d['distanciaMetros'];
+      $radioFS     = (int)$d['radioMetros'];
+
+      if ($avisaCorreo) {
+        $extraFS = "<p style='margin:8px 0'>👤 <b>Técnico:</b> " . htmlspecialchars($nombreFS, ENT_QUOTES, 'UTF-8') . "</p>"
+                 . "<p style='margin:8px 0'>🏢 <b>Cliente:</b> " . htmlspecialchars($clienteFS, ENT_QUOTES, 'UTF-8') . "</p>"
+                 . "<p style='margin:8px 0'>📋 <b>Tarea:</b> "   . htmlspecialchars($tituloFS, ENT_QUOTES, 'UTF-8')  . "</p>"
+                 . "<p style='margin:8px 0'>📍 <b>Tipo:</b> {$tipoLabel}</p>"
+                 . "<p style='margin:8px 0'>📏 <b>Distancia:</b> {$distFS}m (radio permitido: {$radioFS}m)</p>"
+                 . "<p style='margin:8px 0;color:#dc2626;font-weight:700'>⚠️ Acción: {$accionLabel}</p>";
+        foreach (adminsConEmail($pdo) as $adm) {
+          $cuerpo = htmlAvisoTecnico(
+            $adm['nombre'],
+            'se registró un check fuera del radio permitido del cliente.',
+            $extraFS
+          );
+          enviarAvisoTecnico($adm['email'], $adm['nombre'], '📍 Check fuera de sitio — ' . $nombreFS, $cuerpo);
+        }
+      }
+
+      if ($avisaTg) {
+        $msg = "📍 <b>Check fuera de sitio</b>\n\n"
+             . "👤 <b>Técnico:</b> " . htmlspecialchars($nombreFS, ENT_QUOTES, 'UTF-8') . "\n"
+             . "🏢 <b>Cliente:</b> " . htmlspecialchars($clienteFS, ENT_QUOTES, 'UTF-8') . "\n"
+             . "📋 <b>Tarea:</b> "   . htmlspecialchars($tituloFS, ENT_QUOTES, 'UTF-8')  . "\n"
+             . "📍 <b>Tipo:</b> {$tipoLabel}\n"
+             . "📏 <b>Distancia:</b> {$distFS}m (radio: {$radioFS}m)\n"
+             . "⚠️ <b>Acción:</b> {$accionLabel}\n\n"
+             . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+        foreach (adminsConTelegram($pdo) as $adm) {
+          sendTelegramMsg($adm['telegram_chat_id'], $msg);
+        }
+      }
+    }
+  } catch (Throwable $e) { /* silencioso */ }
+
   jsonOut(['id' => $id], 201);
 }
 

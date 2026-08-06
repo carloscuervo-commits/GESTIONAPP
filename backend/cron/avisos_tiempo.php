@@ -12,6 +12,7 @@
  */
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+require_once __DIR__ . '/../lib/telegram.php';
 
 $pdo = getDB();
 
@@ -44,10 +45,12 @@ if (empty($tareas)) {
   exit(0);
 }
 
-$aviso30  = configGet($pdo, 'aviso_30min_antes')     === '1';
-$aviso10  = configGet($pdo, 'aviso_10min_sin_checkin') === '1';
+$aviso30    = configGet($pdo, 'aviso_30min_antes')        === '1';
+$aviso10    = configGet($pdo, 'aviso_10min_sin_checkin')   === '1';
+$aviso30Tg  = configGet($pdo, 'aviso_30min_antes_tg')      === '1';
+$aviso10Tg  = configGet($pdo, 'aviso_10min_sin_checkin_tg') === '1';
 
-if (!$aviso30 && !$aviso10) {
+if (!$aviso30 && !$aviso10 && !$aviso30Tg && !$aviso10Tg) {
   exit(0);
 }
 
@@ -56,14 +59,12 @@ foreach ($tareas as $tarea) {
   if (!$horaProg) continue;
   $minProg = toMinutos($horaProg);
 
-  // Técnicos con email para esta tarea
+  // Técnicos del equipo de esta tarea (con email y/o telegram_chat_id)
   $stmtTec = $pdo->prepare("
-    SELECT u.id, u.nombre, u.email
+    SELECT u.id, u.nombre, u.email, u.telegram_chat_id
     FROM tarea_equipo te
     JOIN usuarios u ON u.id COLLATE utf8mb4_general_ci = te.usuario_id COLLATE utf8mb4_general_ci
     WHERE te.tarea_id = ?
-      AND u.email IS NOT NULL
-      AND u.email != ''
   ");
   $stmtTec->execute([$tarea['id']]);
   $tecnicos = $stmtTec->fetchAll(PDO::FETCH_ASSOC);
@@ -84,12 +85,13 @@ foreach ($tareas as $tarea) {
     $hizoCkIn = (bool)$stmtCI->fetchColumn();
 
     // ─── 30 min antes ─────────────────────────────────────────
-    if ($aviso30 && !$hizoCkIn) {
+    if (($aviso30 || $aviso30Tg) && !$hizoCkIn) {
       // Objetivo: horaProg - 30 min; ventana: ±5 min
       $objetivo30 = $minProg - 30;
       if (abs($ahoraMinutos - $objetivo30) <= 5) {
-        if (!avisoYaEnviado($pdo, '30min_antes', $tec['id'], $tarea['id'], $hoy)) {
-          $horaFmt = date('g:i a', mktime((int)explode(':', $horaProg)[0], (int)explode(':', $horaProg)[1]));
+        $horaFmt = date('g:i a', mktime((int)explode(':', $horaProg)[0], (int)explode(':', $horaProg)[1]));
+
+        if ($aviso30 && !empty($tec['email']) && !avisoYaEnviado($pdo, '30min_antes', $tec['id'], $tarea['id'], $hoy)) {
           $cuerpo = htmlAvisoTecnico(
             $tec['nombre'],
             "en 30 minutos tienes una tarea programada ({$horaFmt}).",
@@ -103,16 +105,27 @@ foreach ($tareas as $tarea) {
           );
           if ($ok) registrarAvisoEnviado($pdo, '30min_antes', $tec['id'], $tarea['id'], $hoy);
         }
+
+        if ($aviso30Tg && !empty($tec['telegram_chat_id']) && !avisoYaEnviado($pdo, '30min_antes_tg', $tec['id'], $tarea['id'], $hoy)) {
+          $msg = "⏰ <b>Recordatorio — tarea en 30 minutos</b>\n\n"
+               . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+               . "en 30 minutos tienes una tarea programada ({$horaFmt}).\n\n"
+               . telegramTareaInfo($tarea) . "\n\n"
+               . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+          $okTg = sendTelegramMsg($tec['telegram_chat_id'], $msg);
+          if ($okTg) registrarAvisoEnviado($pdo, '30min_antes_tg', $tec['id'], $tarea['id'], $hoy);
+        }
       }
     }
 
     // ─── 10 min sin check-in ──────────────────────────────────
-    if ($aviso10 && !$hizoCkIn) {
+    if (($aviso10 || $aviso10Tg) && !$hizoCkIn) {
       // Objetivo: horaProg + 10 min; ventana: ±5 min
       $objetivo10 = $minProg + 10;
       if (abs($ahoraMinutos - $objetivo10) <= 5) {
-        if (!avisoYaEnviado($pdo, '10min_sin_checkin', $tec['id'], $tarea['id'], $hoy)) {
-          $horaFmt = date('g:i a', mktime((int)explode(':', $horaProg)[0], (int)explode(':', $horaProg)[1]));
+        $horaFmt = date('g:i a', mktime((int)explode(':', $horaProg)[0], (int)explode(':', $horaProg)[1]));
+
+        if ($aviso10 && !empty($tec['email']) && !avisoYaEnviado($pdo, '10min_sin_checkin', $tec['id'], $tarea['id'], $hoy)) {
           $cuerpo = htmlAvisoTecnico(
             $tec['nombre'],
             "la hora programada ({$horaFmt}) ya pasó y aún no hemos registrado tu check-in. Por favor ingresa a la app y registra tu llegada.",
@@ -125,6 +138,16 @@ foreach ($tareas as $tarea) {
             $cuerpo
           );
           if ($ok) registrarAvisoEnviado($pdo, '10min_sin_checkin', $tec['id'], $tarea['id'], $hoy);
+        }
+
+        if ($aviso10Tg && !empty($tec['telegram_chat_id']) && !avisoYaEnviado($pdo, '10min_sin_checkin_tg', $tec['id'], $tarea['id'], $hoy)) {
+          $msg = "⚠️ <b>Sin check-in</b>\n\n"
+               . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+               . "la hora programada ({$horaFmt}) ya pasó y aún no hemos registrado tu check-in. Por favor ingresa a la app y registra tu llegada.\n\n"
+               . telegramTareaInfo($tarea) . "\n\n"
+               . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+          $okTg = sendTelegramMsg($tec['telegram_chat_id'], $msg);
+          if ($okTg) registrarAvisoEnviado($pdo, '10min_sin_checkin_tg', $tec['id'], $tarea['id'], $hoy);
         }
       }
     }

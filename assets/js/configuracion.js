@@ -1,44 +1,74 @@
 // ============================================================
 // configuracion.js  —  Módulo de configuración del sistema (solo admin)
-// v20260704k
+// v20260806a
 // ============================================================
 
 (function () {
   // ── Estado local ───────────────────────────────────────────
-  let _config = {};         // { clave: '0'|'1' }
+  let _config = {};         // { clave: '0'|'1'|texto }
   let _guardando = false;
 
-  // ── Entradas del panel Avisos a técnicos ──────────────────
+  // ── Entradas del panel Avisos a técnicos (correo + Telegram) ─
   const AVISOS_TECNICOS = [
     {
-      clave: 'aviso_asignacion_tarea',
+      claveCorreo: 'aviso_asignacion_tarea', claveTelegram: 'aviso_asignacion_tarea_tg',
       label: '📋 Asignación de tarea',
-      desc: 'Envía un correo al técnico cuando se le asigna una tarea nueva, con toda la información de la tarjeta.',
+      desc: 'Avisa al técnico cuando se le asigna una tarea nueva, con toda la información de la tarjeta.',
     },
     {
-      clave: 'aviso_cambio_programacion',
+      claveCorreo: 'aviso_cambio_programacion', claveTelegram: 'aviso_cambio_programacion_tg',
       label: '📅 Cambio de programación',
-      desc: 'Envía un correo cuando cambia la fecha o la hora programada de una tarea ya asignada.',
+      desc: 'Avisa cuando cambia la fecha o la hora programada de una tarea ya asignada.',
     },
     {
-      clave: 'aviso_cambio_descripcion',
+      claveCorreo: 'aviso_cambio_descripcion', claveTelegram: 'aviso_cambio_descripcion_tg',
       label: '✏️ Cambio de título o descripción',
-      desc: 'Envía un correo cuando se edita el título o la descripción de una tarea asignada al técnico.',
+      desc: 'Avisa cuando se edita el título o la descripción de una tarea asignada al técnico.',
     },
     {
-      clave: 'aviso_dia_anterior',
-      label: '🌙 Resumen del día anterior (5 p.m.)',
-      desc: 'Cada día a las 5 p.m., envía al técnico un resumen de sus tareas programadas para el día siguiente. Requiere configurar el cron <code>avisos_dia_anterior.php</code> a las 17:00.',
+      claveCorreo: 'aviso_dia_anterior', claveTelegram: 'aviso_dia_anterior_tg',
+      label: '🌙 Resumen del día siguiente (5 p.m.)',
+      desc: 'Cada día a las 5 p.m., envía al técnico un resumen de sus tareas programadas para el día siguiente. Requiere cron <code>avisos_dia_anterior.php</code> a las 17:00.',
     },
     {
-      clave: 'aviso_30min_antes',
+      claveCorreo: 'aviso_30min_antes', claveTelegram: 'aviso_30min_antes_tg',
       label: '⏰ Recordatorio 30 min antes',
-      desc: 'Envía un correo 30 minutos antes de la hora programada de cada tarea, si el técnico aún no ha hecho check-in. Requiere cron <code>avisos_tiempo.php</code> cada 10 min.',
+      desc: '30 minutos antes de la hora programada de cada tarea, si el técnico aún no ha hecho check-in. Requiere cron <code>avisos_tiempo.php</code> cada 10 min.',
     },
     {
-      clave: 'aviso_10min_sin_checkin',
+      claveCorreo: 'aviso_10min_sin_checkin', claveTelegram: 'aviso_10min_sin_checkin_tg',
       label: '⚠️ Sin check-in 10 min después',
-      desc: 'Envía un aviso si el técnico no ha registrado llegada 10 minutos después de la hora programada. Requiere cron <code>avisos_tiempo.php</code> cada 10 min.',
+      desc: 'Si el técnico no ha registrado llegada 10 minutos después de la hora programada. Requiere cron <code>avisos_tiempo.php</code> cada 10 min.',
+    },
+    {
+      claveCorreo: 'aviso_retraso_admin', claveTelegram: 'aviso_retraso_admin_tg',
+      label: '🚨 Técnico tardío (a administradores)',
+      desc: 'Aviso en tiempo real a administradores cuando un técnico no ha hecho check-in pasada la hora programada. El correo viene activo por defecto (ya existía antes de este panel).',
+    },
+    {
+      claveCorreo: 'aviso_sin_reporte', claveTelegram: 'aviso_sin_reporte_tg',
+      label: '🚫 Visita sin reporte enviado',
+      desc: 'Avisa al técnico cuando cierra una visita sin enviar el reporte.',
+    },
+    {
+      claveCorreo: 'aviso_fuera_sitio', claveTelegram: 'aviso_fuera_sitio_tg',
+      label: '📍 Check fuera del radio del cliente',
+      desc: 'Avisa a administradores cuando un técnico hace check-in o checkout fuera del radio permitido del cliente.',
+    },
+    {
+      claveCorreo: 'aviso_bitacora_deficit', claveTelegram: 'aviso_bitacora_deficit_tg',
+      label: '⏱ Déficit de horario (bitácora)',
+      desc: 'Avisa al técnico cuando el día anterior no cumplió su horario esperado. Requiere cron <code>bitacora_deficit.php</code> a las 23:00.',
+    },
+    {
+      claveCorreo: 'aviso_visitas_colgadas', claveTelegram: 'aviso_visitas_colgadas_tg',
+      label: '🕓 Visitas en curso de días anteriores',
+      desc: 'Avisa a cada técnico (y a administradores con el listado completo) de visitas que quedaron sin checkout el mismo día. Requiere cron <code>avisos_visitas_colgadas.php</code> por la mañana.',
+    },
+    {
+      claveCorreo: 'aviso_horas_contrato', claveTelegram: 'aviso_horas_contrato_tg',
+      label: '📉 Horas de contrato por agotarse',
+      desc: 'Avisa a administradores cuando a un cliente con contrato le quedan pocas horas disponibles en el mes (umbral configurable abajo).',
     },
   ];
 
@@ -72,6 +102,19 @@
     }
   }
 
+  async function saveTexto(clave, valor) {
+    try {
+      await fetch('backend/api/configuracion.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [clave]: valor }),
+      });
+      _config[clave] = valor;
+    } catch (e) {
+      console.error('Error guardando config:', e);
+    }
+  }
+
   // ── Render principal ──────────────────────────────────────
   async function renderConfiguracion() {
     const el = document.getElementById('configuracion-view');
@@ -81,24 +124,43 @@
 
     await fetchConfig();
 
+    const umbralHoras = _config['horas_contrato_umbral'] ?? '2';
+
     el.innerHTML = `
-      <div style="max-width:720px">
+      <div style="max-width:760px">
         <div style="font-size:20px;font-weight:700;color:var(--teal,#0D3B40);margin-bottom:4px">⚙️ Configuración</div>
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:24px">Solo los administradores pueden ver y modificar esta sección.</div>
 
         <!-- Sección: Avisos a técnicos -->
         <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;overflow:hidden;margin-bottom:20px">
           <div style="padding:16px 20px;border-bottom:1px solid var(--border,#e5e7eb);background:var(--bg,#f8fafc)">
-            <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40)">📧 Avisos a técnicos</div>
+            <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40)">🔔 Avisos a técnicos</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
-              Activa o desactiva cada tipo de correo. Los correos se envían al email registrado en el perfil de cada técnico.
+              Activa o desactiva cada aviso por canal. El correo se envía al email del perfil; Telegram requiere que el técnico (o administrador) tenga configurado su "Telegram Chat ID" en Usuarios.
             </div>
           </div>
+          <div style="padding:10px 20px;display:flex;align-items:center;border-bottom:1px solid var(--border,#e5e7eb);background:var(--bg,#f8fafc)">
+            <div style="flex:1"></div>
+            <div style="width:64px;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted)">📧 Correo</div>
+            <div style="width:64px;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted)">✈️ Telegram</div>
+          </div>
           <div id="cfg-avisos-lista"></div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:600;font-size:13px;color:var(--text,#1e293b)">🔢 Umbral de horas de contrato</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Se avisa cuando a un cliente le quedan estas horas o menos disponibles en el mes. Aplica igual a todos los contratos.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="cfg-horas-umbral" min="0" step="0.5" value="${esc(String(umbralHoras))}"
+                style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
+                onchange="cfgGuardarUmbralHoras(this.value)">
+              <span style="font-size:13px;color:var(--text-muted)">horas</span>
+            </div>
+          </div>
         </div>
 
         <div style="font-size:11px;color:var(--text-muted);padding:0 4px">
-          Los cambios se guardan inmediatamente al activar o desactivar cada interruptor.
+          Los cambios se guardan inmediatamente al activar o desactivar cada interruptor, o al salir del campo de horas.
         </div>
       </div>
     `;
@@ -111,18 +173,22 @@
     if (!lista) return;
 
     lista.innerHTML = AVISOS_TECNICOS.map((item, i) => {
-      const activo = (_config[item.clave] ?? '0') === '1';
+      const activoCorreo = (_config[item.claveCorreo] ?? '0') === '1';
+      const activoTg     = (_config[item.claveTelegram] ?? '0') === '1';
       const borde  = i < AVISOS_TECNICOS.length - 1
         ? 'border-bottom:1px solid var(--border,#e5e7eb);'
         : '';
       return `
-        <div style="padding:14px 20px;${borde}display:flex;gap:14px;align-items:flex-start">
+        <div style="padding:14px 20px;${borde}display:flex;gap:10px;align-items:center">
           <div style="flex:1">
             <div style="font-weight:600;font-size:14px;color:var(--text,#1e293b);margin-bottom:2px">${item.label}</div>
             <div style="font-size:12px;color:var(--text-muted,#64748b);line-height:1.5">${item.desc}</div>
           </div>
-          <div style="flex-shrink:0;padding-top:2px">
-            ${_toggleHtml(item.clave, activo)}
+          <div style="width:64px;display:flex;justify-content:center">
+            ${_toggleHtml(item.claveCorreo, activoCorreo)}
+          </div>
+          <div style="width:64px;display:flex;justify-content:center">
+            ${_toggleHtml(item.claveTelegram, activoTg)}
           </div>
         </div>
       `;
@@ -133,45 +199,37 @@
     const on  = activo ? '#169BBC' : '#cbd5e1';
     const tx  = '#ffffff';
     const pos = activo ? '22px' : '2px';
-    const label = activo ? 'Activo' : 'Inactivo';
     return `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:60px">
-        <button
-          id="toggle-${clave}"
-          onclick="cfgToggle('${clave}')"
-          role="switch"
-          aria-checked="${activo}"
-          title="${label}"
-          style="
-            width:46px;height:26px;border-radius:13px;border:none;cursor:pointer;
-            background:${on};position:relative;transition:background .2s;
-            outline:none;flex-shrink:0;
-          ">
-          <span style="
-            position:absolute;top:${pos === '2px' ? '3px' : '3px'};left:${pos};
-            width:20px;height:20px;border-radius:50%;background:${tx};
-            transition:left .2s;display:block;box-shadow:0 1px 3px rgba(0,0,0,.2);
-          "></span>
-        </button>
-        <span id="toggle-label-${clave}" style="font-size:10px;color:${activo ? '#169BBC' : 'var(--text-muted)'};font-weight:600">${label}</span>
-      </div>
+      <button
+        id="toggle-${clave}"
+        onclick="cfgToggle('${clave}')"
+        role="switch"
+        aria-checked="${activo}"
+        title="${activo ? 'Activo' : 'Inactivo'}"
+        style="
+          width:40px;height:24px;border-radius:12px;border:none;cursor:pointer;
+          background:${on};position:relative;transition:background .2s;
+          outline:none;flex-shrink:0;
+        ">
+        <span style="
+          position:absolute;top:2px;left:${pos};
+          width:20px;height:20px;border-radius:50%;background:${tx};
+          transition:left .2s;display:block;box-shadow:0 1px 3px rgba(0,0,0,.2);
+        "></span>
+      </button>
     `;
   }
 
   function _actualizarEstadoToggle(clave, valor) {
     const activo = valor === '1';
     const btn = document.getElementById(`toggle-${clave}`);
-    const lbl = document.getElementById(`toggle-label-${clave}`);
     if (!btn) return;
 
     btn.style.background = activo ? '#169BBC' : '#cbd5e1';
     btn.setAttribute('aria-checked', String(activo));
+    btn.title = activo ? 'Activo' : 'Inactivo';
     const knob = btn.querySelector('span');
     if (knob) knob.style.left = activo ? '22px' : '2px';
-    if (lbl) {
-      lbl.textContent = activo ? 'Activo' : 'Inactivo';
-      lbl.style.color = activo ? '#169BBC' : 'var(--text-muted)';
-    }
   }
 
   // ── API global para el onclick del HTML ──────────────────
@@ -182,6 +240,12 @@
     _config[clave] = nuevo;
     _actualizarEstadoToggle(clave, nuevo);
     saveToggle(clave, nuevo);
+  };
+
+  window.cfgGuardarUmbralHoras = function (valor) {
+    const num = parseFloat(valor);
+    const final = isNaN(num) || num < 0 ? '2' : String(num);
+    saveTexto('horas_contrato_umbral', final);
   };
 
   window.renderConfiguracion = renderConfiguracion;

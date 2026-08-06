@@ -59,6 +59,24 @@ function tecnicosConTelegram(PDO $pdo, string $tareaId): array {
 }
 
 /**
+ * Retorna [{id, nombre, telegram_chat_id}] de los administradores activos
+ * que tienen telegram_chat_id configurado. Usado para avisos que van al
+ * equipo administrativo (retraso, fuera de sitio, horas de contrato, etc.)
+ * en vez de a un técnico puntual.
+ */
+function adminsConTelegram(PDO $pdo): array {
+  $stmt = $pdo->query("
+    SELECT id, nombre, telegram_chat_id
+    FROM usuarios
+    WHERE perfil = 'admin'
+      AND activo = 1
+      AND telegram_chat_id IS NOT NULL
+      AND telegram_chat_id != ''
+  ");
+  return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
  * Formatea los datos de una tarea como texto HTML para Telegram.
  * $tarea puede tener: titulo, cliente, descripcion,
  *   fecha_programacion, hora_programacion, dias_programacion, modalidad.

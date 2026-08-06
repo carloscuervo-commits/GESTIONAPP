@@ -545,6 +545,42 @@ if ($method === 'PUT') {
       $ultimoCheckout = $stmtMax->fetchColumn();
       $pdo->prepare("UPDATE reportes SET estado='sin_reporte', check_out=? ,tecnico_checkout_id=? WHERE id=?")
         ->execute([$ultimoCheckout, $tecnicoOut, $id]);
+
+      // ── Aviso: visita cerrada sin reporte ─────────────────────────
+      try {
+        require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+        require_once __DIR__ . '/../lib/telegram.php';
+        $stmtTareaSR = $pdo->prepare("SELECT titulo, cliente, area, fecha_programacion, hora_programacion, dias_programacion, modalidad FROM tareas WHERE id = ?");
+        $stmtTareaSR->execute([$prev['tarea_id']]);
+        $tareaSR = $stmtTareaSR->fetch();
+        if ($tareaSR) {
+          if (configGet($pdo, 'aviso_sin_reporte') === '1') {
+            foreach (tecnicosConEmail($pdo, $prev['tarea_id']) as $tec) {
+              $cuerpo = htmlAvisoTecnico(
+                $tec['nombre'],
+                'cerraste una visita sin enviar el reporte.',
+                htmlTareaInfo($tareaSR) . '<p style="margin:8px 0;color:#dc2626">Recuerda completarlo cuanto antes — el tiempo podría contarse como no laborado.</p>'
+              );
+              enviarAvisoTecnico(
+                $tec['email'], $tec['nombre'],
+                '🚫 Visita sin reporte — ' . ($tareaSR['cliente'] ?? $tareaSR['titulo']),
+                $cuerpo
+              );
+            }
+          }
+          if (configGet($pdo, 'aviso_sin_reporte_tg') === '1') {
+            foreach (tecnicosConTelegram($pdo, $prev['tarea_id']) as $tec) {
+              $msg = "🚫 <b>Visita sin reporte</b>\n\n"
+                   . "Hola <b>" . htmlspecialchars($tec['nombre'], ENT_QUOTES, 'UTF-8') . "</b>, "
+                   . "cerraste una visita sin enviar el reporte.\n\n"
+                   . telegramTareaInfo($tareaSR) . "\n\n"
+                   . "⚠️ Recuerda completarlo cuanto antes.\n\n"
+                   . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+              sendTelegramMsg($tec['telegram_chat_id'], $msg);
+            }
+          }
+        }
+      } catch (Throwable $e) { /* silencioso */ }
     }
 
     $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
@@ -657,6 +693,63 @@ if ($method === 'PUT') {
                 $tareaInfo['area'],
                 $tareaInfo['cliente'],
               ]);
+          }
+
+          // ── Aviso: horas de contrato por agotarse ────────────────────
+          // Umbral configurable (config.horas_contrato_umbral, mismo para todos
+          // los contratos). Se avisa como máximo una vez por cliente/área/mes
+          // (reutiliza la tabla avisos_enviados: tecnico_id=area, tarea_id=md5(cliente)).
+          if ($horasContratadas > 0) {
+            $horasDisponiblesAviso = round($horasContratadas - $horasConsumidas, 1);
+            $umbralRaw = configGet($pdo, 'horas_contrato_umbral');
+            $umbralHoras = ($umbralRaw !== null && $umbralRaw !== '') ? (float)$umbralRaw : 2.0;
+            if ($horasDisponiblesAviso <= $umbralHoras) {
+              $claveMes = date('Y-m');
+              $claveCliente = md5($tareaInfo['cliente']);
+              if (!avisoYaEnviado($pdo, 'horas_contrato', $tareaInfo['area'], $claveCliente, $claveMes)) {
+                try {
+                  require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+                  require_once __DIR__ . '/../lib/telegram.php';
+                  $clienteEsc = htmlspecialchars($tareaInfo['cliente'], ENT_QUOTES, 'UTF-8');
+                  $seEnvioAviso = false;
+
+                  if (configGet($pdo, 'aviso_horas_contrato') === '1') {
+                    $extraHoras = "<p style='margin:8px 0'>👤 <b>Cliente:</b> {$clienteEsc}</p>"
+                                . "<p style='margin:8px 0'>🗺 <b>Área:</b> " . strtoupper($tareaInfo['area']) . "</p>"
+                                . "<p style='margin:8px 0'>🕐 <b>Horas contratadas/mes:</b> {$horasContratadas}h</p>"
+                                . "<p style='margin:8px 0'>📊 <b>Consumidas este mes:</b> {$horasConsumidas}h</p>"
+                                . "<p style='margin:8px 0;color:#dc2626;font-weight:700'>⚠️ Disponibles: {$horasDisponiblesAviso}h</p>";
+                    foreach (adminsConEmail($pdo) as $adm) {
+                      $cuerpo = htmlAvisoTecnico(
+                        $adm['nombre'],
+                        'el contrato de un cliente está por agotar sus horas del mes.',
+                        $extraHoras
+                      );
+                      enviarAvisoTecnico($adm['email'], $adm['nombre'], '⏳ Horas de contrato por agotarse — ' . $tareaInfo['cliente'], $cuerpo);
+                    }
+                    $seEnvioAviso = true;
+                  }
+
+                  if (configGet($pdo, 'aviso_horas_contrato_tg') === '1') {
+                    $msg = "⏳ <b>Horas de contrato por agotarse</b>\n\n"
+                         . "👤 <b>Cliente:</b> {$clienteEsc}\n"
+                         . "🗺 <b>Área:</b> " . strtoupper($tareaInfo['area']) . "\n"
+                         . "🕐 <b>Contratadas:</b> {$horasContratadas}h\n"
+                         . "📊 <b>Consumidas:</b> {$horasConsumidas}h\n"
+                         . "⚠️ <b>Disponibles:</b> {$horasDisponiblesAviso}h\n\n"
+                         . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+                    foreach (adminsConTelegram($pdo) as $adm) {
+                      sendTelegramMsg($adm['telegram_chat_id'], $msg);
+                    }
+                    $seEnvioAviso = true;
+                  }
+
+                  if ($seEnvioAviso) {
+                    registrarAvisoEnviado($pdo, 'horas_contrato', $tareaInfo['area'], $claveCliente, $claveMes);
+                  }
+                } catch (Throwable $e) { /* silencioso */ }
+              }
+            }
           }
         }
       }

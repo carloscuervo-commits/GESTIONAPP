@@ -42,6 +42,41 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
+
+Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).
+
+⚠️ **Acción manual en cPanel — nuevo cron job:**
+```
+30 7 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/avisos_visitas_colgadas.php > /dev/null 2>&1
+```
+
+**Resumen:** el panel Configuración → Avisos a técnicos ahora tiene dos columnas de interruptores (📧 Correo / ✈️ Telegram) por cada evento, en vez de un solo toggle que solo controlaba correo. Se agregaron 6 eventos nuevos que antes no notificaban a nadie, y un campo numérico para el umbral de horas de contrato.
+
+| Archivo | Cambio |
+|---|---|
+| `backend/lib/telegram.php` | Nueva función `adminsConTelegram($pdo)` — admins activos con `telegram_chat_id`. |
+| `backend/lib/avisos_tecnicos.php` | Nueva función `adminsConEmail($pdo)` — admins activos con email. |
+| `backend/api/tareas.php` | Los 3 envíos de Telegram existentes (nueva tarea, cambio de programación, cambio de descripción) ya no son incondicionales — ahora respetan los toggles `aviso_asignacion_tarea_tg` / `aviso_cambio_programacion_tg` / `aviso_cambio_descripcion_tg`. |
+| `backend/api/reportes.php` | Dos avisos nuevos: (1) al cerrar una visita sin reporte (`estado='sin_reporte'`) se avisa al técnico — `aviso_sin_reporte` / `aviso_sin_reporte_tg`. (2) al hacer checkout de una tarea de contrato, si las horas disponibles del cliente ese mes caen bajo el umbral configurado, se avisa a administradores (máx. 1 vez por cliente/área/mes) — `aviso_horas_contrato` / `aviso_horas_contrato_tg` + `horas_contrato_umbral`. |
+| `backend/api/fuera_sitio.php` | Al registrar un check-in/checkout fuera del radio del cliente, avisa a administradores — `aviso_fuera_sitio` / `aviso_fuera_sitio_tg`. |
+| `backend/api/alertas.php` | El correo de "técnico tardío" (antes incondicional) ahora se puede desactivar con `aviso_retraso_admin` (queda **activo por defecto** si la clave no existe, para no romper el comportamiento actual). Nuevo: Telegram a administradores con `aviso_retraso_admin_tg` (opt-in, apagado por defecto). |
+| `backend/cron/bitacora_deficit.php` | Al detectar déficit de horario del día anterior, avisa al técnico — `aviso_bitacora_deficit` / `aviso_bitacora_deficit_tg`. Antes no notificaba a nadie. |
+| `backend/cron/avisos_tiempo.php` | Los avisos "30 min antes" y "sin check-in 10 min después" ahora también pueden ir por Telegram — `aviso_30min_antes_tg` / `aviso_10min_sin_checkin_tg`. |
+| `backend/cron/avisos_dia_anterior.php` | El resumen del día siguiente ahora también puede ir por Telegram (un mensaje consolidado por técnico) — `aviso_dia_anterior_tg`. |
+| `backend/cron/avisos_visitas_colgadas.php` | **Nuevo.** Versión servidor del popup "visitas en curso de días anteriores" (ver sesión 2026-08-06 anterior): corre una vez al día por la mañana, avisa a cada técnico sus visitas colgadas y a administradores el listado completo — `aviso_visitas_colgadas` / `aviso_visitas_colgadas_tg`. Requiere el cron nuevo de arriba. |
+| `assets/js/configuracion.js?v=20260806a` | Panel rediseñado: dos columnas de toggles (Correo/Telegram) por evento, 6 filas nuevas, campo numérico "Umbral de horas de contrato" (`horas_contrato_umbral`, guarda al salir del campo). |
+| `tareas-equipo.html` | Bump `configuracion.js?v=20260806a`. |
+
+**Claves de configuración nuevas** (todas arrancan en `0`/apagadas salvo `aviso_retraso_admin` que arranca encendida por compatibilidad — se activan una por una desde el panel):
+`aviso_asignacion_tarea_tg`, `aviso_cambio_programacion_tg`, `aviso_cambio_descripcion_tg`, `aviso_dia_anterior_tg`, `aviso_30min_antes_tg`, `aviso_10min_sin_checkin_tg`, `aviso_retraso_admin`, `aviso_retraso_admin_tg`, `aviso_sin_reporte`, `aviso_sin_reporte_tg`, `aviso_fuera_sitio`, `aviso_fuera_sitio_tg`, `aviso_bitacora_deficit`, `aviso_bitacora_deficit_tg`, `aviso_visitas_colgadas`, `aviso_visitas_colgadas_tg`, `aviso_horas_contrato`, `aviso_horas_contrato_tg`, `horas_contrato_umbral` (numérico, default 2).
+
+✅ `.cpanel.yml` copia `backend/lib/`, `backend/api/` y `backend/cron/` completos — el archivo nuevo se despliega automáticamente, solo falta agregar el cron job en cPanel.
+
+**Fase 2 (pendiente, no incluida aquí):** botones interactivos de Telegram (check-in/checkout/cerrar visita sin abrir la app) — requiere un endpoint `telegram_webhook.php` nuevo y registrar la URL con `setWebhook` en el Bot API.
+
+---
+
 ## Cambios pendientes de deploy (2026-08-05 — fix z-index modal usuarios + Telegram Bot)
 
 Sin migraciones adicionales de BD.

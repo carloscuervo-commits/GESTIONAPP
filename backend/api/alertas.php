@@ -5,6 +5,8 @@
 // ============================================================
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/mailer.php';
+require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+require_once __DIR__ . '/../lib/telegram.php';
 applyCors();
 
 $pdo = getDB();
@@ -76,6 +78,28 @@ $cuerpo = "
   </div>
 </div>";
 
-$ok = enviarCorreoConAdjunto([CORREO_ADMIN_FIJO], $asunto, $cuerpo);
+// Correo: se mantiene el comportamiento histórico (siempre activo) salvo que
+// un admin lo desactive explícitamente en Configuración → Avisos Telegram.
+$ok = false;
+if (configGet($pdo, 'aviso_retraso_admin') !== '0') {
+  $ok = enviarCorreoConAdjunto([CORREO_ADMIN_FIJO], $asunto, $cuerpo);
+}
+
+// Telegram a administradores (nuevo, opt-in)
+try {
+  if (configGet($pdo, 'aviso_retraso_admin_tg') === '1') {
+    $msg = "⚠️ <b>Técnico tardío</b>\n\n"
+         . "👤 <b>Técnico(s):</b> " . htmlspecialchars($tecnico, ENT_QUOTES, 'UTF-8') . "\n"
+         . "🏢 <b>Cliente:</b> " . htmlspecialchars($cliente, ENT_QUOTES, 'UTF-8') . "\n"
+         . "📋 <b>Tarea:</b> " . htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8') . "\n"
+         . "🗺 <b>Área:</b> {$area}\n"
+         . "📅 <b>Fecha prog.:</b> {$fecha}\n"
+         . "🕗 <b>Hora prog.:</b> {$hora}\n\n"
+         . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+    foreach (adminsConTelegram($pdo) as $adm) {
+      sendTelegramMsg($adm['telegram_chat_id'], $msg);
+    }
+  }
+} catch (Throwable $e) { /* silencioso */ }
 
 jsonOut(['ok' => true, 'email_enviado' => $ok]);
