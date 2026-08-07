@@ -92,6 +92,8 @@ Sin cambios de esquema adicionales (usa la migración `030_reporte_whatsapp_envi
 
 **Ajuste de UI (mismo día, `reportes.js?v=20260807c`):** el botón "Enviar por WhatsApp" aparecía antes de la sección de correo y solo si `yaGenerado`, lo que hacía que pareciera inconsistente. Ahora está siempre dentro de la sección de envío (mismo bloque que el correo), justo debajo de "Enviar por correo", mismo tamaño de botón, con una nota debajo aclarando que es una herramienta opcional y que el envío obligatorio es por correo.
 
+**Fix (mismo día, `reportes.js?v=20260807d`):** el badge y las acciones (`Ver PDF`/`Editar reporte`/`Completar reporte`/`Borrar visita`) del historial de visitas dejaron de basarse en `reportes.estado` y ahora miran si los participantes ya tienen checkout real (`todosConCheckout`). Causa del bug reportado: `reportes.estado` puede quedar transitoriamente en `'activo'` sin que nadie siga en sitio — ej. al reabrir una visita `sin_reporte` con el nuevo botón "Completar reporte" y generar el PDF, una regla ya existente en el backend (`reportes.php`, promueve `sin_reporte`→`activo` al adjuntar un PDF) deja el reporte en ese estado intermedio si no se llega a enviar por correo. Antes eso hacía que la visita se viera "🟢 En curso" y hasta ofrecía "🗑️ Borrar visita" (destructivo) aunque ya tuviera checkout real. Ahora "En curso" y "Borrar visita" solo aparecen si de verdad hay alguien sin checkout.
+
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
 Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).

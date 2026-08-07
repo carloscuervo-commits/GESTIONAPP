@@ -1510,6 +1510,14 @@ async function renderHistorialVisitasModal(tareaId) {
     visitas.forEach((r, ri) => {
       const partes = r.participantes || [];
       const fecha = r.check_in ? r.check_in.substring(0,10) : (r.creado_en||'').substring(0,10);
+      // "En curso" real = todavía hay alguien sin checkout físico. Se mide contra
+      // los participantes (dato real), NO contra reportes.estado: ese campo puede
+      // quedar en 'activo' de forma transitoria mientras se completa un reporte
+      // que ya tenía checkout (ej. al reabrir un 'sin_reporte' con "Completar
+      // reporte" y generar el PDF, el backend lo promueve a 'activo' aunque nadie
+      // siga en sitio). Si se confía solo en estado, esas visitas ya cerradas se
+      // ven como "en curso" y hasta se pueden borrar por accidente.
+      const todosConCheckout = partes.length ? partes.every(p => !!p.check_out) : !!r.check_out;
       // El ciclo de la visita solo se considera cerrado con el envío por CORREO
       // (queda traza real) — WhatsApp es una herramienta opcional que no cambia
       // el estado. "estado==='enviado'" tampoco sirve solo (ese estado se pone
@@ -1518,14 +1526,18 @@ async function renderHistorialVisitasModal(tareaId) {
       const enviado = pdfListo && !!r.enviado_en;
       const estadoBadge = enviado
         ? '<span style="color:#059669;font-size:11px">✅ Enviado</span>'
-        : r.estado === 'activo'
+        : !todosConCheckout
         ? '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>'
         : '<span style="color:#dc2626;font-size:11px">⚠️ Reporte pendiente</span>';
-      const puedeEliminarReporte = esAdmin && r.estado === 'activo';
+      // Borrar visita completa solo tiene sentido mientras es genuinamente una
+      // visita en curso (nadie ha hecho checkout todavía). Si ya hay checkout
+      // real, borrarla aquí sería destructivo — el cierre debe ser por el flujo
+      // normal (correo) o pidiéndolo explícitamente, no con un botón de paso.
+      const puedeEliminarReporte = esAdmin && !todosConCheckout;
       // Botones de reporte propios de esta visita (no en la barra superior) para
       // que quede claro a cuál visita pertenece cada uno cuando hay varias.
       const reporteAccionesHtml = (() => {
-        if (r.estado === 'activo') return ''; // se maneja con Pausar/Finalizar en la tarjeta
+        if (!todosConCheckout) return ''; // se maneja con Pausar/Finalizar en la tarjeta
         const botones = [];
         if (enviado) {
           botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
