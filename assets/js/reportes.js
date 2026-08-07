@@ -425,7 +425,7 @@ async function _geofenceCheck(tareaId, tipo) {
   const pos = await new Promise(resolve => {
     navigator.geolocation.getCurrentPosition(
       p  => resolve(p),
-      (err) => { alert(`[GEO] Sin GPS: ${err.code} ${err.message}`); resolve(null); },
+      (err) => { resolve(null); },
       { timeout: 12000, maximumAge: 0 }
     );
   });
@@ -441,12 +441,10 @@ async function _geofenceCheck(tareaId, tipo) {
     const geo = await fetch(url).then(r => r.json());
 
     if (geo.error || geo.sinUbicacion) {
-      alert(`[GEO] Sin ubicación del cliente. cliente="${geo.cliente}" sinUbicacion=${geo.sinUbicacion} error=${geo.error}`);
       return { lat, lng };
     }
 
     if (geo.dentroZona) {
-      alert(`[GEO] Dentro de zona: ${geo.distanciaMetros}m (radio ${geo.radioMetros}m)`);
       return { lat, lng };
     }
 
@@ -1471,10 +1469,6 @@ async function renderHistorialVisitasModal(tareaId) {
               addBtn(multi ? `✏️ Editar reporte ${fecha}` : '✏️ Editar reporte', '#6366f1',
                 (e) => continuarReporte(r.id, e, true));
             }
-          } else if (r.estado === 'activo') {
-            // Visita en curso (con o sin PDF generado) → volver al form
-            addBtn(multi ? `📝 Continuar reporte ${fecha}` : '📝 Continuar reporte', '#0284c7',
-              (e) => continuarReporte(r.id, e));
           } else if (r.estado === 'enviado') {
             // Enviado sin PDF (reportes viejos migrados) → abrir form para generar PDF
             addBtn(multi ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte', '#6366f1',

@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-06 — fix "Continuar reporte" en visitas recién iniciadas)
+
+`assets/js/reportes.js?v=20260806c`. En `renderHistorialVisitasModal()` se eliminó el bloque que inyectaba un botón "📝 Continuar reporte" para cualquier reporte con `estado === 'activo'`. Ese estado solo significa "check-in hecho, sin checkout aún" — es el estado normal de toda visita en curso, no un borrador abandonado. El botón duplicaba/contradecía el flujo correcto de "🏁 Finalizar" (`renderVisitaBoton()`) y aparecía apenas el técnico daba clic en "Iniciar visita", antes de siquiera llegar al formulario de reporte.
+
+También se eliminaron 3 `alert()` de debug dejados en `_geofenceCheck()` (`[GEO] Sin GPS`, `[GEO] Sin ubicación del cliente`, `[GEO] Dentro de zona`) que interrumpían con popups cada check-in/checkout con geolocalización, sin cambiar el comportamiento (solo dejaron de mostrar el popup).
+
+Sin cambios de esquema ni cron. Solo requiere deploy + que el navegador tome el nuevo `?v=20260806c` (cache de 7 días en JS).
+
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
 Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).
