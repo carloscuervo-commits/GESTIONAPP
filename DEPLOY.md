@@ -58,6 +58,8 @@ Fix: `cerrarFormularioReporte()` ahora se basa en `_pendingCheckout` (dato real)
 
 Sin cambios de esquema ni cron. Deploy + (posible) cierre completo del navegador o desregistro manual del service worker.
 
+**Validación nueva (`reportes.js?v=20260806e`):** `generarPDFReporte()` ahora exige, antes de generar el PDF (y por tanto antes de poder enviarlo por correo, ya que ese botón solo aparece después): campo 3 "Describa de forma detallada las acciones llevadas a cabo" con mínimo 20 palabras, y campo 6 "Firma de Conformidad del Cliente" guardada. Si falta algo, muestra alerta y no genera el PDF.
+
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
 Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).

@@ -1172,6 +1172,26 @@ async function _cargarJsPDF() {
 
 async function generarPDFReporte(btn) {
   if (_generandoPDF) return; // evita doble clic mientras se genera
+
+  // Validaciones obligatorias antes de generar el PDF. El botón "Enviar por
+  // correo" solo aparece después de generar el PDF (yaGenerado), así que
+  // validar aquí también bloquea el envío.
+  const _campoAcciones = document.getElementById('campo-descripcion_acciones');
+  const _textoAcciones = (_campoAcciones ? _campoAcciones.value : '').trim();
+  const _palabrasAcciones = _textoAcciones ? _textoAcciones.split(/\s+/).filter(Boolean).length : 0;
+  if (_palabrasAcciones < 20) {
+    alert('⚠️ El campo "3) Describa de forma detallada las acciones llevadas a cabo..." debe tener al menos 20 palabras antes de generar el PDF.');
+    if (_campoAcciones) { _campoAcciones.scrollIntoView({ behavior: 'smooth', block: 'center' }); _campoAcciones.focus(); }
+    return;
+  }
+  const _tieneFirma = (reporteActual.fotos || []).some(f => f.seccion_id === 'firma_cliente');
+  if (!_tieneFirma) {
+    alert('⚠️ Falta la firma de conformidad del cliente (campo 6) antes de generar el PDF.');
+    const _canvasFirma = document.getElementById('firma-canvas-firma_cliente');
+    if (_canvasFirma) _canvasFirma.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
   _generandoPDF = true;
 
   const statusEl = document.getElementById('reporte-pdf-status');
