@@ -723,8 +723,13 @@ function abrirFormularioReporte(reporte) {
 }
 
 function cerrarFormularioReporte() {
-  // Advertir si el reporte no ha sido enviado al cliente (y no es edición administrativa)
-  const _sinEnviar = reporteActual && !_reporteSoloEdicion && !['enviado','sin_reporte'].includes(reporteActual.estado);
+  // Advertir si el reporte no ha sido enviado al cliente (y no es edición administrativa).
+  // OJO: mientras hay un checkout diferido sin confirmar (_pendingCheckout), el objeto
+  // local reporteActual se marca artificialmente estado:'enviado' solo para efectos de
+  // UI (ver finalizarVisitaParticipante) — eso NO significa que el servidor ya tenga el
+  // checkout registrado. Por eso _pendingCheckout manda sobre reporteActual.estado.
+  const _sinEnviar = reporteActual && !_reporteSoloEdicion &&
+    (!!_pendingCheckout || !['enviado','sin_reporte'].includes(reporteActual.estado));
   if (_sinEnviar) {
     document.getElementById('popup-sin-reporte').classList.add('open');
     return; // NO cerrar el formulario todavía

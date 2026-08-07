@@ -48,7 +48,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 
 También se eliminaron 3 `alert()` de debug dejados en `_geofenceCheck()` (`[GEO] Sin GPS`, `[GEO] Sin ubicación del cliente`, `[GEO] Dentro de zona`) que interrumpían con popups cada check-in/checkout con geolocalización, sin cambiar el comportamiento (solo dejaron de mostrar el popup).
 
-Sin cambios de esquema ni cron. Solo requiere deploy + que el navegador tome el nuevo `?v=20260806c` (cache de 7 días en JS).
+**Bug adicional corregido (mismo día, `?v=20260806d`):** al finalizar la visita del último técnico, el checkout queda diferido (`_pendingCheckout`) hasta que se envíe el reporte o se confirme "sin reporte" — el servidor no se entera todavía. Mientras tanto, el objeto local usado para mostrar el formulario se marcaba `estado:'enviado'` solo por estética de UI. `cerrarFormularioReporte()` usaba ese mismo campo para decidir si mostrar la advertencia "vas a cerrar sin hacer reporte" — como ya decía `'enviado'`, se saltaba la advertencia y pasaba directo al popup "¿cómo quedó la tarea?" sin nunca confirmar el checkout en el servidor. Resultado: el checkout quedaba huérfano y la visita "revivía" como en curso al recargar. Pasaba en ambos casos (terminada o por reprogramar); en "terminada" no se notaba porque el indicador de visita en curso se oculta para tarjetas en Realizado/Por facturar salvo que sean de hoy.
+
+Fix: `cerrarFormularioReporte()` ahora se basa en `_pendingCheckout` (dato real) en vez del `estado` cosmético del objeto local — mientras haya un checkout diferido sin confirmar, siempre advierte antes de cerrar.
+
+⚠️ **Pendiente revisión manual de datos:** la tarjeta que inicia con "MSGH" probablemente tiene un reporte en estado `activo` sin `check_out` en la base de datos (checkout perdido durante la prueba). Revisar y corregir manualmente en `reportes`/`visita_participantes`.
+
+Sin cambios de esquema ni cron. Solo requiere deploy + que el navegador tome el nuevo `?v=20260806d` (cache de 7 días en JS).
 
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
