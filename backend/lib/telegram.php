@@ -40,6 +40,89 @@ function sendTelegramMsg(string $chatId, string $texto): bool {
 }
 
 /**
+ * Envía un mensaje con botones inline (fase 2: interacciones, no solo avisos).
+ * $botones: array de filas; cada fila es un array de botones
+ *   [['text' => '👍 Recibido', 'callback_data' => 'ack_tarea:123'], ...]
+ * Devuelve la respuesta decodificada de Telegram (incluye result.message_id)
+ * o ['ok' => false] si no se pudo enviar.
+ */
+function sendTelegramMsgConBotones(string $chatId, string $texto, array $botones): array {
+  if (!defined('TELEGRAM_BOT_TOKEN') || !TELEGRAM_BOT_TOKEN) return ['ok' => false];
+  $url  = 'https://api.telegram.org/bot' . TELEGRAM_BOT_TOKEN . '/sendMessage';
+  $body = json_encode([
+    'chat_id'      => $chatId,
+    'text'         => $texto,
+    'parse_mode'   => 'HTML',
+    'reply_markup' => ['inline_keyboard' => $botones],
+  ]);
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_POSTFIELDS     => $body,
+    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT        => 5,
+  ]);
+  $result = curl_exec($ch);
+  curl_close($ch);
+  $data = $result !== false ? json_decode($result, true) : null;
+  return $data ?: ['ok' => false];
+}
+
+/**
+ * Edita el texto (y opcionalmente los botones) de un mensaje ya enviado.
+ * Pasar $botones = [] para quitar los botones existentes; null para dejarlos igual.
+ */
+function telegramEditarTexto(string $chatId, int $messageId, string $texto, ?array $botones = null): bool {
+  if (!defined('TELEGRAM_BOT_TOKEN') || !TELEGRAM_BOT_TOKEN) return false;
+  $url = 'https://api.telegram.org/bot' . TELEGRAM_BOT_TOKEN . '/editMessageText';
+  $payload = [
+    'chat_id'    => $chatId,
+    'message_id' => $messageId,
+    'text'       => $texto,
+    'parse_mode' => 'HTML',
+  ];
+  if ($botones !== null) $payload['reply_markup'] = ['inline_keyboard' => $botones];
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_POSTFIELDS     => json_encode($payload),
+    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT        => 5,
+  ]);
+  $result = curl_exec($ch);
+  curl_close($ch);
+  return $result !== false;
+}
+
+/**
+ * Responde a un toque de botón (callback_query) para que Telegram quite el
+ * ícono de "cargando" del botón. $texto opcional se muestra como notificación
+ * flotante breve en el teléfono del usuario.
+ */
+function telegramResponderCallback(string $callbackQueryId, string $texto = '', bool $alerta = false): bool {
+  if (!defined('TELEGRAM_BOT_TOKEN') || !TELEGRAM_BOT_TOKEN) return false;
+  $url  = 'https://api.telegram.org/bot' . TELEGRAM_BOT_TOKEN . '/answerCallbackQuery';
+  $body = json_encode([
+    'callback_query_id' => $callbackQueryId,
+    'text'              => $texto,
+    'show_alert'        => $alerta,
+  ]);
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_POSTFIELDS     => $body,
+    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT        => 5,
+  ]);
+  $result = curl_exec($ch);
+  curl_close($ch);
+  return $result !== false;
+}
+
+/**
  * Retorna [{id, nombre, telegram_chat_id}] de los técnicos del equipo
  * de una tarea que tienen telegram_chat_id configurado.
  * Aplica COLLATE utf8mb4_general_ci para respetar la regla del proyecto.

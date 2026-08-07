@@ -104,6 +104,30 @@ Sin cambios de esquema adicionales (usa la migración `030_reporte_whatsapp_envi
 
 Sin cambios de esquema ni cron.
 
+## Cambios pendientes de deploy (2026-08-07 — Telegram fase 2: primer botón interactivo "👍 Recibido")
+
+Arranca la fase 2 (interacciones, no solo avisos de salida). Primer bloque, mínimo para validar toda la tubería: botón "👍 Recibido" en el aviso de nueva tarea asignada.
+
+**Archivos:**
+- `backend/lib/telegram.php` — nuevas funciones `sendTelegramMsgConBotones()`, `telegramEditarTexto()`, `telegramResponderCallback()`.
+- `backend/api/telegram_webhook.php` (nuevo) — recibe las respuestas de Telegram cuando alguien toca un botón. Se despliega solo (`.cpanel.yml` copia `backend/api/` completo).
+- `backend/api/tareas.php` — el aviso de nueva tarea ahora incluye el botón.
+
+⚠️ **Acción manual 1 — SQL en phpMyAdmin** (guarda el secreto que valida que las llamadas al webhook vienen realmente de Telegram):
+```sql
+INSERT INTO configuracion (clave, valor) VALUES
+  ('telegram_webhook_secret', 'e8c444f649f0af6e0dfbebad9599d444f33c4c9dc0c1e8d7')
+ON DUPLICATE KEY UPDATE valor = VALUES(valor);
+```
+
+⚠️ **Acción manual 2 — registrar el webhook ante Telegram (una sola vez, después del deploy).** Abre esta URL en el navegador, reemplazando `<TOKEN>` por el valor de `TELEGRAM_BOT_TOKEN` en `backend/config/config.php` del servidor:
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://grupoinnovate.com/ginno/backend/api/telegram_webhook.php&secret_token=e8c444f649f0af6e0dfbebad9599d444f33c4c9dc0c1e8d7
+```
+Debe responder `{"ok":true,"result":true,...}`. Para verificar el estado más adelante: `https://api.telegram.org/bot<TOKEN>/getWebhookInfo`.
+
+**Cómo funciona:** al tocar "👍 Recibido", Telegram llama a `telegram_webhook.php` con el secreto en el header `X-Telegram-Bot-Api-Secret-Token` (se valida contra `configuracion.telegram_webhook_secret`). Se confirma que quien tocó el botón es un técnico realmente asignado a esa tarea, y se edita el mensaje original agregando "✅ Recibido por «nombre» — fecha/hora" (sin guardar nada nuevo en la base de datos por ahora — el propio mensaje de Telegram es el registro). Sin cambios de esquema ni cron.
+
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
 Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).

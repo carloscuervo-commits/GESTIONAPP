@@ -141,7 +141,10 @@ if ($method === 'POST') {
                . "tienes una nueva tarea.\n\n"
                . telegramTareaInfo($tareaArr) . "\n\n"
                . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
-          sendTelegramMsg($tec['telegram_chat_id'], $msg);
+          // Fase 2: botón "Recibido" para confirmar sin abrir la app.
+          sendTelegramMsgConBotones($tec['telegram_chat_id'], $msg, [
+            [['text' => '👍 Recibido', 'callback_data' => 'ack_tarea:' . $id]],
+          ]);
         }
       }
     } catch (Throwable $e) { /* silencioso */ }
