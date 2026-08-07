@@ -54,7 +54,9 @@ Fix: `cerrarFormularioReporte()` ahora se basa en `_pendingCheckout` (dato real)
 
 ⚠️ **Pendiente revisión manual de datos:** la tarjeta que inicia con "MSGH" probablemente tiene un reporte en estado `activo` sin `check_out` en la base de datos (checkout perdido durante la prueba). Revisar y corregir manualmente en `reportes`/`visita_participantes`.
 
-Sin cambios de esquema ni cron. Solo requiere deploy + que el navegador tome el nuevo `?v=20260806d` (cache de 7 días en JS).
+**Hallazgo importante — service worker (`sw.js`):** `tareas-equipo.html` está precacheado con estrategia Cache First, independiente del `?v=` de los scripts. Mientras `sw.js` no cambia de contenido, el navegador nunca instala una versión nueva del service worker y puede seguir sirviendo el HTML/JS viejo indefinidamente aunque se haga deploy + hard refresh. Se subió `CACHE_NAME` de `'ginno-v2'` a `'ginno-v3'` para forzar la actualización. **Después de este deploy, probablemente haya que cerrar completamente pestaña/navegador (no solo refrescar) o desregistrar el service worker manualmente desde DevTools → Application → Service Workers para que tome efecto de inmediato.** Este hallazgo aplica retroactivamente: pudo ser la causa real de otros "no funciona" reportados antes en esta sesión.
+
+Sin cambios de esquema ni cron. Deploy + (posible) cierre completo del navegador o desregistro manual del service worker.
 
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 

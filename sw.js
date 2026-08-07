@@ -8,7 +8,7 @@
 // ======================================================
 // Caché offline
 // ======================================================
-var CACHE_NAME = 'ginno-v2';
+var CACHE_NAME = 'ginno-v3';
 
 // Assets mínimos a pre-cachear en install.
 // Los demás se cachean automáticamente la primera vez que se solicitan.
