@@ -1180,13 +1180,13 @@ async function generarPDFReporte(btn) {
   const _textoAcciones = (_campoAcciones ? _campoAcciones.value : '').trim();
   const _palabrasAcciones = _textoAcciones ? _textoAcciones.split(/\s+/).filter(Boolean).length : 0;
   if (_palabrasAcciones < 20) {
-    alert('⚠️ El campo "3) Describa de forma detallada las acciones llevadas a cabo..." debe tener al menos 20 palabras antes de generar el PDF.');
+    alert('⚠️ Necesito que describas de forma más detallada las actividades que realizaste, de modo que yo (Ginno) pueda entender claramente qué hiciste en la visita.');
     if (_campoAcciones) { _campoAcciones.scrollIntoView({ behavior: 'smooth', block: 'center' }); _campoAcciones.focus(); }
     return;
   }
   const _tieneFirma = (reporteActual.fotos || []).some(f => f.seccion_id === 'firma_cliente');
   if (!_tieneFirma) {
-    alert('⚠️ Falta la firma de conformidad del cliente (campo 6) antes de generar el PDF.');
+    alert('⚠️ Aún me falta la firma de conformidad del cliente para poder generar el PDF.');
     const _canvasFirma = document.getElementById('firma-canvas-firma_cliente');
     if (_canvasFirma) _canvasFirma.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
