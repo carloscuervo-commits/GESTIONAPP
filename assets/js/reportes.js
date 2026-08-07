@@ -1465,44 +1465,12 @@ async function renderHistorialVisitasModal(tareaId) {
     const visitas = reportes.filter(r => r.estado !== 'activo' || (r.participantes||[]).length > 0);
     if (!visitas.length) { div.innerHTML = ''; div.style.display = 'none'; return; }
 
-    // Inyectar botones "Ver reporte" en acciones rápidas para cualquier estado de reporte
+    // Los botones de reporte (Ver PDF / Editar / Completar) van dentro de cada
+    // recuadro del historial de visitas (más abajo), no en una barra superior
+    // genérica — así queda claro a cuál visita pertenece cada reporte cuando
+    // hay varias. Limpiar botones legacy por si quedaron de una versión previa.
     const accionesDiv = document.getElementById('modal-acciones-rapidas');
-    if (accionesDiv) {
-      const reportesAbribles = reportes.filter(r => ['activo','borrador','enviado','sin_reporte'].includes(r.estado));
-      // Quitar botones "Ver reporte" previos para reemplazarlos con datos reales
-      accionesDiv.querySelectorAll('.btn-ver-reporte').forEach(b => b.remove());
-      if (reportesAbribles.length > 0) {
-        const ref = accionesDiv.querySelector('div'); // contenedor interior
-        const esAdminBtn = currentUser?.perfil === 'admin';
-        reportesAbribles.forEach(r => {
-          const fecha = (r.check_in || r.creado_en || '').substring(0, 10);
-          const multi = reportesAbribles.length > 1;
-          const addBtn = (text, bg, fn) => {
-            const btn = document.createElement('button');
-            btn.className = 'btn-archivar btn-ver-reporte';
-            btn.style.cssText = `background:${bg};color:#fff`;
-            btn.textContent = text;
-            btn.onclick = fn;
-            if (ref) ref.appendChild(btn); else accionesDiv.appendChild(btn);
-          };
-          if (r.estado === 'enviado' && r.pdf_archivo) {
-            // Enviado con PDF → abrir PDF directamente
-            addBtn(multi ? `📄 Ver PDF ${fecha}` : '📄 Ver PDF', '#059669',
-              (e) => { e.stopPropagation(); window.open(`${API_BASE}/reporte_pdf.php?id=${r.id}`, '_blank'); });
-            // Editar: solo admin
-            if (esAdminBtn) {
-              addBtn(multi ? `✏️ Editar reporte ${fecha}` : '✏️ Editar reporte', '#6366f1',
-                (e) => continuarReporte(r.id, e, true));
-            }
-          } else if (r.estado === 'enviado') {
-            // Enviado sin PDF (reportes viejos migrados) → abrir form para generar PDF
-            addBtn(multi ? `📄 Ver reporte ${fecha}` : '📄 Ver reporte', '#6366f1',
-              (e) => continuarReporte(r.id, e));
-          }
-        });
-        accionesDiv.style.display = 'block';
-      }
-    }
+    if (accionesDiv) accionesDiv.querySelectorAll('.btn-ver-reporte').forEach(b => b.remove());
     const esAdmin = currentUser?.perfil === 'admin';
 
     // Para badge Tardía: obtener horaProg y fechaProg de la tarea
@@ -1516,12 +1484,35 @@ async function renderHistorialVisitasModal(tareaId) {
     visitas.forEach((r, ri) => {
       const partes = r.participantes || [];
       const fecha = r.check_in ? r.check_in.substring(0,10) : (r.creado_en||'').substring(0,10);
-      const estadoBadge = r.estado === 'enviado' ? '<span style="color:#059669;font-size:11px">✅ Enviado</span>'
-        : r.estado === 'sin_reporte' ? '<span style="color:#dc2626;font-size:11px">🚫 Sin reporte</span>'
-        : r.pdf_archivo ? '<span style="color:#169BBC;font-size:11px">📄 PDF listo</span>'
-        : r.estado === 'activo' ? '<span style="color:#f59e0b;font-size:11px">⏳ En curso</span>'
-        : '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>';
+      // El ciclo de la visita no termina hasta que el PDF fue generado Y
+      // efectivamente enviado (correo o WhatsApp) — no basta con generarlo,
+      // y "estado==='enviado'" tampoco sirve solo (ese estado se pone al
+      // hacer checkout, no al enviar). Se valida contra enviado_en/whatsapp_enviado_en.
+      const pdfListo = !!r.pdf_archivo;
+      const enviado = pdfListo && (!!r.enviado_en || !!r.whatsapp_enviado_en);
+      const estadoBadge = enviado
+        ? '<span style="color:#059669;font-size:11px">✅ Enviado</span>'
+        : r.estado === 'activo'
+        ? '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>'
+        : '<span style="color:#dc2626;font-size:11px">⚠️ Reporte pendiente</span>';
       const puedeEliminarReporte = esAdmin && r.estado === 'activo';
+      // Botones de reporte propios de esta visita (no en la barra superior) para
+      // que quede claro a cuál visita pertenece cada uno cuando hay varias.
+      const reporteAccionesHtml = (() => {
+        if (r.estado === 'activo') return ''; // se maneja con Pausar/Finalizar en la tarjeta
+        const botones = [];
+        if (enviado) {
+          botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
+          if (esAdmin) {
+            botones.push(`<button onclick="continuarReporte('${r.id}',event,true)" style="background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✏️ Editar reporte</button>`);
+          }
+        } else {
+          // Falta generar el PDF, o ya está generado pero aún no se envió: en
+          // ambos casos hay que abrir el formulario para completar el ciclo.
+          botones.push(`<button onclick="continuarReporte('${r.id}',event)" style="background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📝 Completar reporte</button>`);
+        }
+        return botones.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${botones.join('')}</div>` : '';
+      })();
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
           <span style="font-size:12px;font-weight:600;color:#0D3B40">📅 ${fecha}</span>
@@ -1529,7 +1520,8 @@ async function renderHistorialVisitasModal(tareaId) {
             ${estadoBadge}
             ${puedeEliminarReporte ? `<button onclick="eliminarReporteVisita('${r.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer" title="Eliminar visita completa">🗑️ Borrar visita</button>` : ''}
           </div>
-        </div>`;
+        </div>
+        ${reporteAccionesHtml}`;
       if (partes.length) {
         partes.forEach(p => {
           const nombre = getMember(p.tecnico_id)?.name || p.tecnico_id || '-';
@@ -1760,6 +1752,16 @@ Agradecemos su confianza en Grupo Innovate. Estamos siempre disponibles para apo
 
 _Grupo Innovate · 📞 317 645 2811 · info@innovate.com.co_`;
     await navigator.share({ files: [file], title: 'Reporte de visita técnica – Grupo Innovate', text: texto });
+    // El share se completó sin que el usuario lo cancelara: registrar en el
+    // servidor para que el ciclo de la visita se considere cerrado.
+    try {
+      const resWa = await fetch(`${API_BASE}/reportes.php?id=${reporteActual.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'whatsapp_enviado' }),
+      });
+      const dataWa = await resWa.json();
+      if (!dataWa.error) reporteActual.whatsapp_enviado_en = dataWa.whatsapp_enviado_en;
+    } catch (e) { console.error('No se pudo registrar el envío por WhatsApp', e); }
   } catch(e) {
     if (e.name !== 'AbortError') alert('No se pudo compartir. Intenta descargar el PDF y enviarlo manualmente.');
   } finally {

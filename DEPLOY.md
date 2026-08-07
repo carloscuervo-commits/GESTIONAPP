@@ -60,6 +60,24 @@ Sin cambios de esquema ni cron. Deploy + (posible) cierre completo del navegador
 
 **Validación nueva (`reportes.js?v=20260806f`):** `generarPDFReporte()` ahora exige, antes de generar el PDF (y por tanto antes de poder enviarlo por correo, ya que ese botón solo aparece después): campo 3 "Describa de forma detallada las acciones llevadas a cabo" con mínimo 20 palabras, y campo 6 "Firma de Conformidad del Cliente" guardada. Si falta algo, muestra alerta y no genera el PDF. Los mensajes no mencionan el conteo de palabras (para no darle pistas al técnico) y hablan en primera persona como Ginno.
 
+## Cambios pendientes de deploy (2026-08-07 — botones de reporte por visita + envío confirmado por correo/WhatsApp)
+
+⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**
+```sql
+ALTER TABLE reportes
+  ADD COLUMN whatsapp_enviado_en DATETIME NULL AFTER enviado_en;
+```
+(Migración trackeada en `db/030_reporte_whatsapp_enviado.sql`.)
+
+**Resumen:**
+- **Modal de tarjeta → Historial de visitas** (`reportes.js?v=20260807a`): los botones "Ver PDF"/"Editar reporte"/"Completar reporte" ya no van en una barra superior genérica (ambigua con varias visitas) — ahora aparecen dentro del recuadro de cada visita, junto a su propio badge de estado.
+- **El ciclo de la visita no se considera completo solo por generar el PDF.** Se agregó `whatsapp_enviado_en` (fecha/hora) porque no existía ningún registro de que el PDF se hubiera compartido por WhatsApp. Un reporte se marca "✅ Enviado" solo si tiene `pdf_archivo` Y (`enviado_en` por correo O `whatsapp_enviado_en`). Antes se confiaba en `estado==='enviado'`, que en realidad se pone al hacer checkout, no al enviar — mismo tipo de confusión que causó el bug del checkout perdido corregido hoy más temprano.
+- `compartirPDFWhatsApp()` ahora, al completar el share nativo sin que el usuario lo cancele, hace `PUT reportes.php?id=... {accion:'whatsapp_enviado'}` para registrar la fecha. No captura destinatario (el técnico elige el contacto a mano en la hoja de compartir).
+- Backend `reportes.php`: nueva acción PUT `whatsapp_enviado`.
+- `reporte_interno` (envío solo a admin, no al cliente) ya estaba bien manejado en `reporte_enviar_correo.php` — no requirió cambios.
+
+⚠️ **Nota para más adelante (no incluida en este cambio):** otras partes de la app (`reportesEnviados`/`reportesTodosEnviados` en `cargarVisitasActivas()`, que bloquean "Iniciar visita" el mismo día y controlan cuándo se oculta el indicador de visita en tarjetas "Realizado"/"Por facturar") siguen basándose en `estado==='enviado'` sin verificar `enviado_en`/`whatsapp_enviado_en`. Es la misma ambigüedad, pero tocarla implica una revisión más amplia — se deja pendiente hasta que se pida explícitamente.
+
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
 Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).

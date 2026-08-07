@@ -824,6 +824,16 @@ if ($method === 'PUT') {
     jsonOut(reporteConFotos($pdo, $stmt->fetch()));
   }
 
+  if (($d['accion'] ?? '') === 'whatsapp_enviado') {
+    // Confirmación de que el técnico compartió el PDF por WhatsApp (hoja nativa
+    // del sistema operativo). No hay destinatario capturable — solo se registra
+    // la fecha/hora, igual que enviado_en para el envío por correo.
+    $pdo->prepare("UPDATE reportes SET whatsapp_enviado_en = NOW() WHERE id = ?")->execute([$id]);
+    $stmt = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+    $stmt->execute([$id]);
+    jsonOut(reporteConFotos($pdo, $stmt->fetch()));
+  }
+
   $plantilla = array_key_exists('plantilla', $d) ? $d['plantilla'] : $prev['plantilla'];
   $datosPrev = $prev['datos'] ? json_decode($prev['datos'], true) : [];
   $datosNuevos = array_key_exists('datos', $d) ? array_merge($datosPrev, $d['datos']) : $datosPrev;
