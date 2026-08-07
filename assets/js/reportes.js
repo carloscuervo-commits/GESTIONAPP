@@ -767,6 +767,9 @@ function cerrarFormularioReporte() {
 
 // Llamado cuando el técnico envía el reporte: escribe el checkout real en el servidor.
 // Devuelve true en éxito, false en fallo (restaura _pendingCheckout para reintentar).
+// OJO: no se envía checkoutAt — el servidor usa su hora actual (NOW()), que es
+// la hora real de envío del correo, no la del clic en "Finalizar". El tiempo
+// que toma diligenciar el reporte queda así cargado al cliente.
 async function _completarCheckout() {
   if (!_pendingCheckout) return true;
   const pending = _pendingCheckout;
@@ -775,7 +778,7 @@ async function _completarCheckout() {
   try {
     const res = await fetch(`${API_BASE}/reportes.php?id=${pending.visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'checkout', participanteId: pending.participanteId, tecnicoCheckoutId: pending.tecnicoId, lat: pending.geoLat, lng: pending.geoLng, checkoutAt: pending.checkoutAt }),
+      body: JSON.stringify({ accion: 'checkout', participanteId: pending.participanteId, tecnicoCheckoutId: pending.tecnicoId, lat: pending.geoLat, lng: pending.geoLng }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -803,13 +806,15 @@ async function confirmarSinReporte() {
     cargarVisitasActivas();
     return;
   }
-  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt } = _pendingCheckout;
+  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
   _pendingCheckout = null;
   sessionStorage.removeItem('_pendingCheckout');
   try {
+    // Sin checkoutAt: el servidor usa NOW(), la hora real en que se confirma
+    // "continuar sin reporte" (no la del clic en "Finalizar").
     const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng, checkoutAt }),
+      body: JSON.stringify({ accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
@@ -990,13 +995,14 @@ function renderFormularioReporte() {
     ${seccionesHtml}
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
       <button class="btn-save" id="btn-generar-pdf" onclick="generarPDFReporte(this)">📄 ${yaGenerado ? 'Regenerar PDF' : 'Generar PDF'}</button>
-      ${yaGenerado ? `<button class="btn-cancel" id="btn-whatsapp-pdf" onclick="compartirPDFWhatsApp(this)" style="background:#25D366;color:#fff;border-color:#25D366">📲 Enviar por WhatsApp</button>` : ''}
       <div id="reporte-pdf-status" style="font-size:13px">${yaGenerado ? `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank">Ver PDF</a>` : ''}</div>
       <div id="reporte-envio" style="${yaGenerado ? '' : 'display:none;'}border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
         <label style="font-size:12px;color:var(--text-muted)">Correo adicional del cliente (siempre se envía copia a administrativo@innovate.com.co)</label>
         <input type="email" id="reporte-correo-cliente" placeholder="cliente@correo.com" style="width:100%;margin:6px 0 10px">
         <button class="btn-save" id="btn-enviar-correo" onclick="enviarCorreoReporte(this)">📧 Enviar por correo</button>
         <div id="reporte-envio-status" style="font-size:13px;margin-top:6px">${r.estado === 'enviado' ? `✅ Enviado a: ${esc(r.enviado_a || '')}` : ''}</div>
+        <button class="btn-save" id="btn-whatsapp-pdf" onclick="compartirPDFWhatsApp(this)" style="background:#25D366;border-color:#25D366;margin-top:10px">📲 Enviar por WhatsApp</button>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">WhatsApp es una herramienta para facilitarle el envío al cliente. El envío obligatorio, el que queda registrado, es por correo.</div>
       </div>
     </div>
   `;
@@ -1190,6 +1196,18 @@ async function generarPDFReporte(btn) {
     const _canvasFirma = document.getElementById('firma-canvas-firma_cliente');
     if (_canvasFirma) _canvasFirma.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
+  }
+
+  // El PDF debe mostrar la hora en que se generó (no la del clic en "Finalizar").
+  // El checkout real que se factura al cliente se registra después, al enviar
+  // el correo — puede quedar unos minutos más tarde que lo impreso aquí, y es
+  // intencional: cubre el tiempo que toma diligenciar el reporte.
+  if (_pendingCheckout && _pendingCheckout.visita.id === reporteActual.id) {
+    const _ahoraGeneracion = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    reporteActual.check_out = _ahoraGeneracion;
+    reporteActual.participantes = (reporteActual.participantes || []).map(p =>
+      p.id === _pendingCheckout.participanteId ? { ...p, check_out: _ahoraGeneracion } : p
+    );
   }
 
   _generandoPDF = true;
@@ -1417,25 +1435,33 @@ async function enviarCorreoReporte(btn) {
     botonEl.style.cursor = 'wait';
     botonEl.innerHTML = '⏳ Enviando...';
   }
-  statusEl.innerHTML = '⏳ Enviando...';
+  statusEl.innerHTML = '⏳ Enviando correo...';
   try {
-    // Paso 1: registrar checkout ANTES de enviar el correo.
-    // Si falla → abortar y no enviar el correo (evita estado inconsistente).
-    if (_pendingCheckout) {
-      statusEl.innerHTML = '⏳ Registrando salida...';
-      const _coOk = await _completarCheckout();
-      if (!_coOk) {
-        statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo registrar la hora de salida. Verifica tu conexión e intenta de nuevo.</span>';
-        return;
-      }
-    }
-    statusEl.innerHTML = '⏳ Enviando correo...';
+    // El correo con buena traza es lo único que cierra el ciclo de la visita:
+    // primero se intenta el envío real; el checkout (y estado='enviado') solo
+    // se confirma en el servidor si el correo efectivamente salió. Así la hora
+    // de checkout que se factura al cliente es la del envío real, no la del
+    // clic en "Finalizar", y nunca queda un checkout "fantasma" sin correo enviado.
     const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reporteId: reporteActual.id, correos: correoCliente ? [correoCliente] : [] }),
     });
     const data = await res.json();
     if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
+
+    if (_pendingCheckout) {
+      statusEl.innerHTML = '⏳ Registrando salida...';
+      const _coOk = await _completarCheckout();
+      if (!_coOk) {
+        // El correo ya salió pero el checkout falló (ej. caída de red justo
+        // después): no perder el envío, solo avisar para que se reintente el cierre.
+        statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))} — <span style="color:#ef4444">⚠️ no se pudo registrar la hora de salida, se reintentará.</span>`;
+        reporteActual.estado = 'enviado';
+        if (reporteActual.tarea_id) { reportesEnviados.add(reporteActual.tarea_id); reportesTodosEnviados.add(reporteActual.tarea_id); }
+        return;
+      }
+    }
+
     statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))}`;
     // Actualizar estado local del reporte y del Set global
     reporteActual.estado = 'enviado';
@@ -1484,12 +1510,12 @@ async function renderHistorialVisitasModal(tareaId) {
     visitas.forEach((r, ri) => {
       const partes = r.participantes || [];
       const fecha = r.check_in ? r.check_in.substring(0,10) : (r.creado_en||'').substring(0,10);
-      // El ciclo de la visita no termina hasta que el PDF fue generado Y
-      // efectivamente enviado (correo o WhatsApp) — no basta con generarlo,
-      // y "estado==='enviado'" tampoco sirve solo (ese estado se pone al
-      // hacer checkout, no al enviar). Se valida contra enviado_en/whatsapp_enviado_en.
+      // El ciclo de la visita solo se considera cerrado con el envío por CORREO
+      // (queda traza real) — WhatsApp es una herramienta opcional que no cambia
+      // el estado. "estado==='enviado'" tampoco sirve solo (ese estado se pone
+      // al hacer checkout). Se valida contra enviado_en.
       const pdfListo = !!r.pdf_archivo;
-      const enviado = pdfListo && (!!r.enviado_en || !!r.whatsapp_enviado_en);
+      const enviado = pdfListo && !!r.enviado_en;
       const estadoBadge = enviado
         ? '<span style="color:#059669;font-size:11px">✅ Enviado</span>'
         : r.estado === 'activo'

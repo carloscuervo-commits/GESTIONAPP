@@ -76,7 +76,21 @@ ALTER TABLE reportes
 - Backend `reportes.php`: nueva acción PUT `whatsapp_enviado`.
 - `reporte_interno` (envío solo a admin, no al cliente) ya estaba bien manejado en `reporte_enviar_correo.php` — no requirió cambios.
 
-⚠️ **Nota para más adelante (no incluida en este cambio):** otras partes de la app (`reportesEnviados`/`reportesTodosEnviados` en `cargarVisitasActivas()`, que bloquean "Iniciar visita" el mismo día y controlan cuándo se oculta el indicador de visita en tarjetas "Realizado"/"Por facturar") siguen basándose en `estado==='enviado'` sin verificar `enviado_en`/`whatsapp_enviado_en`. Es la misma ambigüedad, pero tocarla implica una revisión más amplia — se deja pendiente hasta que se pida explícitamente.
+⚠️ **Nota para más adelante (no incluida en este cambio):** otras partes de la app (`reportesEnviados`/`reportesTodosEnviados` en `cargarVisitasActivas()`, que bloquean "Iniciar visita" el mismo día y controlan cuándo se oculta el indicador de visita en tarjetas "Realizado"/"Por facturar") siguen basándose en `estado==='enviado'` sin verificar `enviado_en`. Es la misma ambigüedad, pero tocarla implica una revisión más amplia — se deja pendiente hasta que se pida explícitamente.
+
+## Cambios pendientes de deploy (2026-08-07 — el correo es lo único que cierra el ciclo; WhatsApp queda como herramienta opcional)
+
+Decisión: WhatsApp facilita el envío pero **no participa en ningún cambio de estado ni checkout** — solo el correo (que sí deja traza) cierra el ciclo de la visita. `reportes.js?v=20260807b`:
+
+- **`renderHistorialVisitasModal()`:** "✅ Enviado" ahora depende solo de `enviado_en` (correo). `whatsapp_enviado_en` sigue guardándose (dato informativo) pero ya no cuenta para marcar el reporte como completo.
+- **`enviarCorreoReporte()` reordenado:** antes se registraba el checkout y LUEGO se intentaba enviar el correo (si el correo fallaba, igual quedaba `estado='enviado'` sin correo real). Ahora se intenta enviar el correo primero; el checkout (`_completarCheckout()`) solo se confirma si el correo salió bien. Si el correo sale pero el checkout falla por red, se avisa para reintentar sin perder el envío ya hecho.
+- **Hora de checkout = hora real de envío del correo**, no la del clic en "Finalizar". `_completarCheckout()` y `confirmarSinReporte()` ya no envían `checkoutAt` al servidor — este usa su propia hora (`NOW()`) en el momento real de escribir. Así el tiempo que el técnico usa diligenciando el reporte se carga al cliente.
+- **El PDF muestra la hora en que se generó** (no la del "Finalizar" ni la del envío del correo): `generarPDFReporte()`, tras pasar las validaciones, actualiza localmente `reporteActual.check_out` (y el participante correspondiente) a la hora actual antes de armar el contenido. Esta hora impresa puede quedar unos minutos antes de la hora real de checkout que se factura (la del envío del correo) — es intencional.
+- `compartirPDFWhatsApp()` no se tocó: sigue sin afectar checkout/estado, solo registra `whatsapp_enviado_en`.
+
+Sin cambios de esquema adicionales (usa la migración `030_reporte_whatsapp_enviado.sql` ya aplicada). Reportes ya cerrados no se ven afectados — el cambio de comportamiento aplica hacia adelante.
+
+**Ajuste de UI (mismo día, `reportes.js?v=20260807c`):** el botón "Enviar por WhatsApp" aparecía antes de la sección de correo y solo si `yaGenerado`, lo que hacía que pareciera inconsistente. Ahora está siempre dentro de la sección de envío (mismo bloque que el correo), justo debajo de "Enviar por correo", mismo tamaño de botón, con una nota debajo aclarando que es una herramienta opcional y que el envío obligatorio es por correo.
 
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
