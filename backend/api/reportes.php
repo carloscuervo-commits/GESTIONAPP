@@ -168,6 +168,36 @@ if ($method === 'GET') {
     jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
   }
 
+  // Tareas con al menos una visita ya terminada (todos los participantes con
+  // checkout) pero cuyo reporte NO se ha enviado por correo (enviado_en NULL).
+  // Para el badge "⚠️ Falta reporte" en la tarjeta del kanban. No cuenta una
+  // visita todavía en curso (alguien sin checkout) como "falta reporte".
+  if (!empty($_GET['tarea_ids_falta_reporte'])) {
+    try {
+      $stmt = $pdo->query("
+        SELECT DISTINCT r.tarea_id
+        FROM reportes r
+        WHERE r.enviado_en IS NULL
+          AND (
+            (
+              EXISTS (SELECT 1 FROM visita_participantes vp WHERE vp.reporte_id = r.id COLLATE utf8mb4_general_ci)
+              AND NOT EXISTS (
+                SELECT 1 FROM visita_participantes vp2
+                WHERE vp2.reporte_id = r.id COLLATE utf8mb4_general_ci AND vp2.check_out IS NULL
+              )
+            )
+            OR (
+              NOT EXISTS (SELECT 1 FROM visita_participantes vp3 WHERE vp3.reporte_id = r.id COLLATE utf8mb4_general_ci)
+              AND r.check_out IS NOT NULL
+            )
+          )
+      ");
+      jsonOut($stmt->fetchAll(PDO::FETCH_COLUMN));
+    } catch (Exception $e) {
+      jsonOut(['error' => $e->getMessage()], 500);
+    }
+  }
+
   // GET ?sin_reporte=1 → lista de reportes marcados sin reporte (dashboard + informe)
   if (!empty($_GET['sin_reporte'])) {
     try {

@@ -94,6 +94,16 @@ Sin cambios de esquema adicionales (usa la migración `030_reporte_whatsapp_envi
 
 **Fix (mismo día, `reportes.js?v=20260807d`):** el badge y las acciones (`Ver PDF`/`Editar reporte`/`Completar reporte`/`Borrar visita`) del historial de visitas dejaron de basarse en `reportes.estado` y ahora miran si los participantes ya tienen checkout real (`todosConCheckout`). Causa del bug reportado: `reportes.estado` puede quedar transitoriamente en `'activo'` sin que nadie siga en sitio — ej. al reabrir una visita `sin_reporte` con el nuevo botón "Completar reporte" y generar el PDF, una regla ya existente en el backend (`reportes.php`, promueve `sin_reporte`→`activo` al adjuntar un PDF) deja el reporte en ese estado intermedio si no se llega a enviar por correo. Antes eso hacía que la visita se viera "🟢 En curso" y hasta ofrecía "🗑️ Borrar visita" (destructivo) aunque ya tuviera checkout real. Ahora "En curso" y "Borrar visita" solo aparecen si de verdad hay alguien sin checkout.
 
+## Cambios pendientes de deploy (2026-08-07 — badge "Falta reporte" en la tarjeta del kanban)
+
+`reportes.php?v=` (sin bump de caché, es backend), `reportes.js?v=20260807e`, `tareas.js?v=20260807a`:
+
+- Nuevo endpoint `GET reportes.php?tarea_ids_falta_reporte=1`: devuelve las tareas con al menos una visita ya terminada (todos los participantes con checkout) cuyo reporte no se ha enviado por correo (`enviado_en IS NULL`). No cuenta visitas todavía en curso.
+- `cargarVisitasActivas()` carga ese listado en el nuevo Set `tareasFaltaReporte`.
+- Tarjetas del kanban (`tareas.js`): si `tareasFaltaReporte.has(t.id)`, muestra `⚠️ Falta reporte` junto a los demás badges de la tarjeta. Si la tarea tiene varias visitas, basta con que una cumpla la condición.
+
+Sin cambios de esquema ni cron.
+
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
 
 Sin migraciones de esquema (la tabla `configuracion` ya es clave/valor libre — las claves nuevas se crean solas al primer guardado desde el panel).

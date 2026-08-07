@@ -196,6 +196,7 @@ function taskCard(t) {
     ${t.reporte?`<div class="task-date" style="color:#059669">📝 Reporte registrado</div>`:''}
     
     ${t.reporteInterno?`<div class="task-date" style="color:#0D3B40;font-weight:600">🔒 Reporte interno</div>`:''}
+    ${(typeof tareasFaltaReporte !== 'undefined' && tareasFaltaReporte.has(t.id))?`<div class="task-date" style="color:#dc2626;font-weight:600">⚠️ Falta reporte</div>`:''}
     ${t.factura?`<div class="task-date" style="color:#166534">✅ Factura: ${esc(t.factura)}</div>`:''}
     ${((['it','if'].includes(t.area) && t.estado==='realizado' && reportesTodosEnviados.has(t.id)) || (t.area==='admin' && t.estado==='por-facturar')) && !t.factura ? `<button class="btn-archivar" style="background:#d97706;color:#fff" onclick="_abrirRegistroFacturaRapido('${t.id}',event)">🧾 Registrar factura</button>` : ''}
     ${(!t.factura && t.motivoNoFactura)?`<div class="task-date" style="color:#0D3B40;font-size:12px;font-weight:600">📋 Sin factura: ${esc(t.motivoNoFactura)}</div>`:''}

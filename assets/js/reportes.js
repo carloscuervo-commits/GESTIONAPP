@@ -25,6 +25,7 @@ let borradoresActivos = {}; // tareaId -> [array de reportes en estado 'borrador
 let reportesEnviados = new Set();      // tarea_ids con reporte enviado HOY (para bloquear "Iniciar visita")
 let reportesTodosEnviados = new Set(); // tarea_ids con cualquier reporte enviado (para validaciones y alertas)
 let sinReporteHoy = new Set();    // tarea_ids con reporte sin_reporte hoy (guard alarma tardío)
+let tareasFaltaReporte = new Set(); // tarea_ids con >=1 visita ya terminada sin reporte enviado (badge en tarjeta)
 let reporteActual = null;  // reporte abierto en el formulario
 
 // ----------------- Carga inicial -----------------
@@ -32,12 +33,13 @@ async function cargarVisitasActivas() {
   if (!API_BASE) return;
   try {
     const hoyISO = new Date().toISOString().substring(0, 10);
-    const [activos, enviados, todosEnviados, srHoy] = await Promise.all([
+    const [activos, enviados, todosEnviados, srHoy, faltaReporte] = await Promise.all([
       // null = error de red/servidor → preservar visitasActivas local en vez de borrarla
       fetch(`${API_BASE}/reportes.php?estado=activo`).then(r => r.json()).catch(() => null),
       fetch(`${API_BASE}/reportes.php?tarea_ids_enviados=1`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/reportes.php?tarea_ids_con_reporte=1`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/reportes.php?sin_reporte=1`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/reportes.php?tarea_ids_falta_reporte=1`).then(r => r.json()).catch(() => []),
     ]);
     // Solo limpiar y repoblar visitasActivas si el servidor respondió con datos válidos.
     // Si activos === null (fallo de red o error 500), se preserva el estado local
@@ -80,6 +82,7 @@ async function cargarVisitasActivas() {
         .filter(r => (r.check_out || '').substring(0, 10) === hoyISO)
         .map(r => r.tarea_id)
     );
+    tareasFaltaReporte = new Set(Array.isArray(faltaReporte) ? faltaReporte : []);
     render();
   } catch (e) { console.error('Error cargando visitas activas', e); }
 }
