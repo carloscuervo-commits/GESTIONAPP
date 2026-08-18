@@ -1,6 +1,6 @@
 // ============================================================
 // configuracion.js  —  Módulo de configuración del sistema (solo admin)
-// v20260806a
+// v20260807a
 // ============================================================
 
 (function () {
@@ -70,6 +70,11 @@
       label: '📉 Horas de contrato por agotarse',
       desc: 'Avisa a administradores cuando a un cliente con contrato le quedan pocas horas disponibles en el mes (umbral configurable abajo).',
     },
+    {
+      claveCorreo: 'aviso_checkout_auto', claveTelegram: 'aviso_checkout_auto_tg',
+      label: '⏰ Aviso antes del checkout automático',
+      desc: 'Avisa al técnico ~1h antes de la hora de corte (configurable abajo) si tiene visitas sin cerrar hoy. Requiere cron <code>aviso_checkout_automatico.php</code>. El checkout automático en sí (cron <code>checkout_automatico.php</code>) y el resumen a administradores siempre corren, sin importar este interruptor.',
+    },
   ];
 
   // ── API ───────────────────────────────────────────────────
@@ -124,7 +129,8 @@
 
     await fetchConfig();
 
-    const umbralHoras = _config['horas_contrato_umbral'] ?? '2';
+    const umbralHoras   = _config['horas_contrato_umbral'] ?? '2';
+    const horaCorteAuto = _config['checkout_auto_hora']    ?? '18:30';
 
     el.innerHTML = `
       <div style="max-width:760px">
@@ -155,6 +161,17 @@
                 style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
                 onchange="cfgGuardarUmbralHoras(this.value)">
               <span style="font-size:13px;color:var(--text-muted)">horas</span>
+            </div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:600;font-size:13px;color:var(--text,#1e293b)">🤖 Hora de corte — checkout automático</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">A esta hora, Ginno cierra automáticamente cualquier visita del día que siga sin checkout (tomando 1h después del check-in como hora trabajada). Este campo solo controla el texto del aviso previo — para cambiar la hora real de ejecución hay que ajustar también el cron <code>checkout_automatico.php</code> en cPanel.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="time" id="cfg-hora-corte-auto" value="${esc(horaCorteAuto)}"
+                style="padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
+                onchange="cfgGuardarHoraCorteAuto(this.value)">
             </div>
           </div>
         </div>
@@ -246,6 +263,11 @@
     const num = parseFloat(valor);
     const final = isNaN(num) || num < 0 ? '2' : String(num);
     saveTexto('horas_contrato_umbral', final);
+  };
+
+  window.cfgGuardarHoraCorteAuto = function (valor) {
+    const final = /^\d{2}:\d{2}$/.test(valor) ? valor : '18:30';
+    saveTexto('checkout_auto_hora', final);
   };
 
   window.renderConfiguracion = renderConfiguracion;

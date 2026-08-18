@@ -42,6 +42,52 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-18 — checkout automático de cierre de jornada)
+
+"Blindaje" contra visitas que nunca se cierran: aviso previo a los técnicos + checkout forzado a la hora de corte + resumen a administradores.
+
+⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**
+```sql
+ALTER TABLE visita_participantes
+  ADD COLUMN checkout_automatico TINYINT(1) NOT NULL DEFAULT 0 AFTER check_out;
+
+ALTER TABLE reportes
+  ADD COLUMN cerrado_automatico TINYINT(1) NOT NULL DEFAULT 0 AFTER estado;
+
+INSERT IGNORE INTO configuracion (clave, valor) VALUES
+  ('checkout_auto_hora',     '18:30'),
+  ('aviso_checkout_auto',    '1'),
+  ('aviso_checkout_auto_tg', '1');
+```
+(Migración trackeada en `db/031_checkout_automatico.sql`.)
+
+⚠️ **Acción manual en cPanel — dos cron jobs nuevos** (hora Colombia, deben ejecutarse en este orden y coordinarse con `checkout_auto_hora` si se cambia esa hora desde Configuración):
+```
+# Aviso previo — 5:30pm, 1h antes del corte, solo días laborales
+30 17 * * 1-5 /usr/bin/php /home/innovate/public_html/ginno/backend/cron/aviso_checkout_automatico.php > /dev/null 2>&1
+
+# Checkout automático — 6:30pm, hora de corte, solo días laborales
+30 18 * * 1-5 /usr/bin/php /home/innovate/public_html/ginno/backend/cron/checkout_automatico.php > /dev/null 2>&1
+```
+
+**Cómo funciona:**
+1. **5:30pm (`aviso_checkout_automatico.php`):** a cada técnico con visitas de hoy sin checkout, avisa por correo/Telegram (togglable en Configuración → Avisos a técnicos, activado por defecto) que si no las cierra antes de las 6:30pm, Ginno va a hacer un checkout automático 1 hora después de la hora de inicio de cada una, y esa será la hora que se tome como trabajada para nómina.
+2. **6:30pm (`checkout_automatico.php`):** por cada participante que siga sin checkout con check-in de hoy, fuerza `check_out = MIN(check_in + 1h, ahora)` — nunca una hora futura (ej. si el check-in fue a las 6:15pm, el checkout queda a las 6:30pm, no a las 7:15pm). Marca `visita_participantes.checkout_automatico = 1` y cierra cualquier pausa activa a esa misma hora. Si con esto el reporte queda sin nadie pendiente, se cierra igual que un "Continuar sin reporte" (`estado='sin_reporte'`) pero además marcado `cerrado_automatico = 1` — **no se envía correo al cliente ni se exige generar el reporte**; el técnico puede completarlo después si quiere con "📝 Completar reporte".
+3. **Resumen a administradores:** si hubo al menos un checkout forzado ese día, se envía un resumen por correo y Telegram a todos los administradores con esos datos configurados — **siempre activo, no depende de ningún toggle**. Si no hubo ninguno, no se envía nada.
+4. **Diferenciación visual:** tanto en la tarjeta (botón de visita activa) como en el historial de visitas del modal y en la bitácora, un checkout automático se ve distinto (🤖 morado) de uno normal — para que quede claro que lo cerró Ginno, no el técnico.
+
+**Archivos:**
+- `db/031_checkout_automatico.sql` (nuevo)
+- `backend/cron/aviso_checkout_automatico.php` (nuevo) — aviso previo
+- `backend/cron/checkout_automatico.php` (nuevo) — checkout forzado + resumen admin
+- `backend/api/bitacora.php` — agregado `vp.checkout_automatico` al SELECT de detalle de visitas
+- `assets/js/bitacora.js?v=20260807b` — `_bitHorarioCell()`: hora de salida con 🤖 morado cuando `checkout_automatico`
+- `assets/js/reportes.js?v=20260807f` — `renderVisitaBoton()`: línea morada "🤖 checkout automático" en vez de la línea verde normal; `renderHistorialVisitasModal()`: badge "🤖 Cerrado automático" (antes de "Reporte pendiente") + marca en la línea de cada participante (vista técnico y vista admin)
+- `assets/js/configuracion.js?v=20260807a` — nueva fila en Avisos a técnicos (`aviso_checkout_auto` / `_tg`) + campo de hora `checkout_auto_hora` (junto al umbral de horas de contrato)
+- `tareas-equipo.html` — bumps de versiones arriba
+
+**Nota de diseño confirmada con el usuario:** el límite de las 6:30pm cap la hora de checkout automático (nunca queda en el futuro), el aviso previo corre a las 5:30pm, y el resumen a administradores siempre está activo (no toggle).
+
 ## Cambios pendientes de deploy (2026-08-06 — fix "Continuar reporte" en visitas recién iniciadas)
 
 `assets/js/reportes.js?v=20260806c`. En `renderHistorialVisitasModal()` se eliminó el bloque que inyectaba un botón "📝 Continuar reporte" para cualquier reporte con `estado === 'activo'`. Ese estado solo significa "check-in hecho, sin checkout aún" — es el estado normal de toda visita en curso, no un borrador abandonado. El botón duplicaba/contradecía el flujo correcto de "🏁 Finalizar" (`renderVisitaBoton()`) y aparecía apenas el técnico daba clic en "Iniciar visita", antes de siquiera llegar al formulario de reporte.

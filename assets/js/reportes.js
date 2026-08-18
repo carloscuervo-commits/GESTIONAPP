@@ -186,6 +186,8 @@ function renderVisitaBoton(t) {
         } else {
           html += `<div class="task-date" style="color:#16a34a;font-weight:600">🟢 ${esc(nombre)} · desde ${formatHora(p.check_in)}</div>`;
         }
+      } else if (p.checkout_automatico == 1) {
+        html += `<div class="task-date" style="color:#7c3aed;font-weight:600" title="Ginno hizo un checkout automático porque la visita no se cerró antes de la hora de corte">🤖 ${esc(nombre)}: ${formatHora(p.check_in)} – ${formatHora(p.check_out)} · checkout automático</div>`;
       } else {
         const durNeta = calcularDuracionNeta(p.check_in, p.check_out, p.pausas);
         const minPausa = minutosEnPausas(p.pausas);
@@ -1527,8 +1529,13 @@ async function renderHistorialVisitasModal(tareaId) {
       // al hacer checkout). Se valida contra enviado_en.
       const pdfListo = !!r.pdf_archivo;
       const enviado = pdfListo && !!r.enviado_en;
+      // Cerrada por el checkout automático de Ginno (nadie la cerró a tiempo):
+      // se distingue de "Reporte pendiente" porque no fue un olvido detectado
+      // recién, sino algo que el sistema ya resolvió por su cuenta.
       const estadoBadge = enviado
         ? '<span style="color:#059669;font-size:11px">✅ Enviado</span>'
+        : r.cerrado_automatico == 1
+        ? '<span style="color:#7c3aed;font-size:11px" title="Ginno hizo un checkout automático porque no se cerró antes de la hora de corte">🤖 Cerrado automático</span>'
         : !todosConCheckout
         ? '<span style="color:#16a34a;font-size:11px">🟢 En curso</span>'
         : '<span style="color:#dc2626;font-size:11px">⚠️ Reporte pendiente</span>';
@@ -1577,6 +1584,9 @@ async function renderHistorialVisitasModal(tareaId) {
           const tardiBadge = esTardia
             ? ' <span style="background:#fef2f2;color:#dc2626;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:700">🕐 Tardía</span>'
             : '';
+          const autoBadge = p.checkout_automatico == 1
+            ? ' <span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:700" title="Ginno hizo un checkout automático porque la visita no se cerró antes de la hora de corte">🤖 Checkout automático</span>'
+            : '';
           if (esAdmin) {
             const opciones = TEAM.map(m => `<option value="${m.id}"${m.id===p.tecnico_id?' selected':''}>${esc(m.name)}</option>`).join('');
             const colsTemplate = esContrato ? '1fr auto auto auto auto auto' : '1fr auto auto auto auto';
@@ -1593,11 +1603,11 @@ async function renderHistorialVisitasModal(tareaId) {
               ${horasContratoCol}
               <button onclick="guardarParticipanteVisita(this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">💾</button>
               <button onclick="eliminarParticipanteVisita('${p.id}','${tareaId}',this)" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Eliminar este check-in">🗑️</button>
-            </div>${tardiBadge ? `<div style="margin-bottom:4px">${tardiBadge}</div>` : ''}`;
+            </div>${(tardiBadge || autoBadge) ? `<div style="margin-bottom:4px">${tardiBadge}${autoBadge}</div>` : ''}`;
           } else {
             const dur = p.check_out ? calcularDuracionNeta(p.check_in, p.check_out, p.pausas) : 'En curso';
             html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
-              👤 ${esc(nombre)} &nbsp;·&nbsp; ${checkIn}${checkOut?' → '+checkOut:' (en curso)'} &nbsp;·&nbsp; ${dur}${tardiBadge}
+              👤 ${esc(nombre)} &nbsp;·&nbsp; ${checkIn}${checkOut?' → '+checkOut:' (en curso)'} &nbsp;·&nbsp; ${dur}${tardiBadge}${autoBadge}
             </div>`;
           }
           // Pausas de este participante

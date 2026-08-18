@@ -357,8 +357,11 @@ function _bitRenderTabla() {
 
 function _bitHorarioCell(v, pausas) {
   const horaIn  = v.check_in  ? v.check_in.split(' ')[1].slice(0,5) : '—';
-  const horaOut = v.check_out ? v.check_out.split(' ')[1].slice(0,5)
+  let   horaOut = v.check_out ? v.check_out.split(' ')[1].slice(0,5)
                                : '<span style="color:#f59e0b;font-weight:600">en curso</span>';
+  if (v.check_out && v.checkout_automatico == 1) {
+    horaOut = `<span style="color:#7c3aed;font-weight:600" title="Ginno hizo un checkout automático porque la visita no se cerró antes de la hora de corte">🤖 ${horaOut}</span>`;
+  }
   if (!pausas || !pausas.length) {
     return `${horaIn} → ${horaOut}`;
   }

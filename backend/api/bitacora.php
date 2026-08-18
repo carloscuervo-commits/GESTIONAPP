@@ -62,6 +62,7 @@ if ($method === 'GET') {
             vp.tecnico_id,
             vp.check_in,
             vp.check_out,
+            vp.checkout_automatico,
             t.id AS tarea_id,
             t.titulo,
             t.cliente,
