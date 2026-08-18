@@ -1551,6 +1551,8 @@ async function renderHistorialVisitasModal(tareaId) {
         const botones = [];
         if (enviado) {
           botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
+          botones.push(`<button onclick="event.stopPropagation();reenviarCorreoHistorial('${r.id}',this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✉️ Reenviar correo</button>`);
+          botones.push(`<button onclick="event.stopPropagation();compartirPDFWhatsAppHistorial('${r.id}',this)" style="background:#25D366;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📲 WhatsApp</button>`);
           if (esAdmin) {
             botones.push(`<button onclick="continuarReporte('${r.id}',event,true)" style="background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✏️ Editar reporte</button>`);
           }
@@ -1783,20 +1785,48 @@ async function guardarPausaVisita(btn) {
 }
 
 async function compartirPDFWhatsApp(btn) {
-  if (!reporteActual?.pdf_archivo) { alert('Primero genera el PDF.'); return; }
-  if (!navigator.canShare) { alert('Tu dispositivo no soporta compartir archivos. Descarga el PDF y compártelo manualmente.'); return; }
+  return _compartirPDFWhatsAppImpl(reporteActual, btn, true);
+}
+
+// Variante para el botón "📲 WhatsApp" del historial de visitas: el reporte ya
+// está enviado y cerrado, no depende del formulario abierto (reporteActual) —
+// se trae del servidor primero y se reusa la misma lógica de armado/envío.
+async function compartirPDFWhatsAppHistorial(reporteId, btn) {
+  const orig = btn.innerHTML;
   btn.disabled = true;
-  const orig = btn.textContent;
-  btn.textContent = '⏳ Preparando...';
+  btn.innerHTML = '⏳';
   try {
-    const res = await fetch(`${API_BASE}/reporte_pdf.php?id=${reporteActual.id}`);
+    const res = await fetch(`${API_BASE}/reportes.php?id=${reporteId}`);
+    const rep = await res.json();
+    if (rep.error) { alert('No se pudo cargar el reporte.'); return; }
+    await _compartirPDFWhatsAppImpl(rep, btn, false);
+  } catch (e) {
+    alert('No se pudo cargar el reporte.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+// Lógica compartida: prepara el PDF como archivo y lo pasa a la hoja nativa de
+// compartir. $usarTextContent controla si el botón usa textContent (botón de
+// texto plano del formulario) o innerHTML (botón con emoji del historial).
+async function _compartirPDFWhatsAppImpl(rep, btn, usarTextContent) {
+  if (!rep?.pdf_archivo) { alert('Primero genera el PDF.'); return; }
+  if (!navigator.canShare) { alert('Tu dispositivo no soporta compartir archivos. Descarga el PDF y compártelo manualmente.'); return; }
+  const setTexto = (t) => { if (usarTextContent) btn.textContent = t; else btn.innerHTML = t; };
+  btn.disabled = true;
+  const orig = usarTextContent ? btn.textContent : btn.innerHTML;
+  setTexto('⏳ Preparando...');
+  try {
+    const res = await fetch(`${API_BASE}/reporte_pdf.php?id=${rep.id}`);
     if (!res.ok) throw new Error('No se pudo obtener el PDF');
     const blob = await res.blob();
-    const fileName = reporteActual.pdf_archivo.split('/').pop() || 'reporte-innovate.pdf';
+    const fileName = rep.pdf_archivo.split('/').pop() || 'reporte-innovate.pdf';
     const file = new File([blob], fileName, { type: 'application/pdf' });
     if (!navigator.canShare({ files: [file] })) { alert('Tu dispositivo no soporta compartir PDF. Descárgalo y compártelo desde WhatsApp.'); return; }
-    const tarea = tasks.find(t => t.id === reporteActual.tarea_id);
-    const fechaVisita = reporteActual.check_in ? new Date(reporteActual.check_in.replace(' ','T')).toLocaleDateString('es-CO', { day:'numeric', month:'long', year:'numeric' }) : '';
+    const tarea = tasks.find(t => t.id === rep.tarea_id);
+    const fechaVisita = rep.check_in ? new Date(rep.check_in.replace(' ','T')).toLocaleDateString('es-CO', { day:'numeric', month:'long', year:'numeric' }) : '';
     const texto = `Buen día. Adjunto el reporte de visita técnica para *${tarea?.titulo || 'servicio técnico'}*${tarea?.cliente ? ` – ${tarea.cliente}` : ''}${fechaVisita ? `, realizada el ${fechaVisita}` : ''}.
 
 Agradecemos su confianza en Grupo Innovate. Estamos siempre disponibles para apoyarle en sus próximas necesidades de soporte técnico. ¡Será un gusto servirle de nuevo! 🔧
@@ -1806,18 +1836,49 @@ _Grupo Innovate · 📞 317 645 2811 · info@innovate.com.co_`;
     // El share se completó sin que el usuario lo cancelara: registrar en el
     // servidor para que el ciclo de la visita se considere cerrado.
     try {
-      const resWa = await fetch(`${API_BASE}/reportes.php?id=${reporteActual.id}`, {
+      const resWa = await fetch(`${API_BASE}/reportes.php?id=${rep.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accion: 'whatsapp_enviado' }),
       });
       const dataWa = await resWa.json();
-      if (!dataWa.error) reporteActual.whatsapp_enviado_en = dataWa.whatsapp_enviado_en;
+      if (!dataWa.error) rep.whatsapp_enviado_en = dataWa.whatsapp_enviado_en;
+      if (!dataWa.error && reporteActual && reporteActual.id === rep.id) reporteActual.whatsapp_enviado_en = dataWa.whatsapp_enviado_en;
     } catch (e) { console.error('No se pudo registrar el envío por WhatsApp', e); }
   } catch(e) {
     if (e.name !== 'AbortError') alert('No se pudo compartir. Intenta descargar el PDF y enviarlo manualmente.');
   } finally {
     btn.disabled = false;
-    btn.textContent = orig;
+    setTexto(orig);
+  }
+}
+
+// Reenviar el reporte ya enviado por correo, directo desde el historial de
+// visitas — sin pasar por "Editar reporte". No toca checkout/estado (ya está
+// cerrado); busca el correo del cliente registrado igual que el formulario.
+async function reenviarCorreoHistorial(reporteId, btn) {
+  if (!confirm('¿Reenviar este reporte por correo al cliente?')) return;
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳';
+  try {
+    let correoCliente = '';
+    try {
+      const resGet = await fetch(`${API_BASE}/reporte_enviar_correo.php?reporteId=${reporteId}`);
+      const dataGet = await resGet.json();
+      correoCliente = dataGet.cliente_email_alegra || '';
+    } catch (e) { /* si falla, se envía solo al admin */ }
+    const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reporteId, correos: correoCliente ? [correoCliente] : [] }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(`⚠️ ${data.error}`); return; }
+    alert(`✅ Reenviado a: ${data.enviado_a.join(', ')}`);
+  } catch (e) {
+    alert('⚠️ No se pudo enviar el correo. Verifica la conexión e intenta de nuevo.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
   }
 }
 // ===================== FIN REPORTES DE VISITA =====================

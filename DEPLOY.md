@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-18 — reenviar correo / WhatsApp desde el historial de visitas)
+
+Sin migraciones ni cron nuevo. `assets/js/reportes.js?v=20260807g`:
+
+- Cuando un reporte ya está "✅ Enviado", el historial de visitas del modal ahora muestra, junto a "📄 Ver PDF", dos botones nuevos: "✉️ Reenviar correo" y "📲 WhatsApp" — disponibles para técnico y admin (antes solo se podía reenviar entrando a "✏️ Editar reporte", que además solo ve el admin).
+- `reenviarCorreoHistorial(reporteId, btn)` (nueva): busca el correo del cliente registrado (mismo endpoint que usa el formulario), reenvía con `reporte_enviar_correo.php` y confirma con `alert()`. Pide confirmación antes de enviar (evita reenvíos accidentales). No toca checkout/estado — el reporte ya está cerrado.
+- `compartirPDFWhatsApp()` se refactorizó: la lógica de armar el archivo/mensaje y compartir quedó en `_compartirPDFWhatsAppImpl(rep, btn, usarTextContent)`, reutilizada por el botón original del formulario (usa `reporteActual`) y por la nueva `compartirPDFWhatsAppHistorial(reporteId, btn)` (trae el reporte del servidor primero, ya que no hay formulario abierto). Mismo comportamiento de fondo: solo registra `whatsapp_enviado_en`, nunca afecta el checkout.
+
 ## Cambios pendientes de deploy (2026-08-18 — checkout automático de cierre de jornada)
 
 "Blindaje" contra visitas que nunca se cierran: aviso previo a los técnicos + checkout forzado a la hora de corte + resumen a administradores.
