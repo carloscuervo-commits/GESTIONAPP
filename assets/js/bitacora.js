@@ -11,6 +11,15 @@ let _bitDesde     = null;
 let _bitHasta     = null;
 let _bitTecFiltro = '';
 
+// Abre la tarjeta de una visita en una ventana nueva (no interrumpe la
+// bitácora que se está revisando en la pestaña actual).
+function abrirTarjetaBitacora(tareaId, area, event) {
+  if (event) event.stopPropagation();
+  if (!tareaId) return;
+  const url = `tareas-equipo.html?abrir_tarea=${encodeURIComponent(tareaId)}&area=${encodeURIComponent(area || '')}`;
+  window.open(url, '_blank');
+}
+
 // ─── Entrada principal ───────────────────────────────────────────────────────
 
 async function renderBitacoraView() {
@@ -282,8 +291,8 @@ function _bitRenderTabla() {
               ${idx === 0 ? `<td rowspan="${vsDay.length}" style="padding:8px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">
                 ${diaNombre} ${fechaDisp}${esHoy ? ' <span style="font-size:10px;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:1px 5px">hoy</span>' : ''}
               </td>` : ''}
-              <td style="padding:6px 10px;font-size:12px">
-                ${esc(v.cliente || v.titulo || '—')}
+              <td style="padding:6px 10px;font-size:12px${v.tarea_id ? ';cursor:pointer' : ''}"${v.tarea_id ? ` onclick="abrirTarjetaBitacora('${v.tarea_id}','${esc(v.area || '')}',event)" title="Abrir esta tarjeta en una ventana nueva"` : ''}>
+                <span${v.tarea_id ? ' style="color:var(--primary);text-decoration:underline"' : ''}>${esc(v.cliente || v.titulo || '—')}</span>
                 <div style="font-size:11px;color:var(--text-muted)">${esc(v.titulo || '')}</div>
               </td>
               <td style="padding:6px 10px;font-size:12px;white-space:nowrap">${_bitHorarioCell(v, vPausas)}</td>

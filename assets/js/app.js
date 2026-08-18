@@ -72,6 +72,21 @@ async function iniciarApp(){
   migrarSeedLocal();
   await cargarVisitasActivas();
   if (typeof revisarVisitasEnCursoAntiguas === 'function') revisarVisitasEnCursoAntiguas();
+
+  // Ventana abierta desde otra vista (ej. bitácora) con una tarjeta específica
+  // a mostrar, ej. tareas-equipo.html?abrir_tarea=ID&area=if
+  try {
+    const params = new URLSearchParams(location.search);
+    const abrirTareaId = params.get('abrir_tarea');
+    if (abrirTareaId) {
+      const areaParam = params.get('area');
+      if (areaParam && typeof setArea === 'function') setArea(areaParam);
+      if (typeof openModal === 'function') openModal(abrirTareaId);
+      // Limpiar el parámetro de la URL para que un refresh no reabra el modal
+      history.replaceState(null, '', location.pathname);
+    }
+  } catch (e) { console.error('No se pudo abrir la tarjeta solicitada', e); }
+
   aplicarPermisosUI();
   iniciarAlarmaChecker();
   iniciarAutoSync();

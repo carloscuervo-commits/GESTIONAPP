@@ -126,6 +126,16 @@ https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://grupoinnovate.com/gin
 ```
 Debe responder `{"ok":true,"result":true,...}`. Para verificar el estado más adelante: `https://api.telegram.org/bot<TOKEN>/getWebhookInfo`.
 
+## Cambios pendientes de deploy (2026-08-07 — bitácora: abrir tarjeta en ventana nueva)
+
+`backend/api/bitacora.php`, `bitacora.js?v=20260807a`, `app.js?v=20260807a`:
+
+- `bitacora.php` ahora incluye `t.id AS tarea_id` en el detalle de visitas.
+- En la bitácora, el nombre del cliente/tarea de cada fila de visita es clickeable (subrayado) — abre esa tarjeta en una **ventana nueva** (`window.open`), no interrumpe la bitácora que se está revisando.
+- `app.js`: `iniciarApp()` ahora reconoce el parámetro de URL `?abrir_tarea=ID&area=AREA` — cambia a esa área y abre el modal de la tarjeta al cargar. Limpia el parámetro de la URL después para que un refresh no la reabra.
+
+Sin cambios de esquema ni cron.
+
 **Cómo funciona:** al tocar "👍 Recibido", Telegram llama a `telegram_webhook.php` con el secreto en el header `X-Telegram-Bot-Api-Secret-Token` (se valida contra `configuracion.telegram_webhook_secret`). Se confirma que quien tocó el botón es un técnico realmente asignado a esa tarea, y se edita el mensaje original agregando "✅ Recibido por «nombre» — fecha/hora" (sin guardar nada nuevo en la base de datos por ahora — el propio mensaje de Telegram es el registro). Sin cambios de esquema ni cron.
 
 ## Cambios pendientes de deploy (2026-08-06 — panel Avisos Telegram + 6 eventos nuevos)
