@@ -42,6 +42,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-19 — estado "Guardando..." en modal de Usuarios)
+
+Sin migraciones ni cron. `assets/js/usuarios.js?v=20260819b`:
+
+- El botón "Guardar usuario" ahora se deshabilita y cambia a "⏳ Guardando..." mientras espera la respuesta del servidor, restaurándose si falla. Antes, si la conexión estaba lenta o el `fetch` fallaba, la ventana se quedaba abierta sin ninguna señal visible de que el clic se había registrado — reportado durante el episodio de conectividad intermitente con el servidor (`ERR_HTTP2_PING_FAILED` / "Failed to fetch") de este mismo día.
+- No cambia el flujo de guardado en sí — en éxito la ventana se sigue cerrando igual; esto solo hace visible el estado de espera y deja claro cuándo realmente falló (con la alerta ya existente).
+
 ## Cambios pendientes de deploy (2026-08-19 — botón "Avisar por WhatsApp" en la tarjeta)
 
 ⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**

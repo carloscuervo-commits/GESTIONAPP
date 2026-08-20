@@ -225,6 +225,18 @@ async function guardarUsuario() {
   const token = localStorage.getItem('sesion_token') || '';
   const url    = esNuevo ? `${API_BASE}/usuarios.php` : `${API_BASE}/usuarios.php?id=${encodeURIComponent(id)}`;
 
+  // Estado "Guardando..." mientras espera la respuesta — sin esto, si la
+  // conexión está lenta, la ventana se queda abierta sin ninguna señal de
+  // que el clic sí se registró.
+  const btnGuardar = document.getElementById('btn-guardar-usuario');
+  const textoOriginalBtn = btnGuardar ? btnGuardar.textContent : '';
+  if (btnGuardar) {
+    btnGuardar.disabled = true;
+    btnGuardar.style.opacity = '0.7';
+    btnGuardar.style.cursor = 'wait';
+    btnGuardar.textContent = '⏳ Guardando...';
+  }
+
   try {
     const res = await fetch(url, {
       method:  esNuevo ? 'POST' : 'PUT',
@@ -254,6 +266,15 @@ async function guardarUsuario() {
   } catch (e) {
     console.error(e);
     alert('No se pudo guardar. Revisa la conexión.');
+  } finally {
+    // Si el modal ya se cerró (éxito) esto no tiene efecto visible; si falló
+    // o hubo un error de validación, el botón vuelve a su estado normal.
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+      btnGuardar.style.opacity = '';
+      btnGuardar.style.cursor = '';
+      btnGuardar.textContent = textoOriginalBtn;
+    }
   }
 }
 
