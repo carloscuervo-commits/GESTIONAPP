@@ -1203,16 +1203,27 @@ async function generarPDFReporte(btn) {
     return;
   }
 
-  // El PDF debe mostrar la hora en que se generó (no la del clic en "Finalizar").
-  // El checkout real que se factura al cliente se registra después, al enviar
-  // el correo — puede quedar unos minutos más tarde que lo impreso aquí, y es
-  // intencional: cubre el tiempo que toma diligenciar el reporte.
+  // El PDF debe mostrar la hora en que se generó (no la del clic en "Finalizar"),
+  // pero SOLO mientras el reporte siga genuinamente abierto en el servidor
+  // (estado==='activo'). _pendingCheckout es una variable local que puede
+  // quedar desincronizada (ej. se reabre este mismo reporte en la misma
+  // sesión del navegador después de que el checkout real ya quedó registrado
+  // por otro camino) — sin esta validación, regenerar el PDF más tarde vuelve
+  // a estampar "ahora" encima de una hora de checkout que ya estaba bien,
+  // dejando una hora de salida incorrecta (y más tardía) impresa en el PDF.
   if (_pendingCheckout && _pendingCheckout.visita.id === reporteActual.id) {
-    const _ahoraGeneracion = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    reporteActual.check_out = _ahoraGeneracion;
-    reporteActual.participantes = (reporteActual.participantes || []).map(p =>
-      p.id === _pendingCheckout.participanteId ? { ...p, check_out: _ahoraGeneracion } : p
-    );
+    if (reporteActual.estado === 'activo') {
+      const _ahoraGeneracion = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      reporteActual.check_out = _ahoraGeneracion;
+      reporteActual.participantes = (reporteActual.participantes || []).map(p =>
+        p.id === _pendingCheckout.participanteId ? { ...p, check_out: _ahoraGeneracion } : p
+      );
+    } else {
+      // El servidor ya tiene un checkout real registrado — la referencia
+      // local quedó obsoleta, se limpia para que no vuelva a interferir.
+      _pendingCheckout = null;
+      sessionStorage.removeItem('_pendingCheckout');
+    }
   }
 
   _generandoPDF = true;

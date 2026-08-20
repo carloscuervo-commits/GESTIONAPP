@@ -42,6 +42,18 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-19 — fix: hora de checkout incorrecta impresa en el PDF)
+
+Sin migraciones ni cron. `assets/js/reportes.js?v=20260819a`:
+
+**Bug detectado** (tarjeta MSYZ, visita 2026-08-19, técnico Jorge Guerrero): el checkout real quedó a las 5:44 p.m. — coincide con la hora de envío del correo al cliente, correcto y sin afectar. Pero el PDF adjunto imprimía la salida a las 10:43 p.m., 5 horas después.
+
+**Causa:** `generarPDFReporte()` estampa "la hora en que se dio clic en Generar PDF" cuando detecta un checkout diferido local (`_pendingCheckout`) que coincide con el reporte abierto — pero solo validaba el id, no si el reporte seguía realmente abierto en el servidor. Si esa variable local sobrevive en el navegador más allá del envío real (ej. se reabre el mismo reporte, en la misma sesión del navegador, después de que el checkout ya quedó registrado por otro camino) y alguien vuelve a darle "Generar PDF", el archivo se sobrescribe con una hora de salida nueva e incorrecta, aunque el checkout real en el servidor ya estaba bien.
+
+**Fix:** el estampado de "ahora" en el PDF solo se aplica si `reporteActual.estado === 'activo'` (el reporte sigue genuinamente sin checkout real). Si no, se descarta la referencia local obsoleta (`_pendingCheckout = null` + se limpia de `sessionStorage`) y el PDF usa la hora de checkout real ya guardada.
+
+El PDF ya enviado en el caso MSYZ no se corrigió a pedido del usuario (el cliente ya lo recibió) — el checkout real de esa visita nunca estuvo mal, solo lo impreso en ese archivo puntual.
+
 ## Cambios pendientes de deploy (2026-08-18 — reenviar correo / WhatsApp desde el historial de visitas)
 
 Sin migraciones ni cron nuevo. `assets/js/reportes.js?v=20260807g`:
