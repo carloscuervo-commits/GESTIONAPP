@@ -42,6 +42,12 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-19 — columna "ID tarjeta" en Reportes de tarjetas operativas)
+
+Sin migraciones ni cron. `assets/js/informes.js?v=20260819a`:
+
+- Informe "🔍 Reportes de tarjetas operativas" (`renderReportesBusquedaHTML` + `calcReportesBusqueda`): nueva columna "ID tarjeta" entre Fecha y Cliente, con los primeros 4 caracteres del id de la tarea en mayúsculas (`#XXXX`, mismo formato que ya se ve en la tarjeta del kanban). Clickeable, abre la tarjeta igual que la columna Fecha. Incluida también en la exportación a Excel.
+
 ## Cambios pendientes de deploy (2026-08-19 — fix: hora de checkout incorrecta impresa en el PDF)
 
 Sin migraciones ni cron. `assets/js/reportes.js?v=20260819a`:

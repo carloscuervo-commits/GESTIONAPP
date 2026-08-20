@@ -189,6 +189,7 @@ function calcReportesBusqueda(filtros) {
     .filter(r => pasaFiltroEstadoReporte(r, filtros.estadoReporte))
     .map(r => ({
       fecha: (r.check_in || '').slice(0, 10),
+      idTarjeta: `#${(r.tarea_id || '').slice(0, 4).toUpperCase()}`,
       cliente: r.cliente || '-',
       tarea: r.titulo || '-',
       tecnico: getMember(r.tecnico_checkin_id)?.name || r.tecnico_checkin_id || '-',
@@ -198,7 +199,7 @@ function calcReportesBusqueda(filtros) {
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
   return {
     columnas: [
-      { key: 'fecha', label: 'Fecha' }, { key: 'cliente', label: 'Cliente' }, { key: 'tarea', label: 'Tarea' },
+      { key: 'fecha', label: 'Fecha' }, { key: 'idTarjeta', label: 'ID tarjeta' }, { key: 'cliente', label: 'Cliente' }, { key: 'tarea', label: 'Tarea' },
       { key: 'tecnico', label: 'Técnico' }, { key: 'estado', label: 'Estado' }, { key: 'pdf', label: 'PDF generado' },
     ],
     filas,
@@ -219,6 +220,7 @@ function renderReportesBusquedaHTML(filtros) {
   return `<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Fecha</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">ID tarjeta</th>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Cliente</th>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Tarea</th>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Técnico</th>
@@ -227,6 +229,7 @@ function renderReportesBusquedaHTML(filtros) {
     </tr></thead>
     <tbody>${filas.map(r => `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(r.tarea_id)}','${esc(r.area || '')}')" title="Abrir tarjeta">${esc((r.check_in || '').slice(0, 10))}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em" onclick="abrirTarjetaInforme('${esc(r.tarea_id)}','${esc(r.area || '')}')" title="Abrir tarjeta">#${esc((r.tarea_id || '').slice(0, 4).toUpperCase())}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.titulo || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(getMember(r.tecnico_checkin_id)?.name || r.tecnico_checkin_id || '-')}</td>
