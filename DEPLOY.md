@@ -42,6 +42,19 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-19 — fix raíz: service worker sirviendo tareas-equipo.html vieja indefinidamente)
+
+Sin migraciones ni cron. `sw.js`:
+
+**Causa raíz confirmada** (reincidencia del hallazgo del 2026-08-06): `tareas-equipo.html` estaba precacheada con estrategia Cache First. El service worker solo se reinstala (y limpia su caché) cuando el contenido de `sw.js` cambia — eso solo había pasado una vez (bump v2→v3, 6 de agosto). Todos los deploys posteriores que tocaron `tareas-equipo.html` (bumps de `?v=` en los scripts) nunca se reflejaron para los navegadores que ya la tenían cacheada — seguían viendo la copia del 6 de agosto sin importar cuántos deploys reales se hicieran después. Confirmado con un caso real: un usuario veía botones ya eliminados hace semanas (`📋 Ver reporte` suelto arriba, en vez de los botones por visita del historial) aunque el deploy en el servidor estaba al día.
+
+**Fix:**
+- `CACHE_NAME` subido de `'ginno-v3'` a `'ginno-v4'` — fuerza que todos los navegadores reinstalen el service worker y descarten su caché vieja en la próxima carga.
+- Estrategia de `tareas-equipo.html` cambiada de Cache First a **Network First**: siempre intenta traer la versión fresca del servidor primero; solo cae a la caché si de verdad no hay conexión. Esto es el arreglo de fondo — de ahora en adelante, cualquier deploy que toque este archivo se ve de inmediato en la siguiente carga, sin depender de acordarse de subir `CACHE_NAME` cada vez.
+- Los assets estáticos (`assets/js/*.js`, CSS, imágenes) siguen en Cache First — ya se invalidan solos vía `?v=` en cada deploy, no tenían este problema.
+
+⚠️ **Para el usuario que reportó el problema:** después de este deploy, cerrar completamente el navegador (no solo refrescar) o desregistrar el service worker manualmente (DevTools → Application → Service Workers → Unregister) para que tome efecto de inmediato en su dispositivo.
+
 ## Cambios pendientes de deploy (2026-08-19 — columna "ID tarjeta" en Reportes de tarjetas operativas)
 
 Sin migraciones ni cron. `assets/js/informes.js?v=20260819a`:

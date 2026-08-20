@@ -8,7 +8,7 @@
 // ======================================================
 // Caché offline
 // ======================================================
-var CACHE_NAME = 'ginno-v3';
+var CACHE_NAME = 'ginno-v4';
 
 // Assets mínimos a pre-cachear en install.
 // Los demás se cachean automáticamente la primera vez que se solicitan.
@@ -45,7 +45,12 @@ self.addEventListener('fetch', function (event) {
   if (req.method !== 'GET') return;
   if (!url.startsWith('https://grupoinnovate.com/ginno/')) return;
 
-  var isAPI = url.includes('/backend/api/');
+  var isAPI      = url.includes('/backend/api/');
+  // App shell (tareas-equipo.html): nunca debe quedarse pegado en Cache First.
+  // Si el deploy la cambia (bump de ?v= en los scripts, nuevo HTML, etc.) el
+  // navegador tiene que enterarse en la siguiente carga, no seguir sirviendo
+  // para siempre la copia que se cacheó la primera vez que este SW corrió.
+  var isAppShell = req.mode === 'navigate' || url.indexOf('/ginno/tareas-equipo.html') !== -1;
 
   if (isAPI) {
     // Las respuestas de API NO se cachean: los datos en tiempo real
@@ -53,8 +58,26 @@ self.addEventListener('fetch', function (event) {
     // porque quedan obsoletos en segundos. Mejor fallar limpio que mostrar
     // datos viejos (ej. "Iniciar visita" cuando la visita ya arrancó en otro equipo).
     event.respondWith(fetch(req));
+  } else if (isAppShell) {
+    // Network First: siempre intenta traer la versión fresca del servidor
+    // primero. Solo cae a la caché (última copia buena conocida) si de
+    // verdad no hay conexión — así un deploy nuevo se ve de inmediato en la
+    // siguiente carga, sin depender de que alguien recuerde cambiar
+    // CACHE_NAME cada vez que se toca este archivo.
+    event.respondWith(
+      fetch(req).then(function (res) {
+        if (res.ok) {
+          var clone = res.clone();
+          caches.open(CACHE_NAME).then(function (c) { c.put(req, clone); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match(req);
+      })
+    );
   } else {
-    // Cache First: sirve desde caché si existe; si no, busca en red y cachea
+    // Cache First: assets estáticos (JS/CSS/imágenes). Ya llevan ?v= en la
+    // URL para invalidarse solos en cada deploy sin necesitar este ajuste.
     event.respondWith(
       caches.match(req).then(function (cached) {
         if (cached) return cached;
