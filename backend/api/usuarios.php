@@ -32,7 +32,7 @@ function requireAdmin($pdo) {
 if ($method === 'GET') {
   $stmt = $pdo->query(
     "SELECT id, nombre, iniciales, color, rol, email, cedula, foto, perfil, activo,
-            telegram_chat_id,
+            telegram_chat_id, celular,
             (pin_hash IS NOT NULL) AS tiene_pin
      FROM usuarios
      ORDER BY activo DESC, nombre ASC"
@@ -75,10 +75,11 @@ if ($method === 'POST') {
   }
 
   $telegramChatId = ($d['telegram_chat_id'] ?? '') ?: null;
+  $celular        = ($d['celular'] ?? '') ?: null;
 
   $stmt = $pdo->prepare(
-    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo, telegram_chat_id)
-     VALUES (?,?,?,?,?,?,?,?,?,1,?)"
+    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo, telegram_chat_id, celular)
+     VALUES (?,?,?,?,?,?,?,?,?,1,?,?)"
   );
   $stmt->execute([
     $id,
@@ -91,6 +92,7 @@ if ($method === 'POST') {
     in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : 'tecnico',
     $pin_hash,
     $telegramChatId,
+    $celular,
   ]);
 
   jsonOut(['ok' => true, 'id' => $id], 201);
@@ -133,6 +135,7 @@ if ($method === 'PUT') {
   $email          = array_key_exists('email', $d)           ? (($d['email']           ?? '') ?: null) : $prev['email'];
   $cedula         = array_key_exists('cedula', $d)          ? (($d['cedula']          ?? '') ?: null) : $prev['cedula'];
   $telegramChatId = array_key_exists('telegram_chat_id', $d) ? (($d['telegram_chat_id'] ?? '') ?: null) : $prev['telegram_chat_id'];
+  $celular        = array_key_exists('celular', $d)          ? (($d['celular']          ?? '') ?: null) : $prev['celular'];
   $perfil         = in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : $prev['perfil'];
   $activo         = isset($d['activo']) ? (int)$d['activo'] : (int)$prev['activo'];
 
@@ -141,10 +144,10 @@ if ($method === 'PUT') {
 
   $stmt = $pdo->prepare(
     "UPDATE usuarios
-     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?, telegram_chat_id=?
+     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?, telegram_chat_id=?, celular=?
      WHERE id=?"
   );
-  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $telegramChatId, $id]);
+  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $telegramChatId, $celular, $id]);
 
   jsonOut(['ok' => true]);
 }

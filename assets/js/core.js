@@ -102,6 +102,7 @@ async function loadTeam() {
         initials: u.iniciales,
         color:    u.color || '#94a3b8',
         perfil:   u.perfil,
+        celular:  u.celular || null,
       }));
   } catch (e) {
     console.error('Error cargando equipo desde API, usando fallback estático:', e);

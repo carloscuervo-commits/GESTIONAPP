@@ -45,6 +45,88 @@ function buildTeamPicker(selected=[]) {
     disponibles.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
   el.innerHTML = `<div class="team-chips">${chips}</div>
     <select id="team-select" onchange="addTeamMember(this.value)">${options}</select>`;
+  renderAvisoWhatsAppTarea();
+}
+
+// ----------------- Avisar por WhatsApp (equipo asignado) -----------------
+// Un botón por cada técnico seleccionado en el equipo de la tarjeta. Si el
+// técnico tiene celular registrado, abre wa.me con el mensaje ya escrito
+// (funciona antes o después de guardar — usa los valores actuales del
+// formulario). Si no tiene celular, cae a copiar el texto al portapapeles.
+function renderAvisoWhatsAppTarea() {
+  const el = document.getElementById('aviso-wp-tarea');
+  if (!el) return;
+  if (!selectedTeam.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">📲 Avisar por WhatsApp:</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${selectedTeam.map(id => {
+        const m = getMember(id);
+        if (!m) return '';
+        const tieneCel = !!m.celular;
+        return `<button type="button" onclick="avisarTecnicoWhatsApp('${id}')"
+          style="background:${tieneCel ? '#25D366' : '#94a3b8'};color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer"
+          title="${tieneCel ? 'Abre WhatsApp con el mensaje listo' : 'Sin celular registrado — copia el texto al portapapeles'}">
+          ${tieneCel ? '📲' : '📋'} ${esc(m.name.split(' ')[0])}
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+
+// Arma el texto del aviso con los valores ACTUALES del formulario (sirve
+// tanto antes como después de darle "Guardar").
+function _construirTextoAvisoTarea() {
+  const cliente   = document.getElementById('f-cliente')?.value.trim()  || '';
+  const titulo    = document.getElementById('f-titulo')?.value.trim()   || '';
+  const desc      = document.getElementById('f-desc')?.value.trim()     || '';
+  const fechaProg = document.getElementById('f-fechaprog')?.value       || '';
+  const diasProg  = parseInt(document.getElementById('f-dias-prog')?.value) || 1;
+  const horaProg  = document.getElementById('f-hora-prog')?.value       || '';
+  const modalidad = document.querySelector('input[name="f-modalidad"]:checked')?.value || null;
+
+  let fechaStr = '';
+  if (fechaProg) {
+    fechaStr = new Date(fechaProg + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (diasProg > 1) fechaStr += ` (${diasProg} días)`;
+  }
+  const modStr = modalidad === 'en_sitio' ? '🏢 En sitio' : modalidad === 'remoto' ? '💻 Remoto' : '';
+
+  let texto = `📋 *Nueva tarea asignada*\n\n`;
+  if (cliente)  texto += `👤 Cliente: ${cliente}\n`;
+  texto += `📋 Tarea: ${titulo || '-'}\n`;
+  if (fechaStr) texto += `📅 Fecha: ${fechaStr}\n`;
+  if (horaProg) texto += `🕗 Hora: ${horaProg}\n`;
+  if (modStr)   texto += `📍 Modalidad: ${modStr}\n`;
+  if (desc)     texto += `\n📝 ${desc}\n`;
+  texto += `\nCualquier duda me escribes. Gracias!`;
+  return texto;
+}
+
+// Normaliza un celular colombiano a formato internacional sin "+" (lo que
+// espera wa.me): si son 10 dígitos que empiezan en 3, antepone el 57.
+function _normalizarCelularCO(raw) {
+  let digits = (raw || '').replace(/\D/g, '');
+  if (digits.length === 10 && digits.startsWith('3')) digits = '57' + digits;
+  return digits;
+}
+
+function avisarTecnicoWhatsApp(tecnicoId) {
+  const m = getMember(tecnicoId);
+  const texto = _construirTextoAvisoTarea();
+  if (m?.celular) {
+    const numero = _normalizarCelularCO(m.celular);
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+  } else {
+    _copiarAvisoTarea(texto, m?.name);
+  }
+}
+
+async function _copiarAvisoTarea(texto, nombre) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    alert(`✅ Copiado al portapapeles (${nombre || 'este técnico'} no tiene celular registrado en Ginno). Pégalo en su chat de WhatsApp.`);
+  } catch (e) {
+    alert('No se pudo copiar automáticamente. Copia el texto manualmente:\n\n' + texto);
+  }
 }
 
 function addTeamMember(id) {

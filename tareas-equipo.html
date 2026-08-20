@@ -272,6 +272,14 @@
           El usuario debe enviar <strong>/start</strong> al bot y luego escribir a <strong>@userinfobot</strong> para obtener su ID. Dejar vacío si no usa Telegram.
         </div>
       </div>
+      <!-- Celular / WhatsApp -->
+      <div class="form-group">
+        <label>Celular / WhatsApp</label>
+        <input type="text" id="um-celular" placeholder="ej: 3176452811" autocomplete="off" inputmode="numeric">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+          Con el indicativo de área (ej: 3176452811). Se usa para el botón "Avisar por WhatsApp" en la tarjeta — abre el chat con el mensaje ya escrito.
+        </div>
+      </div>
       <!-- Perfil -->
       <div class="form-group">
         <label>Perfil de acceso</label>
@@ -361,6 +369,7 @@
       <div class="form-group full" id="grp-team">
         <label>Equipo asignado</label>
         <div class="team-picker" id="team-picker"></div>
+        <div id="aviso-wp-tarea" style="margin-top:8px"></div>
       </div>
       <div class="form-group full" id="grp-tipo-tarea" style="display:none">
         <label>Tipo de tarea</label>
@@ -781,15 +790,15 @@
 </div>
 
 
-<script src="assets/js/core.js?v=20260716d"></script>
+<script src="assets/js/core.js?v=20260819a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260807a"></script>
+<script src="assets/js/tareas.js?v=20260819a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260819a"></script>
 <script src="assets/js/informes.js?v=20260819a"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
-<script src="assets/js/usuarios.js?v=20260805a"></script>
+<script src="assets/js/usuarios.js?v=20260819a"></script>
 <script src="assets/js/clientes.js?v=20260708e"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>

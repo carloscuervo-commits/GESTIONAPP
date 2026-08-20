@@ -42,6 +42,31 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-19 — botón "Avisar por WhatsApp" en la tarjeta)
+
+⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**
+```sql
+ALTER TABLE usuarios
+  ADD COLUMN celular VARCHAR(20) NULL AFTER telegram_chat_id;
+```
+(Migración trackeada en `db/032_usuarios_celular.sql`.)
+
+**Resumen:** en el modal de la tarjeta, justo debajo de "Equipo asignado", aparece un botón por cada técnico seleccionado ("📲 Avisar por WhatsApp"). Sirve tanto antes como después de guardar — pensado para el caso de asignar una tarea para el mismo día.
+
+- Si el técnico tiene celular registrado (nuevo campo en Usuarios): el botón abre `wa.me/<numero>?text=...` — en el celular abre la app de WhatsApp directo en su chat con el mensaje ya escrito (falta solo dar "Enviar"); en PC abre WhatsApp Web/Desktop. **No envía automáticamente** — WhatsApp no lo permite sin la API de negocios de pago, así que siempre queda un clic de confirmación del lado del admin.
+- Si el técnico no tiene celular registrado: el botón cae a copiar el texto al portapapeles (mismo mecanismo de los botones de reenvío de reportes), para pegarlo manualmente.
+- El texto del mensaje se arma con los valores ACTUALES del formulario (cliente, tarea, fecha/hora programada, modalidad, descripción) — no depende de haber guardado antes.
+
+**Archivos:**
+- `db/032_usuarios_celular.sql` (nuevo)
+- `backend/api/usuarios.php` — columna `celular` en GET/POST/PUT
+- `assets/js/usuarios.js?v=20260819a` — campo celular en el modal de usuario
+- `assets/js/core.js?v=20260819a` — `loadTeam()` expone `celular` en `TEAM`
+- `assets/js/tareas.js?v=20260819a` — `renderAvisoWhatsAppTarea()` (llamada desde `buildTeamPicker()`), `avisarTecnicoWhatsApp()`, `_construirTextoAvisoTarea()`, `_normalizarCelularCO()` (antepone 57 a números colombianos de 10 dígitos), `_copiarAvisoTarea()`
+- `tareas-equipo.html` — campo "Celular / WhatsApp" en modal Usuarios, `<div id="aviso-wp-tarea">` bajo el equipo asignado
+
+**Pendiente (no es bloqueante):** cargar el celular de cada técnico en Usuarios para que el botón funcione con wa.me — mientras tanto cae al fallback de copiar texto.
+
 ## Cambios pendientes de deploy (2026-08-19 — fix raíz: service worker sirviendo tareas-equipo.html vieja indefinidamente)
 
 Sin migraciones ni cron. `sw.js`:
