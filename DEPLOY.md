@@ -42,6 +42,12 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — buscar tarjetas por ID)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260822c`:
+
+- La barra de búsqueda del kanban (`getFiltered()` y el filtro de archivados) ahora también compara contra el ID de la tarjeta (`#XXXX`, primeros 4 caracteres). Funciona con o sin el `#` y con coincidencia parcial, igual que título/cliente/técnico.
+
 ## Cambios pendientes de deploy (2026-08-22 — más datos en el aviso de @mención)
 
 Sin migraciones ni cron. `backend/api/comentarios.php`:
