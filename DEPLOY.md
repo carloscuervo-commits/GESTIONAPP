@@ -59,7 +59,7 @@ Sin cron nuevo.
 - Descuento de horas al hacer checkout.
 - Aviso de horas por agotarse (correo/Telegram a admins) — ahora se puede reenviar una vez por ciclo de contrato en vez de una vez por mes calendario.
 - Auto-creación de "Visita de contrato adicional" al agotarse las horas.
-- Informe para cliente: nueva caja de estadística "Horas de contrato" (consumidas / contratadas / disponibles o excedido) junto a las demás, tanto en pantalla como en el PDF exportado. Nuevos botones "📆 Contrato mes actual" / "⬅️ Contrato mes anterior" que llenan el rango de fechas del informe según el ciclo de corte (no el mes calendario) y recargan.
+- Informe para cliente: nueva caja de estadística "Horas de contrato" (consumidas / contratadas / disponibles o excedido) junto a las demás, tanto en pantalla como en el PDF exportado. Nuevos botones "📆 Contrato mes actual" / "⬅️ Contrato mes anterior" en la barra de filtros superior — aparecen apenas se selecciona un cliente con contrato (sin necesidad de haber puesto rango de fechas todavía), llenan Desde/Hasta según el ciclo de corte (no el mes calendario) y recargan.
 
 **Archivos:**
 - `db/034_fecha_corte_contrato.sql` (nuevo)
@@ -68,7 +68,7 @@ Sin cron nuevo.
 - `backend/api/reportes.php` — ambos cálculos de consumo de horas (`?horasContrato=1` y el del checkout) usan el ciclo de corte en vez de `MONTH(CURDATE())`; la clave de dedup del aviso de umbral también pasa a ser por ciclo
 - `backend/api/informe_cliente.php` — expone `horas_contrato` por participante (necesario para sumar consumo en el informe)
 - `assets/js/clientes.js?v=20260822a` — campo `cm-contrato-corte` en el modal
-- `assets/js/informes.js?v=20260822a` — caja de estadística de contrato + botones de período, réplica en JS del cálculo del ciclo (mismo criterio que `contrato.php`, no llama al backend para esto)
+- `assets/js/informes.js?v=20260822b` — caja de estadística de contrato + botones de período (viven en la barra de filtros, visibles apenas se selecciona un cliente con contrato), réplica en JS del cálculo del ciclo (mismo criterio que `contrato.php`, no llama al backend para esto)
 - `tareas-equipo.html` — campo "Día de corte" en modal Cliente
 
 ## Cambios pendientes de deploy (2026-08-22 — módulo de comentarios con @menciones por tarjeta)

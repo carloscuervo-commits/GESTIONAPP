@@ -604,6 +604,10 @@ async function renderInformesView() {
           <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="setPeriodoRapido('este-mes')">📅 Este mes</button>
           <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="setPeriodoRapido('mes-anterior')">⬅️ Mes anterior</button>
         </div>
+        <div id="informe-campo-periodo-contrato" style="display:none;gap:4px;align-items:center">
+          <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="_icPeriodoContrato('actual')">📆 Contrato mes actual</button>
+          <button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="_icPeriodoContrato('anterior')">⬅️ Contrato mes anterior</button>
+        </div>
         <div id="informe-campo-archivados" style="display:none">
           <button id="fs-toggle-archivados" class="btn-cancel" style="padding:7px 12px;font-size:13px"
             onclick="toggleFueraSitioArchivados()">📦 Ver archivados</button>
@@ -693,9 +697,30 @@ function seleccionarInforme(id) {
 
 let _informeReqId = 0; // secuencia para descartar respuestas async fuera de orden
 
+// Botones "Contrato mes actual/anterior": solo tienen sentido en el informe
+// para cliente y solo si el cliente ya escrito/seleccionado tiene contrato.
+// No dependen de que ya se haya cargado el rango de fechas ni los datos.
+function _actualizarBotonPeriodoContrato() {
+  const wrap = document.getElementById('informe-campo-periodo-contrato');
+  if (!wrap) return;
+  if (_informeActual !== 'informe_cliente_pdf') { wrap.style.display = 'none'; return; }
+  const clienteNombre = document.getElementById('informe-cliente')?.value || '';
+  if (!clienteNombre) { wrap.style.display = 'none'; return; }
+  // La caché de clientes puede no estar cargada aún si el usuario nunca visitó
+  // la pestaña Clientes en esta sesión — la traemos una vez y reintentamos.
+  if ((!_clientes || !_clientes.length) && typeof cargarClientes === 'function') {
+    wrap.style.display = 'none';
+    cargarClientes().then(_actualizarBotonPeriodoContrato);
+    return;
+  }
+  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === clienteNombre.toLowerCase());
+  wrap.style.display = (ci && ci.contrato_horas_mes != null) ? 'flex' : 'none';
+}
+
 function recalcularInforme() {
   const def = INFORMES[_informeActual];
   if (!def) return;
+  _actualizarBotonPeriodoContrato();
   const filtros = {
     tecnico: document.getElementById('informe-tecnico')?.value || '',
     cliente: document.getElementById('informe-cliente')?.value || '',
@@ -905,13 +930,6 @@ function _renderInformeClienteHTML(data, clienteInfo) {
     + ' onchange="_icToggleRedondear()"'
     + ' style="width:15px;height:15px;accent-color:#169BBC;cursor:pointer">'
     + 'Redondear horas</label>';
-  const periodoContratoBtns = tieneContrato
-    ? '<div style="display:flex;gap:6px">'
-    + '<button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="_icPeriodoContrato(\'actual\')">📆 Contrato mes actual</button>'
-    + '<button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="_icPeriodoContrato(\'anterior\')">⬅️ Contrato mes anterior</button>'
-    + '</div>'
-    : '';
-
   // Horas de contrato consumidas en el período cargado (independiente de "Solo
   // visitas de contrato" y de las visitas ocultas del PDF — refleja el consumo real).
   let statContrato = '';
@@ -950,7 +968,7 @@ function _renderInformeClienteHTML(data, clienteInfo) {
 
   if (!visitas.length) {
     return '<div style="padding:24px">'
-      + (tieneContrato ? '<div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">' + periodoContratoBtns + contratoToggle + '</div>' : '')
+      + (contratoToggle ? '<div style="display:flex;justify-content:flex-end;margin-bottom:16px">' + contratoToggle + '</div>' : '')
       + '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">Sin visitas completadas para este cliente en el período seleccionado.</div>'
       + '</div>';
   }
@@ -1006,7 +1024,6 @@ function _renderInformeClienteHTML(data, clienteInfo) {
     + '<div><div style="font-size:18px;font-weight:500;color:var(--text-primary)">' + esc(data.cliente_nombre) + '</div>'
     + '<div style="font-size:13px;color:var(--text-secondary);margin-top:2px">' + esc(periodo) + ' · ' + visibles.length + ' visita' + (visibles.length !== 1 ? 's' : '') + '</div></div>'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-    + periodoContratoBtns
     + contratoToggle
     + redondearToggle
     + '<button onclick="generarInformeClientePDF()" style="background:#169BBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer">🖨️ Guardar PDF</button>'
@@ -1190,9 +1207,10 @@ function _periodoContratoAnterior(corteDia) {
   return _periodoContratoActual(corteDia, refAnterior.toISOString().slice(0, 10));
 }
 function _icPeriodoContrato(tipo) {
-  if (!_icData) return;
-  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
-  const corteDia = (ci && ci.fecha_corte_contrato != null) ? parseInt(ci.fecha_corte_contrato, 10) : 1;
+  const clienteNombre = document.getElementById('informe-cliente')?.value || '';
+  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === clienteNombre.toLowerCase());
+  if (!ci) return;
+  const corteDia = (ci.fecha_corte_contrato != null) ? parseInt(ci.fecha_corte_contrato, 10) : 1;
   const [ini, fin] = tipo === 'anterior' ? _periodoContratoAnterior(corteDia) : _periodoContratoActual(corteDia);
   const elD = document.getElementById('informe-desde');
   const elH = document.getElementById('informe-hasta');
