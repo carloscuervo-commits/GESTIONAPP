@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
 require_once __DIR__ . '/../lib/mailer.php';
+require_once __DIR__ . '/../lib/contrato.php';
 
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -246,7 +247,7 @@ if ($method === 'GET') {
     }
 
     $stmtC = $pdo->prepare("
-      SELECT contrato_horas_mes FROM clientes
+      SELECT contrato_horas_mes, fecha_corte_contrato FROM clientes
       WHERE nombre COLLATE utf8mb4_general_ci = ?
         AND contrato_area = ?
       LIMIT 1
@@ -254,6 +255,8 @@ if ($method === 'GET') {
     $stmtC->execute([$tInfo['cliente'], $tInfo['area']]);
     $cRow = $stmtC->fetch();
     $horasContratadas = $cRow ? (float)$cRow['contrato_horas_mes'] : 0;
+    $corteDia = ($cRow && $cRow['fecha_corte_contrato'] !== null) ? (int)$cRow['fecha_corte_contrato'] : null;
+    [$periodoInicio, $periodoFin] = periodoContratoActual($corteDia);
 
     $stmtCons = $pdo->prepare("
       SELECT COALESCE(SUM(vp.horas_contrato), 0)
@@ -263,17 +266,18 @@ if ($method === 'GET') {
       WHERE t2.cliente COLLATE utf8mb4_general_ci = ?
         AND t2.tipo_tarea = 'contrato'
         AND t2.area      = ?
-        AND YEAR(vp.check_out)  = YEAR(CURDATE())
-        AND MONTH(vp.check_out) = MONTH(CURDATE())
+        AND DATE(vp.check_out) BETWEEN ? AND ?
         AND vp.horas_contrato IS NOT NULL
     ");
-    $stmtCons->execute([$tInfo['cliente'], $tInfo['area']]);
+    $stmtCons->execute([$tInfo['cliente'], $tInfo['area'], $periodoInicio, $periodoFin]);
     $horasConsumidas = (float)$stmtCons->fetchColumn();
 
     jsonOut([
       'horasContratadas' => $horasContratadas,
       'horasConsumidas'  => $horasConsumidas,
       'horasDisponibles' => round($horasContratadas - $horasConsumidas, 1),
+      'periodoInicio'    => $periodoInicio,
+      'periodoFin'       => $periodoFin,
     ]);
   }
 
@@ -683,7 +687,20 @@ if ($method === 'PUT') {
           $pdo->prepare("UPDATE visita_participantes SET horas_contrato = ? WHERE id = ?")
             ->execute([$horasContrato, $partId]);
 
-          // Horas consumidas este mes para el cliente/área
+          // Horas del contrato del cliente + fecha de corte
+          $stmtContrato = $pdo->prepare("
+            SELECT contrato_horas_mes, fecha_corte_contrato FROM clientes
+            WHERE nombre COLLATE utf8mb4_general_ci = ?
+              AND contrato_area = ?
+            LIMIT 1
+          ");
+          $stmtContrato->execute([$tareaInfo['cliente'], $tareaInfo['area']]);
+          $contratoRow      = $stmtContrato->fetch();
+          $horasContratadas = $contratoRow ? (float)$contratoRow['contrato_horas_mes'] : 0;
+          $corteDia = ($contratoRow && $contratoRow['fecha_corte_contrato'] !== null) ? (int)$contratoRow['fecha_corte_contrato'] : null;
+          [$periodoInicio, $periodoFin] = periodoContratoActual($corteDia);
+
+          // Horas consumidas en el ciclo de contrato vigente para el cliente/área
           $stmtConsumo = $pdo->prepare("
             SELECT COALESCE(SUM(vp.horas_contrato), 0)
             FROM visita_participantes vp
@@ -692,23 +709,11 @@ if ($method === 'PUT') {
             WHERE t2.cliente COLLATE utf8mb4_general_ci = ?
               AND t2.tipo_tarea = 'contrato'
               AND t2.area      = ?
-              AND YEAR(vp.check_out)  = YEAR(CURDATE())
-              AND MONTH(vp.check_out) = MONTH(CURDATE())
+              AND DATE(vp.check_out) BETWEEN ? AND ?
               AND vp.horas_contrato IS NOT NULL
           ");
-          $stmtConsumo->execute([$tareaInfo['cliente'], $tareaInfo['area']]);
+          $stmtConsumo->execute([$tareaInfo['cliente'], $tareaInfo['area'], $periodoInicio, $periodoFin]);
           $horasConsumidas = (float)$stmtConsumo->fetchColumn();
-
-          // Horas del contrato del cliente
-          $stmtContrato = $pdo->prepare("
-            SELECT contrato_horas_mes FROM clientes
-            WHERE nombre COLLATE utf8mb4_general_ci = ?
-              AND contrato_area = ?
-            LIMIT 1
-          ");
-          $stmtContrato->execute([$tareaInfo['cliente'], $tareaInfo['area']]);
-          $contratoRow      = $stmtContrato->fetch();
-          $horasContratadas = $contratoRow ? (float)$contratoRow['contrato_horas_mes'] : 0;
 
           // Si se agotaron → crear tarea adicional automáticamente
           if ($horasContratadas > 0 && $horasConsumidas > $horasContratadas) {
@@ -734,7 +739,7 @@ if ($method === 'PUT') {
             $umbralRaw = configGet($pdo, 'horas_contrato_umbral');
             $umbralHoras = ($umbralRaw !== null && $umbralRaw !== '') ? (float)$umbralRaw : 2.0;
             if ($horasDisponiblesAviso <= $umbralHoras) {
-              $claveMes = date('Y-m');
+              $claveMes = $periodoInicio; // clave por ciclo de contrato, no por mes calendario
               $claveCliente = md5($tareaInfo['cliente']);
               if (!avisoYaEnviado($pdo, 'horas_contrato', $tareaInfo['area'], $claveCliente, $claveMes)) {
                 try {

@@ -782,7 +782,7 @@
 
       <div style="background:var(--bg,#f8fafc);border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px">
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">📋 Contrato de horas mensuales</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
           <div>
             <label class="form-label">Área del contrato</label>
             <select class="form-input" id="cm-contrato-area" onchange="_cmContratoAreaChange()">
@@ -794,6 +794,10 @@
           <div id="cm-contrato-horas-grp" style="display:none">
             <label class="form-label">Horas/mes</label>
             <input class="form-input" id="cm-contrato-horas" type="number" min="0.5" step="0.5" placeholder="Ej: 10">
+          </div>
+          <div id="cm-contrato-corte-grp" style="display:none">
+            <label class="form-label">Día de corte</label>
+            <input class="form-input" id="cm-contrato-corte" type="number" min="1" max="31" step="1" placeholder="Ej: 15 (def. 1)">
           </div>
         </div>
       </div>
@@ -824,10 +828,10 @@
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260819a"></script>
 <script src="assets/js/comentarios.js?v=20260820a"></script>
-<script src="assets/js/informes.js?v=20260819a"></script>
+<script src="assets/js/informes.js?v=20260822a"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
 <script src="assets/js/usuarios.js?v=20260820a"></script>
-<script src="assets/js/clientes.js?v=20260708e"></script>
+<script src="assets/js/clientes.js?v=20260822a"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
 <script src="assets/js/imagenes.js?v=20260630a"></script>

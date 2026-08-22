@@ -42,6 +42,35 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — fecha de corte del contrato + horas de contrato en informe cliente)
+
+⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**
+```sql
+ALTER TABLE clientes
+  ADD COLUMN fecha_corte_contrato TINYINT UNSIGNED NULL AFTER contrato_horas_mes;
+```
+(Migración trackeada en `db/034_fecha_corte_contrato.sql`. Si `fecha_corte_contrato` queda NULL para un cliente, el sistema lo trata como corte = día 1, o sea el mes calendario exacto que se usaba antes de este cambio — comportamiento por defecto sin necesidad de tocar clientes existentes.)
+
+Sin cron nuevo.
+
+**Resumen:** los clientes con contrato de horas ahora tienen un campo "Día de corte" (modal Cliente, junto a Horas/mes) — el ciclo de contrato va de ese día de un mes al día anterior del mes siguiente (ej. corte=15: 15-ago a 14-sep). Este ciclo reemplaza al mes calendario en **todos** los cálculos de horas de contrato, no solo en el informe para cliente:
+
+- Tarjeta del técnico (horas disponibles antes del checkin).
+- Descuento de horas al hacer checkout.
+- Aviso de horas por agotarse (correo/Telegram a admins) — ahora se puede reenviar una vez por ciclo de contrato en vez de una vez por mes calendario.
+- Auto-creación de "Visita de contrato adicional" al agotarse las horas.
+- Informe para cliente: nueva caja de estadística "Horas de contrato" (consumidas / contratadas / disponibles o excedido) junto a las demás, tanto en pantalla como en el PDF exportado. Nuevos botones "📆 Contrato mes actual" / "⬅️ Contrato mes anterior" que llenan el rango de fechas del informe según el ciclo de corte (no el mes calendario) y recargan.
+
+**Archivos:**
+- `db/034_fecha_corte_contrato.sql` (nuevo)
+- `backend/lib/contrato.php` (nuevo) — `periodoContratoActual()` / `periodoContratoAnterior()`, únicas fuentes de verdad del cálculo del ciclo en el backend
+- `backend/api/clientes.php` — `fecha_corte_contrato` en GET/POST/PUT
+- `backend/api/reportes.php` — ambos cálculos de consumo de horas (`?horasContrato=1` y el del checkout) usan el ciclo de corte en vez de `MONTH(CURDATE())`; la clave de dedup del aviso de umbral también pasa a ser por ciclo
+- `backend/api/informe_cliente.php` — expone `horas_contrato` por participante (necesario para sumar consumo en el informe)
+- `assets/js/clientes.js?v=20260822a` — campo `cm-contrato-corte` en el modal
+- `assets/js/informes.js?v=20260822a` — caja de estadística de contrato + botones de período, réplica en JS del cálculo del ciclo (mismo criterio que `contrato.php`, no llama al backend para esto)
+- `tareas-equipo.html` — campo "Día de corte" en modal Cliente
+
 ## Cambios pendientes de deploy (2026-08-22 — módulo de comentarios con @menciones por tarjeta)
 
 ⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**

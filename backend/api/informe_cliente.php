@@ -112,6 +112,7 @@ foreach ($rows as $row) {
         'check_out'        => $row['check_out'],
         'duracion_minutos' => (int)max(0, (int)($row['duracion_minutos'] ?? 0)),
         'es_contrato'      => $esContrato,
+        'horas_contrato'   => $row['horas_contrato'] !== null ? (float)$row['horas_contrato'] : null,
     ];
 }
 

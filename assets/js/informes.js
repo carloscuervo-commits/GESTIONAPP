@@ -822,15 +822,14 @@ async function renderInformeClientePDF(filtros) {
   }
 
   const clienteInfo  = (_clientes || []).find(c => c.nombre.toLowerCase() === (filtros.cliente || '').toLowerCase());
-  const tieneContrato = !!(clienteInfo && clienteInfo.contrato_horas_mes != null);
-  return _renderInformeClienteHTML(_icData, tieneContrato);
+  return _renderInformeClienteHTML(_icData, clienteInfo);
 }
 
 function _icToggleSoloContrato() {
   if (!_icData) return;
   const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
   const el = document.getElementById('informe-tabla');
-  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, !!(ci && ci.contrato_horas_mes != null));
+  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, ci);
 }
 
 function _icToggleOculto(reporteId) {
@@ -838,7 +837,7 @@ function _icToggleOculto(reporteId) {
   if (!_icData) return;
   const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
   const el = document.getElementById('informe-tabla');
-  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, !!(ci && ci.contrato_horas_mes != null));
+  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, ci);
 }
 
 function _icToggleRedondear() {
@@ -846,10 +845,11 @@ function _icToggleRedondear() {
   if (!_icData) return;
   const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
   const el = document.getElementById('informe-tabla');
-  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, !!(ci && ci.contrato_horas_mes != null));
+  if (el) el.innerHTML = _renderInformeClienteHTML(_icData, ci);
 }
 
-function _renderInformeClienteHTML(data, tieneContrato) {
+function _renderInformeClienteHTML(data, clienteInfo) {
+  const tieneContrato = !!(clienteInfo && clienteInfo.contrato_horas_mes != null);
   const soloContratoChecked = tieneContrato && !!(document.getElementById('ic-solo-contrato') || {}).checked;
 
   let visitas = data.visitas || [];
@@ -905,8 +905,35 @@ function _renderInformeClienteHTML(data, tieneContrato) {
     + ' onchange="_icToggleRedondear()"'
     + ' style="width:15px;height:15px;accent-color:#169BBC;cursor:pointer">'
     + 'Redondear horas</label>';
+  const periodoContratoBtns = tieneContrato
+    ? '<div style="display:flex;gap:6px">'
+    + '<button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="_icPeriodoContrato(\'actual\')">📆 Contrato mes actual</button>'
+    + '<button class="btn-cancel" style="padding:5px 10px;font-size:12px" onclick="_icPeriodoContrato(\'anterior\')">⬅️ Contrato mes anterior</button>'
+    + '</div>'
+    : '';
 
-  const statCards = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">'
+  // Horas de contrato consumidas en el período cargado (independiente de "Solo
+  // visitas de contrato" y de las visitas ocultas del PDF — refleja el consumo real).
+  let statContrato = '';
+  if (tieneContrato) {
+    const horasContratadas = parseFloat(clienteInfo.contrato_horas_mes) || 0;
+    const horasConsumidas = (data.visitas || []).reduce((s, v) => s + (v.es_contrato
+      ? v.participantes.reduce((ps, p) => ps + (p.horas_contrato != null ? parseFloat(p.horas_contrato) || 0 : 0), 0)
+      : 0), 0);
+    const horasDisponibles = Math.round((horasContratadas - horasConsumidas) * 10) / 10;
+    const colorDisp = horasDisponibles < 0 ? '#dc2626' : 'var(--text-muted)';
+    const labelDisp = horasDisponibles < 0
+      ? 'Excedido: ' + Math.abs(horasDisponibles) + 'h'
+      : 'Disponibles: ' + horasDisponibles + 'h';
+    statContrato = '<div style="background:var(--surface-1);border-radius:8px;padding:13px 16px">'
+      + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Horas de contrato</div>'
+      + '<div style="font-size:22px;font-weight:500;color:var(--text-primary)">' + horasConsumidas + 'h'
+      + '<span style="font-size:13px;color:var(--text-muted);font-weight:400"> / ' + horasContratadas + 'h</span></div>'
+      + '<div style="font-size:12px;margin-top:2px;color:' + colorDisp + '">' + labelDisp + '</div>'
+      + '</div>';
+  }
+
+  const statCards = '<div style="display:grid;grid-template-columns:repeat(' + (tieneContrato ? 4 : 3) + ',1fr);gap:10px;margin-bottom:18px">'
     + '<div style="background:var(--surface-1);border-radius:8px;padding:13px 16px">'
     + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Horas hombre</div>'
     + '<div style="font-size:22px;font-weight:500;color:var(--text-primary)">' + thV + 'h ' + String(tmV).padStart(2,'0') + 'm</div></div>'
@@ -918,11 +945,12 @@ function _renderInformeClienteHTML(data, tieneContrato) {
     + '<div style="background:var(--surface-1);border-radius:8px;padding:13px 16px">'
     + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Técnicos</div>'
     + '<div style="font-size:22px;font-weight:500;color:var(--text-primary)">' + tecUnicos.length + '</div></div>'
+    + statContrato
     + '</div>';
 
   if (!visitas.length) {
     return '<div style="padding:24px">'
-      + (contratoToggle ? '<div style="display:flex;justify-content:flex-end;margin-bottom:16px">' + contratoToggle + '</div>' : '')
+      + (tieneContrato ? '<div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">' + periodoContratoBtns + contratoToggle + '</div>' : '')
       + '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0">Sin visitas completadas para este cliente en el período seleccionado.</div>'
       + '</div>';
   }
@@ -978,6 +1006,7 @@ function _renderInformeClienteHTML(data, tieneContrato) {
     + '<div><div style="font-size:18px;font-weight:500;color:var(--text-primary)">' + esc(data.cliente_nombre) + '</div>'
     + '<div style="font-size:13px;color:var(--text-secondary);margin-top:2px">' + esc(periodo) + ' · ' + visibles.length + ' visita' + (visibles.length !== 1 ? 's' : '') + '</div></div>'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + periodoContratoBtns
     + contratoToggle
     + redondearToggle
     + '<button onclick="generarInformeClientePDF()" style="background:#169BBC;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer">🖨️ Guardar PDF</button>'
@@ -1033,6 +1062,18 @@ function generarInformeClientePDF() {
 
   const periodo  = periodoLabelPDF(_icData.fecha_inicio, _icData.fecha_fin);
   const fechaGen = new Date().toLocaleDateString('es-CO', { day:'2-digit', month:'long', year:'numeric', timeZone:'America/Bogota' });
+
+  let statContratoPDF = '';
+  if (tieneContrato) {
+    const horasContratadas = parseFloat(ci.contrato_horas_mes) || 0;
+    const horasConsumidas = (_icData.visitas || []).reduce((s, v) => s + (v.es_contrato
+      ? v.participantes.reduce((ps, p) => ps + (p.horas_contrato != null ? parseFloat(p.horas_contrato) || 0 : 0), 0)
+      : 0), 0);
+    const horasDisponibles = Math.round((horasContratadas - horasConsumidas) * 10) / 10;
+    const labelDisp = horasDisponibles < 0 ? 'Excedido ' + Math.abs(horasDisponibles) + 'h' : 'Disp. ' + horasDisponibles + 'h';
+    statContratoPDF = '<div class="si"><div class="sn">' + horasConsumidas + 'h / ' + horasContratadas + 'h</div>'
+      + '<div class="sl2">Horas contrato (' + labelDisp + ')</div></div>';
+  }
 
   const visitasHTML = visibles.map(v => {
     const minHH = v.participantes.reduce((s, p) => s + redPDF(p.duracion_minutos, v.modalidad), 0);
@@ -1101,10 +1142,11 @@ function generarInformeClientePDF() {
     + '<div class="rp">' + escHTML(periodo) + '</div>'
     + '<div class="rm"><span class="mp">Generado: ' + escHTML(fechaGen) + '</span>'
     + '<span class="mp">' + visibles.length + ' visita' + (visibles.length !== 1 ? 's' : '') + ' incluida' + (visibles.length !== 1 ? 's' : '') + '</span></div></div>'
-    + '<div class="sb2">'
+    + '<div class="sb2"' + (tieneContrato ? ' style="grid-template-columns:repeat(4,1fr)"' : '') + '>'
     + '<div class="si"><div class="sn">' + thV + 'h ' + String(tmV).padStart(2,'0') + 'm</div><div class="sl2">Horas hombre</div></div>'
     + '<div class="si"><div class="sn">' + visibles.length + '</div><div class="sl2">Visitas realizadas</div></div>'
     + '<div class="si"><div class="sn">' + tecUnicos.length + '</div><div class="sl2">Técnicos asignados</div></div>'
+    + statContratoPDF
     + '</div>'
     + '<div class="stl">Detalle de visitas</div>'
     + visitasHTML
@@ -1118,6 +1160,46 @@ function generarInformeClientePDF() {
   win.document.close();
 }
 // ===================== FIN INFORME PARA CLIENTE =====================
+
+// ── Ciclo de contrato según fecha de corte (mismo cálculo que backend/lib/contrato.php) ──
+function _diasEnMes(anio, mes) { return new Date(anio, mes, 0).getDate(); } // mes: 1-12
+function _periodoContratoActual(corteDia, refDateStr) {
+  corteDia = corteDia || 1;
+  const ref = refDateStr ? new Date(refDateStr + 'T00:00:00') : new Date();
+  const anio = ref.getFullYear(), mes = ref.getMonth() + 1, dia = ref.getDate();
+  const corteEfectivoRef = Math.min(corteDia, _diasEnMes(anio, mes));
+  let inicioAnio = anio, inicioMes = mes;
+  if (dia < corteEfectivoRef) {
+    inicioMes -= 1;
+    if (inicioMes < 1) { inicioMes = 12; inicioAnio -= 1; }
+  }
+  const corteInicio = Math.min(corteDia, _diasEnMes(inicioAnio, inicioMes));
+  const inicio = new Date(inicioAnio, inicioMes - 1, corteInicio);
+  let finMes = inicioMes + 1, finAnio = inicioAnio;
+  if (finMes > 12) { finMes = 1; finAnio += 1; }
+  const corteFin = Math.min(corteDia, _diasEnMes(finAnio, finMes));
+  const fin = new Date(finAnio, finMes - 1, corteFin);
+  fin.setDate(fin.getDate() - 1);
+  const fmt = d => d.toISOString().slice(0, 10);
+  return [fmt(inicio), fmt(fin)];
+}
+function _periodoContratoAnterior(corteDia) {
+  const [inicioActual] = _periodoContratoActual(corteDia);
+  const refAnterior = new Date(inicioActual + 'T00:00:00');
+  refAnterior.setDate(refAnterior.getDate() - 1);
+  return _periodoContratoActual(corteDia, refAnterior.toISOString().slice(0, 10));
+}
+function _icPeriodoContrato(tipo) {
+  if (!_icData) return;
+  const ci = (_clientes || []).find(c => c.nombre.toLowerCase() === (_icData.cliente_nombre || '').toLowerCase());
+  const corteDia = (ci && ci.fecha_corte_contrato != null) ? parseInt(ci.fecha_corte_contrato, 10) : 1;
+  const [ini, fin] = tipo === 'anterior' ? _periodoContratoAnterior(corteDia) : _periodoContratoActual(corteDia);
+  const elD = document.getElementById('informe-desde');
+  const elH = document.getElementById('informe-hasta');
+  if (elD) elD.value = ini;
+  if (elH) elH.value = fin;
+  recalcularInforme();
+}
 
 function setPeriodoRapido(tipo) {
   const hoy = new Date();

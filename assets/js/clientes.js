@@ -74,7 +74,9 @@ function _ocultarCmSuggestions() {
 function _cmContratoAreaChange() {
   const area = document.getElementById('cm-contrato-area')?.value;
   const grp  = document.getElementById('cm-contrato-horas-grp');
+  const grpCorte = document.getElementById('cm-contrato-corte-grp');
   if (grp) grp.style.display = area ? '' : 'none';
+  if (grpCorte) grpCorte.style.display = area ? '' : 'none';
 }
 
 // ----------------- Carga y render -----------------
@@ -216,7 +218,8 @@ function _renderTablaClientes() {
       ? `<span style="color:var(--text);font-weight:600">$${Number(c.valor_transporte).toLocaleString('es-CO')}</span>`
       : `<span style="color:var(--text-muted)">—</span>`;
     const contrato = c.contrato_area
-      ? `<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">
+      ? `<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap"
+           title="Corte: día ${c.fecha_corte_contrato ?? 1} de cada mes">
            ${c.contrato_area.toUpperCase()} · ${c.contrato_horas_mes ?? '?'}h/mes
          </span>`
       : `<span style="color:var(--text-muted)">—</span>`;
@@ -321,8 +324,10 @@ function abrirModalCliente(id = null) {
   // Contrato
   const selArea = document.getElementById('cm-contrato-area');
   const inpHoras = document.getElementById('cm-contrato-horas');
+  const inpCorte = document.getElementById('cm-contrato-corte');
   if (selArea)  selArea.value  = c?.contrato_area  || '';
   if (inpHoras) inpHoras.value = c?.contrato_horas_mes != null ? c.contrato_horas_mes : '';
+  if (inpCorte) inpCorte.value = c?.fecha_corte_contrato != null ? c.fecha_corte_contrato : '';
   _cmContratoAreaChange();
 
   const btnEliminar = document.getElementById('cm-btn-eliminar');
@@ -386,6 +391,7 @@ async function guardarCliente() {
 
   const contratoArea  = document.getElementById('cm-contrato-area')?.value  || null;
   const contratoHoras = document.getElementById('cm-contrato-horas')?.value;
+  const contratoCorte = document.getElementById('cm-contrato-corte')?.value;
 
   const body = {
     nombre,
@@ -398,11 +404,15 @@ async function guardarCliente() {
     alegra_id:          document.getElementById('cm-alegra-id').value.trim() || null,
     contrato_area:      contratoArea || null,
     contrato_horas_mes: contratoArea && contratoHoras !== '' ? parseFloat(contratoHoras) || null : null,
+    fecha_corte_contrato: contratoArea && contratoCorte !== '' ? (parseInt(contratoCorte, 10) || null) : null,
     valor_transporte:   (() => { const v = document.getElementById('cm-transporte')?.value; return v !== '' && v != null ? parseInt(v) || null : null; })(),
   };
 
   if (body.lat !== null && isNaN(body.lat)) { alert('Latitud inválida.'); return; }
   if (body.lng !== null && isNaN(body.lng)) { alert('Longitud inválida.'); return; }
+  if (body.fecha_corte_contrato !== null && (body.fecha_corte_contrato < 1 || body.fecha_corte_contrato > 31)) {
+    alert('El día de corte del contrato debe estar entre 1 y 31.'); return;
+  }
 
   try {
     const url    = _clienteEditId ? `${API_BASE}/clientes.php?id=${_clienteEditId}` : `${API_BASE}/clientes.php`;
