@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/db.php';
 applyCors();
 require_once __DIR__ . '/../lib/mailer.php';
 require_once __DIR__ . '/../lib/contrato.php';
+require_once __DIR__ . '/../lib/transportes.php';
 
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -629,6 +630,8 @@ if ($method === 'PUT') {
     $checkoutLng = isset($d['lng']) ? (float)$d['lng'] : null;
     $checkoutAt  = !empty($d['checkoutAt']) ? $d['checkoutAt'] : null;
 
+    $quedoEnviado = false;
+
     if ($partId) {
       // ── Multi-tech: actualizar participante específico ──────────
       // Auto-cerrar pausa activa si el técnico finaliza estando en pausa
@@ -648,6 +651,7 @@ if ($method === 'PUT') {
         $ultimoCheckout = $stmt2->fetchColumn();
         $pdo->prepare("UPDATE reportes SET estado='enviado', check_out=?, tecnico_checkout_id=? WHERE id=?")
           ->execute([$ultimoCheckout, $tecnicoOut, $id]);
+        $quedoEnviado = true;
       }
     } else {
       // ── Legacy: checkout único (registros sin visita_participantes) ──
@@ -656,6 +660,15 @@ if ($method === 'PUT') {
       // Intentar actualizar participante coincidente si existe
       $pdo->prepare("UPDATE visita_participantes SET check_out=?, checkout_lat=?, checkout_lng=? WHERE reporte_id=? AND tecnico_id=? AND check_out IS NULL")
         ->execute([$coAt, $checkoutLat, $checkoutLng, $id, $tecnicoOut]);
+      $quedoEnviado = true;
+    }
+
+    // Transporte: si el reporte quedó enviado (checkout completo + reporte
+    // ya enviado), registrar automáticamente. No bloqueante.
+    if ($quedoEnviado) {
+      try {
+        if (!empty($prev['tarea_id'])) crearTransportesTarea($pdo, $prev['tarea_id']);
+      } catch (Throwable $e) { /* silencioso */ }
     }
 
     // ── Descuento de horas de contrato (si la tarea es tipo contrato) ──

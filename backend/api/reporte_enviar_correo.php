@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
 require_once __DIR__ . '/../lib/mailer.php';
+require_once __DIR__ . '/../lib/transportes.php';
 
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -98,6 +99,12 @@ if ($method === 'POST') {
 
   $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW() WHERE id=?")
     ->execute([implode(', ', $correos), $reporteId]);
+
+  // Transporte: si el checkout ya estaba hecho, registrar automáticamente
+  // (no bloqueante — un fallo aquí no debe afectar el envío del reporte).
+  try {
+    if (!empty($rep['tarea_id'])) crearTransportesTarea($pdo, $rep['tarea_id']);
+  } catch (Throwable $e) { /* silencioso */ }
 
   jsonOut(['ok' => true, 'enviado_a' => $correos]);
 }

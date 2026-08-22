@@ -42,6 +42,23 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — registro automático de transporte al checkout+reporte enviado)
+
+Sin migraciones ni cron nuevo.
+
+**Resumen:** hasta ahora el transporte solo se registraba al facturar o archivar la tarjeta (popup manual). Ahora se registra automáticamente en el momento en que una visita queda con checkout completo Y su reporte enviado — sin esperar a que la tarjeta avance de estado. Se agregaron los filtros de área IT/IF y modalidad "en sitio" directamente en el backend (antes solo estaban en el frontend).
+
+- Lógica de creación extraída a `crearTransportesTarea()` en una librería compartida, usada automáticamente en dos puntos (según el orden en que ocurra checkout vs. envío del reporte) y también por el registro manual.
+- El popup al facturar/archivar sigue existiendo como respaldo, pero en el flujo normal ya no va a encontrar nada pendiente porque el automático ya lo cubrió antes.
+- El botón manual "🚗 Registrar transporte" dentro del modal de tarea ya NO exige que la tarjeta esté en Facturado/Archivado — aparece en cualquier tarjeta IT/IF en sitio con checkouts sin transporte registrado. Esto también sirve para ponerse al día con visitas anteriores a este cambio que se quedaron sin registrar (ej. las de Laguna Seca, que estaban en "Realizado").
+
+**Archivos:**
+- `backend/lib/transportes.php` (nuevo) — `crearTransportesTarea($pdo, $tareaId)`, misma lógica de trayectos (primera visita del día = 2, siguientes = 0) que ya existía, ahora con los filtros de área/modalidad incluidos
+- `backend/api/transportes.php` — POST simplificado a un wrapper de la función compartida; `?pendientes_tarea=` ahora filtra por área IT/IF, modalidad en_sitio y checkout ya hecho
+- `backend/api/reporte_enviar_correo.php` — al marcar el reporte como enviado, registra transporte si el checkout ya estaba hecho
+- `backend/api/reportes.php` — en la acción `checkout`, cuando el reporte queda `enviado` (checkout diferido multi-técnico o legacy), registra transporte si el reporte ya se había enviado antes
+- `assets/js/tareas.js?v=20260822b` — botón manual del modal sin exigir Facturado/Archivado
+
 ## Cambios pendientes de deploy (2026-08-22 — dashboard de contratos vigentes + alerta de fin de ciclo sin consumir)
 
 ⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**

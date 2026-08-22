@@ -1390,12 +1390,15 @@ function openModal(id, preArea, preEstado) {
     }
   }
 
-  // ── Botón de transporte (solo tarea existente IT/IF facturada/archivada) ──
+  // ── Botón de transporte (respaldo manual, cualquier tarea IT/IF existente) ──
+  // El registro normal es automático (checkout + reporte enviado); este botón
+  // solo aparece si quedó algo pendiente sin registrar (backend lo filtra por
+  // modalidad en_sitio y checkout ya hecho vía ?pendientes_tarea=).
   const transpBtn = document.getElementById('modal-transporte-btn');
   if (transpBtn) {
     transpBtn.style.display = 'none';
     transpBtn.innerHTML = '';
-    if (t && ['it','if'].includes(t.area) && ['facturado','archivado'].includes(t.estado) &&
+    if (t && ['it','if'].includes(t.area) &&
         typeof _transpActualizarBotonModal === 'function') {
       _transpActualizarBotonModal(t.id);
     }
