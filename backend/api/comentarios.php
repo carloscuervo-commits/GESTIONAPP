@@ -90,8 +90,6 @@ if ($method === 'POST') {
       $link      = "https://grupoinnovate.com/ginno/tareas-equipo.html?abrir_tarea={$tareaId}&area={$areaLink}";
 
       foreach ($mencionados as $u) {
-        if ($u['id'] === $usuarioId) continue; // no notificarse a uno mismo
-
         if ($u['notif_menciones_correo'] == 1 && !empty($u['email'])) {
           $cuerpo = htmlAvisoTecnico(
             $u['nombre'],
