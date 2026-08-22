@@ -75,6 +75,11 @@
       label: '⏰ Aviso antes del checkout automático',
       desc: 'Avisa al técnico ~1h antes de la hora de corte (configurable abajo) si tiene visitas sin cerrar hoy. Requiere cron <code>aviso_checkout_automatico.php</code>. El checkout automático en sí (cron <code>checkout_automatico.php</code>) y el resumen a administradores siempre corren, sin importar este interruptor.',
     },
+    {
+      claveCorreo: 'aviso_contrato_pendiente', claveTelegram: 'aviso_contrato_pendiente_tg',
+      label: '📋 Contrato por consumir antes del cierre',
+      desc: 'Avisa a administradores cuando a un contrato le falta poco para cerrar su ciclo mensual y aún tiene horas contratadas sin consumir (umbral de días configurable abajo). Se puede desactivar por cliente en el modal de Clientes. Requiere cron <code>aviso_contratos_pendientes.php</code> una vez al día.',
+    },
   ];
 
   // ── API ───────────────────────────────────────────────────
@@ -131,6 +136,7 @@
 
     const umbralHoras   = _config['horas_contrato_umbral'] ?? '2';
     const horaCorteAuto = _config['checkout_auto_hora']    ?? '18:30';
+    const umbralDiasContrato = _config['contrato_pendiente_dias_umbral'] ?? '10';
 
     el.innerHTML = `
       <div style="max-width:760px">
@@ -161,6 +167,18 @@
                 style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
                 onchange="cfgGuardarUmbralHoras(this.value)">
               <span style="font-size:13px;color:var(--text-muted)">horas</span>
+            </div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:600;font-size:13px;color:var(--text,#1e293b)">📋 Umbral de días — contrato por consumir</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Se avisa cuando faltan estos días o menos para el cierre del ciclo mensual de un contrato, si aún tiene horas sin consumir.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="cfg-contrato-dias-umbral" min="1" max="31" step="1" value="${esc(String(umbralDiasContrato))}"
+                style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
+                onchange="cfgGuardarUmbralDiasContrato(this.value)">
+              <span style="font-size:13px;color:var(--text-muted)">días</span>
             </div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -263,6 +281,12 @@
     const num = parseFloat(valor);
     const final = isNaN(num) || num < 0 ? '2' : String(num);
     saveTexto('horas_contrato_umbral', final);
+  };
+
+  window.cfgGuardarUmbralDiasContrato = function (valor) {
+    const num = parseInt(valor, 10);
+    const final = isNaN(num) || num < 1 ? '10' : String(num);
+    saveTexto('contrato_pendiente_dias_umbral', final);
   };
 
   window.cfgGuardarHoraCorteAuto = function (valor) {

@@ -75,8 +75,10 @@ function _cmContratoAreaChange() {
   const area = document.getElementById('cm-contrato-area')?.value;
   const grp  = document.getElementById('cm-contrato-horas-grp');
   const grpCorte = document.getElementById('cm-contrato-corte-grp');
+  const grpAlerta = document.getElementById('cm-contrato-alerta-grp');
   if (grp) grp.style.display = area ? '' : 'none';
   if (grpCorte) grpCorte.style.display = area ? '' : 'none';
+  if (grpAlerta) grpAlerta.style.display = area ? '' : 'none';
 }
 
 // ----------------- Carga y render -----------------
@@ -325,9 +327,11 @@ function abrirModalCliente(id = null) {
   const selArea = document.getElementById('cm-contrato-area');
   const inpHoras = document.getElementById('cm-contrato-horas');
   const inpCorte = document.getElementById('cm-contrato-corte');
+  const chkAlerta = document.getElementById('cm-contrato-alerta');
   if (selArea)  selArea.value  = c?.contrato_area  || '';
   if (inpHoras) inpHoras.value = c?.contrato_horas_mes != null ? c.contrato_horas_mes : '';
   if (inpCorte) inpCorte.value = c?.fecha_corte_contrato != null ? c.fecha_corte_contrato : '';
+  if (chkAlerta) chkAlerta.checked = c ? c.alertar_fin_mes_contrato != 0 : true;
   _cmContratoAreaChange();
 
   const btnEliminar = document.getElementById('cm-btn-eliminar');
@@ -392,6 +396,7 @@ async function guardarCliente() {
   const contratoArea  = document.getElementById('cm-contrato-area')?.value  || null;
   const contratoHoras = document.getElementById('cm-contrato-horas')?.value;
   const contratoCorte = document.getElementById('cm-contrato-corte')?.value;
+  const contratoAlerta = document.getElementById('cm-contrato-alerta')?.checked ?? true;
 
   const body = {
     nombre,
@@ -405,6 +410,7 @@ async function guardarCliente() {
     contrato_area:      contratoArea || null,
     contrato_horas_mes: contratoArea && contratoHoras !== '' ? parseFloat(contratoHoras) || null : null,
     fecha_corte_contrato: contratoArea && contratoCorte !== '' ? (parseInt(contratoCorte, 10) || null) : null,
+    alertar_fin_mes_contrato: contratoArea ? (contratoAlerta ? 1 : 0) : 1,
     valor_transporte:   (() => { const v = document.getElementById('cm-transporte')?.value; return v !== '' && v != null ? parseInt(v) || null : null; })(),
   };
 

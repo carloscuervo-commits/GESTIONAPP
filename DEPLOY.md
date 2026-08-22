@@ -42,6 +42,45 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — dashboard de contratos vigentes + alerta de fin de ciclo sin consumir)
+
+⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**
+```sql
+ALTER TABLE clientes
+  ADD COLUMN alertar_fin_mes_contrato TINYINT(1) NOT NULL DEFAULT 1 AFTER fecha_corte_contrato;
+
+INSERT IGNORE INTO configuracion (clave, valor) VALUES
+  ('aviso_contrato_pendiente',       '1'),
+  ('aviso_contrato_pendiente_tg',    '1'),
+  ('contrato_pendiente_dias_umbral', '10');
+```
+(Migración trackeada en `db/035_alertar_fin_mes_contrato.sql`. Requiere que `db/034_fecha_corte_contrato.sql` ya esté aplicada, por el `AFTER fecha_corte_contrato`.)
+
+⚠️ **Acción manual en cPanel — un cron nuevo** (hora Colombia, una vez al día):
+```
+0 8 * * *
+/usr/bin/php /home/innovate/public_html/ginno/backend/cron/aviso_contratos_pendientes.php > /dev/null 2>&1
+```
+
+**Resumen:** dos piezas nuevas, pensadas para quien programa a los técnicos:
+
+- **Dashboard → tarjeta "📋 Contratos vigentes"**: lista todos los clientes con contrato activo (IT y IF), con barra de progreso de horas consumidas/contratadas en el ciclo vigente (según la fecha de corte de cada cliente). Solo visible para admin, igual que el resto del dashboard. Clic en un cliente abre su modal de edición.
+- **Zona de alertas del dashboard**: nueva sección "📋 Contratos por consumir antes del cierre" que solo aparece cuando algún contrato tiene ≤10 días (configurable) para cerrar su ciclo y todavía le quedan horas contratadas sin usar.
+- **Aviso automático** (cron `aviso_contratos_pendientes.php`, nuevo): misma condición que la sección de alertas, notifica a administradores por correo y/o Telegram (gateado por los dos interruptores nuevos en Configuración → Avisos a técnicos), deduplicado por ciclo de contrato (no reenvía el mismo aviso todos los días).
+- **Checkbox nuevo en el modal de Cliente**: "Alertar cuando se acerque fin de mes y no haya consumido el contrato", junto a Área/Horas/Corte del contrato. Activado por defecto — desactívalo manualmente en los contratos que son solo por daños (no se espera que consuman todas las horas cada mes); esos clientes no generan ni la sección de alerta ni el aviso.
+- **Configuración**: nuevo campo "Umbral de días — contrato por consumir" (default 10), controla tanto la sección de alertas del dashboard como el aviso automático (misma función `contratosVigentesConsumo()` en el backend para ambos, sin duplicar el criterio).
+
+**Archivos:**
+- `db/035_alertar_fin_mes_contrato.sql` (nuevo)
+- `backend/lib/contrato.php` — nueva función `contratosVigentesConsumo()`, fuente única de verdad para dashboard y cron
+- `backend/api/contratos.php` (nuevo) — `GET ?vigentes=1`
+- `backend/api/clientes.php` — `alertar_fin_mes_contrato` en GET/POST/PUT
+- `backend/cron/aviso_contratos_pendientes.php` (nuevo)
+- `assets/js/tareas.js?v=20260822a` — `cargarContratosVigentes()`, tarjeta del dashboard + sección de alertas
+- `assets/js/clientes.js?v=20260822b` — checkbox `cm-contrato-alerta` en el modal
+- `assets/js/configuracion.js?v=20260822a` — fila de aviso + campo de umbral de días
+- `tareas-equipo.html` — checkbox en modal Cliente, `<div id="contratos-vigentes-section">` y `<div id="contratos-alerta-fin-mes">` en el dashboard
+
 ## Cambios pendientes de deploy (2026-08-22 — fecha de corte del contrato + horas de contrato en informe cliente)
 
 ⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**

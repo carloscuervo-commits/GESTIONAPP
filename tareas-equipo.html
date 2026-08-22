@@ -800,6 +800,13 @@
             <input class="form-input" id="cm-contrato-corte" type="number" min="1" max="31" step="1" placeholder="Ej: 15 (def. 1)">
           </div>
         </div>
+        <div id="cm-contrato-alerta-grp" style="display:none;margin-top:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer">
+            <input type="checkbox" id="cm-contrato-alerta" style="width:16px;height:16px;accent-color:#169BBC;cursor:pointer">
+            Alertar cuando se acerque fin de mes y no haya consumido el contrato
+          </label>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;margin-left:24px">Desactiva esto en contratos que son solo por daños — no se espera que consuman todas las horas cada mes.</div>
+        </div>
       </div>
     </div>
 
@@ -823,7 +830,7 @@
 
 <script src="assets/js/core.js?v=20260819a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260820a"></script>
+<script src="assets/js/tareas.js?v=20260822a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260819a"></script>
@@ -831,13 +838,13 @@
 <script src="assets/js/informes.js?v=20260822b"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
 <script src="assets/js/usuarios.js?v=20260820a"></script>
-<script src="assets/js/clientes.js?v=20260822a"></script>
+<script src="assets/js/clientes.js?v=20260822b"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
 <script src="assets/js/imagenes.js?v=20260630a"></script>
 <script src="assets/js/transportes.js?v=20260704e"></script>
 <script src="assets/js/bitacora.js?v=20260807b"></script>
-<script src="assets/js/configuracion.js?v=20260807a"></script>
+<script src="assets/js/configuracion.js?v=20260822a"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
 <script src="assets/js/app.js?v=20260807a"></script>
 </body>

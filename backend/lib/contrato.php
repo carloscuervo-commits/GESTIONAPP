@@ -7,6 +7,7 @@
  * calendario (comportamiento por defecto para clientes sin fecha de corte
  * configurada).
  */
+require_once __DIR__ . '/avisos_tecnicos.php'; // configGet(), usado por contratosVigentesConsumo()
 
 // Devuelve [inicio, fin] ('Y-m-d', ambos inclusive) del ciclo vigente para
 // la fecha de referencia (por defecto, hoy en hora Colombia).
@@ -50,4 +51,81 @@ function periodoContratoAnterior(?int $corteDia, ?string $refDate = null): array
   [$inicioActual] = periodoContratoActual($corteDia, $refDate);
   $refAnterior = (new DateTime($inicioActual))->modify('-1 day')->format('Y-m-d');
   return periodoContratoActual($corteDia, $refAnterior);
+}
+
+/**
+ * Consumo de horas de contrato de TODOS los clientes con contrato activo
+ * (IT o IF), en el ciclo vigente de cada uno. Fuente única de verdad
+ * compartida por el endpoint del dashboard (backend/api/contratos.php) y el
+ * cron de aviso (backend/cron/aviso_contratos_pendientes.php), para que
+ * ambos usen exactamente el mismo criterio de "hay que avisar".
+ *
+ * Cada fila: cliente_id, cliente, area, horas_contratadas, horas_consumidas,
+ * horas_disponibles, dias_restantes (hasta el fin del ciclo, puede ser 0),
+ * periodo_inicio, periodo_fin, alertar_fin_mes_contrato (bool del cliente),
+ * alerta_pendiente (bool ya calculado: dias_restantes <= umbral Y
+ * horas_consumidas < horas_contratadas Y alertar_fin_mes_contrato).
+ */
+function contratosVigentesConsumo(PDO $pdo): array {
+  $umbralRaw   = configGet($pdo, 'contrato_pendiente_dias_umbral');
+  $umbralDias  = ($umbralRaw !== null && $umbralRaw !== '') ? (int)$umbralRaw : 10;
+
+  $stmtC = $pdo->prepare("
+    SELECT id, nombre, contrato_area, contrato_horas_mes, fecha_corte_contrato, alertar_fin_mes_contrato
+    FROM clientes
+    WHERE contrato_area IS NOT NULL AND contrato_horas_mes IS NOT NULL
+    ORDER BY contrato_area ASC, nombre ASC
+  ");
+  $stmtC->execute();
+  $clientes = $stmtC->fetchAll();
+
+  $hoy = new DateTime('now', new DateTimeZone('America/Bogota'));
+  $resultado = [];
+
+  $stmtCons = $pdo->prepare("
+    SELECT COALESCE(SUM(vp.horas_contrato), 0)
+    FROM visita_participantes vp
+    JOIN reportes r2 ON r2.id = vp.reporte_id COLLATE utf8mb4_general_ci
+    JOIN tareas t2   ON t2.id = r2.tarea_id
+    WHERE t2.cliente COLLATE utf8mb4_general_ci = ?
+      AND t2.tipo_tarea = 'contrato'
+      AND t2.area      = ?
+      AND DATE(vp.check_out) BETWEEN ? AND ?
+      AND vp.horas_contrato IS NOT NULL
+  ");
+
+  foreach ($clientes as $c) {
+    $corteDia = $c['fecha_corte_contrato'] !== null ? (int)$c['fecha_corte_contrato'] : null;
+    [$periodoInicio, $periodoFin] = periodoContratoActual($corteDia);
+
+    $stmtCons->execute([$c['nombre'], $c['contrato_area'], $periodoInicio, $periodoFin]);
+    $horasConsumidas = (float)$stmtCons->fetchColumn();
+    $horasContratadas = (float)$c['contrato_horas_mes'];
+
+    $fin = new DateTime($periodoFin);
+    $diasRestantes = max(0, (int)$hoy->diff($fin)->format('%r%a'));
+    // Si $fin ya pasó (no debería, pero por seguridad), no negativo.
+    if ($fin < $hoy) $diasRestantes = 0;
+
+    $alertarCliente = ((int)$c['alertar_fin_mes_contrato']) === 1;
+    $alertaPendiente = $alertarCliente
+      && $diasRestantes <= $umbralDias
+      && $horasConsumidas < $horasContratadas;
+
+    $resultado[] = [
+      'cliente_id'               => $c['id'],
+      'cliente'                  => $c['nombre'],
+      'area'                     => $c['contrato_area'],
+      'horas_contratadas'        => $horasContratadas,
+      'horas_consumidas'         => $horasConsumidas,
+      'horas_disponibles'        => round($horasContratadas - $horasConsumidas, 1),
+      'dias_restantes'           => $diasRestantes,
+      'periodo_inicio'           => $periodoInicio,
+      'periodo_fin'              => $periodoFin,
+      'alertar_fin_mes_contrato' => $alertarCliente,
+      'alerta_pendiente'         => $alertaPendiente,
+    ];
+  }
+
+  return $resultado;
 }

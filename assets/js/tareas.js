@@ -519,6 +519,7 @@ function renderDashboard() {
         ifT.filter(t=>t.estado==='realizado').length,
         ifAlerts.length)}
     </div>
+    <div id="contratos-vigentes-section"></div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
       <div onclick="goToArea('comercial','')" style="font-weight:700;font-size:15px;color:#3b82f6;margin-bottom:14px;cursor:pointer">
         💼 Comercial <span style="font-size:12px;font-weight:400;color:var(--text-muted)">→ ver todo</span>
@@ -638,6 +639,7 @@ function renderDashboard() {
     </div>`;
   }
 
+  html += '<div id="contratos-alerta-fin-mes"></div>';
   html += '<div id="alertas-sin-reporte"></div>';
   html += '<div id="alertas-fuera-sitio"></div>';
   html += '</div>';
@@ -645,6 +647,7 @@ function renderDashboard() {
   renderAlertasRetraso();
   actualizarBadgeFueraSitio();
   cargarAlertasSinReporte();
+  cargarContratosVigentes();
 }
 
 // Banner persistente de técnicos tardíos (actualizado también por alarma.js cada 60s)
@@ -810,6 +813,87 @@ async function cargarAlertasSinReporte() {
         <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
       </div>`;
   } catch(e) { /* silencioso */ }
+}
+
+// --------------------------------------------------------------
+// Contratos de horas vigentes (IT/IF) — tarjeta del dashboard con el
+// consumo del ciclo actual + sección en la zona de alertas cuando algún
+// contrato está por cerrar su ciclo sin haberse consumido. Ambas secciones
+// se alimentan del mismo fetch a contratos.php?vigentes=1 (que a su vez usa
+// contratosVigentesConsumo(), la misma lógica que corre el cron de aviso).
+// --------------------------------------------------------------
+let _contratosVigentesData = [];
+
+async function cargarContratosVigentes() {
+  if (!currentUser || currentUser.perfil !== 'admin' || !API_BASE) return;
+  try {
+    const res = await fetch(`${API_BASE}/contratos.php?vigentes=1`);
+    const data = await res.json();
+    _contratosVigentesData = Array.isArray(data) ? data : [];
+  } catch (e) { _contratosVigentesData = []; return; }
+  // Necesario para poder abrir el modal de edición del cliente al hacer clic
+  if ((!_clientes || !_clientes.length) && typeof cargarClientes === 'function') cargarClientes();
+  renderContratosVigentesCard();
+  renderContratosAlertaFinMes();
+}
+
+function renderContratosVigentesCard() {
+  const el = document.getElementById('contratos-vigentes-section');
+  if (!el) return;
+  if (!_contratosVigentesData.length) { el.innerHTML = ''; return; }
+
+  const fila = c => {
+    const pct = c.horas_contratadas > 0 ? Math.min(100, Math.round((c.horas_consumidas / c.horas_contratadas) * 100)) : 0;
+    const barColor = c.horas_disponibles < 0 ? '#dc2626' : (c.alerta_pendiente ? '#f59e0b' : '#169BBC');
+    const areaColor = c.area === 'it' ? '#6366f1' : '#f97316';
+    return `<div onclick="typeof abrirModalCliente==='function' && abrirModalCliente('${esc(c.cliente_id)}')"
+        style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${areaColor}25;color:${areaColor};flex-shrink:0">${c.area.toUpperCase()}</span>
+          <span style="font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.cliente)}</span>
+        </div>
+        <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">${c.horas_consumidas}h / ${c.horas_contratadas}h</span>
+      </div>
+      <div style="background:var(--bg);border-radius:99px;height:6px;overflow:hidden">
+        <div style="background:${barColor};height:100%;width:${pct}%"></div>
+      </div>
+      ${c.alerta_pendiente ? `<div style="font-size:11px;color:#f59e0b;margin-top:4px;font-weight:600">⏳ ${c.dias_restantes} día${c.dias_restantes===1?'':'s'} para el cierre del ciclo · quedan ${c.horas_disponibles}h por consumir</div>` : ''}
+    </div>`;
+  };
+
+  const itRows = _contratosVigentesData.filter(c => c.area === 'it').map(fila).join('');
+  const ifRows = _contratosVigentesData.filter(c => c.area === 'if').map(fila).join('');
+
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
+    <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40);margin-bottom:4px">📋 Contratos vigentes</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Consumo del ciclo actual de cada contrato — úsalo para saber qué falta programar antes del cierre.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px">
+      ${itRows ? `<div>${itRows}</div>` : ''}
+      ${ifRows ? `<div>${ifRows}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderContratosAlertaFinMes() {
+  const el = document.getElementById('contratos-alerta-fin-mes');
+  if (!el) return;
+  const pendientes = _contratosVigentesData.filter(c => c.alerta_pendiente);
+  if (!pendientes.length) { el.innerHTML = ''; return; }
+
+  const items = pendientes.map(c => `
+    <div onclick="typeof abrirModalCliente==='function' && abrirModalCliente('${esc(c.cliente_id)}')"
+      style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.5);cursor:pointer;font-size:13px">
+      <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${c.area==='it'?'#6366f1':'#f97316'}25;color:${c.area==='it'?'#6366f1':'#f97316'}">${c.area.toUpperCase()}</span>
+      <span style="font-weight:600;flex:1">${esc(c.cliente)}</span>
+      <span style="color:var(--text-muted);font-size:11px">${c.horas_consumidas}h / ${c.horas_contratadas}h</span>
+      <span style="color:#7c2d12;font-weight:700;font-size:12px">⏳ ${c.dias_restantes} día${c.dias_restantes===1?'':'s'} para cerrar ciclo</span>
+    </div>`).join('');
+
+  el.innerHTML = `<div style="background:#f59e0b;border:1px solid #f59e0b;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📋 Contratos por consumir antes del cierre (${pendientes.length})</div>
+    <div style="display:flex;flex-direction:column;gap:6px">${items}</div>
+  </div>`;
 }
 
 function setArea(a) {

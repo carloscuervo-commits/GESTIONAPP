@@ -16,6 +16,7 @@ function clienteRow($row) {
   if ($row['lng'] !== null) $row['lng'] = (float)$row['lng'];
   if ($row['contrato_horas_mes']  !== null) $row['contrato_horas_mes']  = (float)$row['contrato_horas_mes'];
   if ($row['fecha_corte_contrato'] !== null) $row['fecha_corte_contrato'] = (int)$row['fecha_corte_contrato'];
+  $row['alertar_fin_mes_contrato'] = (int)($row['alertar_fin_mes_contrato'] ?? 1);
   if ($row['valor_transporte']    !== null) $row['valor_transporte']    = (int)$row['valor_transporte'];
   return $row;
 }
@@ -73,8 +74,8 @@ if ($method === 'POST') {
   $id = bin2hex(random_bytes(16));
   $pdo->prepare("INSERT INTO clientes
     (id, nombre, email, direccion, lat, lng, radio_metros, plazo_factura_dias, alegra_id,
-     contrato_area, contrato_horas_mes, fecha_corte_contrato, valor_transporte)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+     contrato_area, contrato_horas_mes, fecha_corte_contrato, alertar_fin_mes_contrato, valor_transporte)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     ->execute([
       $id,
       $d['nombre'],
@@ -88,6 +89,7 @@ if ($method === 'POST') {
       $d['contrato_area']           ?? null,
       isset($d['contrato_horas_mes']) ? (float)$d['contrato_horas_mes'] : null,
       isset($d['fecha_corte_contrato']) ? (int)$d['fecha_corte_contrato'] : null,
+      isset($d['alertar_fin_mes_contrato']) ? (int)!!$d['alertar_fin_mes_contrato'] : 1,
       isset($d['valor_transporte'])   ? (int)$d['valor_transporte']   : null,
     ]);
 
@@ -123,6 +125,7 @@ if ($method === 'PUT') {
     contrato_area       = ?,
     contrato_horas_mes  = ?,
     fecha_corte_contrato = ?,
+    alertar_fin_mes_contrato = ?,
     valor_transporte    = ?
     WHERE id = ?")
     ->execute([
@@ -137,6 +140,7 @@ if ($method === 'PUT') {
       array_key_exists('contrato_area', $d)       ? $d['contrato_area']                : $prev['contrato_area'],
       array_key_exists('contrato_horas_mes', $d)  ? (isset($d['contrato_horas_mes']) ? (float)$d['contrato_horas_mes'] : null) : $prev['contrato_horas_mes'],
       array_key_exists('fecha_corte_contrato', $d) ? (isset($d['fecha_corte_contrato']) ? (int)$d['fecha_corte_contrato'] : null) : $prev['fecha_corte_contrato'],
+      array_key_exists('alertar_fin_mes_contrato', $d) ? (int)!!$d['alertar_fin_mes_contrato'] : (int)$prev['alertar_fin_mes_contrato'],
       array_key_exists('valor_transporte', $d)    ? (isset($d['valor_transporte']) ? (int)$d['valor_transporte'] : null) : $prev['valor_transporte'],
       $id,
     ]);
