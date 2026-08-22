@@ -120,6 +120,9 @@ function abrirModalUsuario(id) {
   document.getElementById('um-perfil').value    = u?.perfil    || 'tecnico';
   document.getElementById('um-telegram').value  = u?.telegram_chat_id || '';
   document.getElementById('um-celular').value   = u?.celular || '';
+  // Notificaciones de menciones: activadas por defecto (usuario nuevo o sin dato aún)
+  document.getElementById('um-notif-mencion-correo').checked = u ? u.notif_menciones_correo == 1 : true;
+  document.getElementById('um-notif-mencion-tg').checked     = u ? u.notif_menciones_tg == 1     : true;
   document.getElementById('um-activo').checked  = u ? u.activo == 1 : true;
   document.getElementById('um-pin').value         = '';
   document.getElementById('um-pin-confirm').value = '';
@@ -216,8 +219,11 @@ async function guardarUsuario() {
   const cedula    = document.getElementById('um-cedula').value.trim();
   const telegram  = document.getElementById('um-telegram').value.trim();
   const celular   = document.getElementById('um-celular').value.trim();
+  const notifMencionCorreo = document.getElementById('um-notif-mencion-correo').checked ? 1 : 0;
+  const notifMencionTg     = document.getElementById('um-notif-mencion-tg').checked     ? 1 : 0;
   const payload = { nombre, iniciales, email: email || null, cedula: cedula || null, rol: rol || null, perfil, color,
-                    telegram_chat_id: telegram || null, celular: celular || null };
+                    telegram_chat_id: telegram || null, celular: celular || null,
+                    notif_menciones_correo: notifMencionCorreo, notif_menciones_tg: notifMencionTg };
   if (!esNuevo) payload.activo = activo;
   if (esNuevo)  payload.id = id;
   if (pin)      payload.pin = pin;

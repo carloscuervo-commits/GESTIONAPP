@@ -280,6 +280,18 @@
           Con el indicativo de área (ej: 3176452811). Se usa para el botón "Avisar por WhatsApp" en la tarjeta — abre el chat con el mensaje ya escrito.
         </div>
       </div>
+      <!-- Notificaciones de menciones en comentarios -->
+      <div class="form-group full">
+        <label>Avisos cuando lo mencionen en un comentario (@)</label>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:2px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:13px">
+            <input type="checkbox" id="um-notif-mencion-correo" style="width:16px;height:16px;cursor:pointer"> 📧 Por correo
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:13px">
+            <input type="checkbox" id="um-notif-mencion-tg" style="width:16px;height:16px;cursor:pointer"> ✈️ Por Telegram
+          </label>
+        </div>
+      </div>
       <!-- Perfil -->
       <div class="form-group">
         <label>Perfil de acceso</label>
@@ -518,6 +530,21 @@
     <div id="modal-acciones-rapidas" style="display:none;padding:12px 0 4px;flex-direction:column;gap:8px"></div>
     <div id="modal-transporte-btn" style="display:none;padding:0 0 8px"></div>
     <div id="modal-historial-visitas" style="display:none"></div>
+    <div id="modal-comentarios" style="display:none">
+      <div style="border-top:1px solid var(--border);padding:14px 0 6px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">💬 Comentarios</div>
+        <div id="comentarios-lista" style="max-height:260px;overflow-y:auto;margin-bottom:10px"></div>
+        <div style="position:relative">
+          <textarea id="comentario-texto" placeholder="Escribe un comentario... usa @ para mencionar a alguien"
+            style="width:100%;min-height:60px;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;background:var(--card);color:var(--text);box-sizing:border-box"
+            oninput="_onComentarioInput()"></textarea>
+          <div id="comentario-mencion-dropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:180px;overflow-y:auto;z-index:20;margin-bottom:4px"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px">
+          <button type="button" id="btn-enviar-comentario" class="btn-save" style="padding:6px 14px;font-size:12px" onclick="enviarComentario()">Enviar</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn-delete" id="btn-delete" onclick="deleteTask()" style="display:none">🗑 Eliminar</button>
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
@@ -792,13 +819,14 @@
 
 <script src="assets/js/core.js?v=20260819a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260819a"></script>
+<script src="assets/js/tareas.js?v=20260820a"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260819a"></script>
+<script src="assets/js/comentarios.js?v=20260820a"></script>
 <script src="assets/js/informes.js?v=20260819a"></script>
 <script src="assets/js/alarma.js?v=20260715c"></script>
-<script src="assets/js/usuarios.js?v=20260819b"></script>
+<script src="assets/js/usuarios.js?v=20260820a"></script>
 <script src="assets/js/clientes.js?v=20260708e"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>

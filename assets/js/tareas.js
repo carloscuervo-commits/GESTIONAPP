@@ -1295,6 +1295,17 @@ function openModal(id, preArea, preEstado) {
     }
   }
 
+  // ── Comentarios (cualquier área, solo tarjetas ya guardadas) ──────
+  const comentDiv = document.getElementById('modal-comentarios');
+  if (comentDiv) {
+    if (t && typeof renderComentariosTarea === 'function') {
+      renderComentariosTarea(t.id);
+      comentDiv.style.display = 'block';
+    } else {
+      comentDiv.style.display = 'none';
+    }
+  }
+
   // ── Botón de transporte (solo tarea existente IT/IF facturada/archivada) ──
   const transpBtn = document.getElementById('modal-transporte-btn');
   if (transpBtn) {

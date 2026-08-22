@@ -42,6 +42,43 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — módulo de comentarios con @menciones por tarjeta)
+
+⚠️ **Acción manual en base de datos (phpMyAdmin) — correr antes de desplegar el código:**
+```sql
+CREATE TABLE IF NOT EXISTS comentarios (
+  id         VARCHAR(32)  NOT NULL,
+  tarea_id   VARCHAR(32)  NOT NULL,
+  usuario_id VARCHAR(10)  NOT NULL,
+  texto      TEXT         NOT NULL,
+  creado_en  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_tarea (tarea_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE usuarios
+  ADD COLUMN notif_menciones_correo TINYINT(1) NOT NULL DEFAULT 1 AFTER celular,
+  ADD COLUMN notif_menciones_tg     TINYINT(1) NOT NULL DEFAULT 1 AFTER notif_menciones_correo;
+```
+(Migración trackeada en `db/033_comentarios.sql`. Requiere que `db/032_usuarios_celular.sql` ya esté aplicada, porque usa `celular` como referencia de posición — si no lo está, quitar el `AFTER celular` o correr esa migración primero.)
+
+Sin cron nuevo.
+
+**Resumen:** cada tarjeta (tareas ya guardadas, no en "Nueva Tarea") tiene ahora una sección de comentarios tipo Trello. Escribir `@` dentro del comentario despliega un autocompletado de a quién se puede mencionar; al enviar, cada mencionado recibe una notificación por correo y/o Telegram según su preferencia individual (nuevo par de checkboxes en el modal de Usuarios, admin-only).
+
+- **Quién puede ser mencionado:** solo el equipo asignado a esa tarjeta + todos los usuarios con perfil admin — así cualquiera que se mencione siempre puede abrir la tarjeta para ver el comentario (coincide con el filtro de visibilidad que ya usa `tareasVisibles()`, no se tocó esa función).
+- **Notificaciones:** reutilizan el link `?abrir_tarea=ID&area=AREA` que ya existía para bitácora, así que al hacer clic en el aviso (correo o Telegram) se abre la tarjeta directo.
+- **Excluido a propósito de esta primera versión** (decisión explícita para no sumar carga de más al servidor compartido, dado el episodio de conectividad intermitente de este mismo día): sin insignia de "comentarios sin leer" en la tarjeta del kanban, y sin actualización en vivo del hilo mientras el modal está abierto — los comentarios nuevos de otra persona solo aparecen si se cierra y se vuelve a abrir la tarjeta. Los avisos por correo/Telegram sí llegan al instante, independientemente de esto.
+
+**Archivos:**
+- `db/033_comentarios.sql` (nuevo)
+- `backend/api/comentarios.php` (nuevo) — GET/POST/DELETE, detecta `@ID` con regex y envía avisos
+- `backend/api/usuarios.php` — columnas `notif_menciones_correo`/`notif_menciones_tg` en GET/POST/PUT
+- `assets/js/comentarios.js?v=20260820a` (nuevo) — render del hilo, autocompletado de @mención, enviar/eliminar comentario
+- `assets/js/tareas.js?v=20260820a` — `openModal()` llama a `renderComentariosTarea()` para tarjetas ya guardadas
+- `assets/js/usuarios.js?v=20260820a` — dos checkboxes nuevos de notificación por mención en el modal de usuario
+- `tareas-equipo.html` — sección `#modal-comentarios` en el modal de tarjeta, checkboxes en modal Usuarios, script tag de `comentarios.js`
+
 ## Cambios pendientes de deploy (2026-08-19 — estado "Guardando..." en modal de Usuarios)
 
 Sin migraciones ni cron. `assets/js/usuarios.js?v=20260819b`:

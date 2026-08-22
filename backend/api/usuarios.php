@@ -32,7 +32,7 @@ function requireAdmin($pdo) {
 if ($method === 'GET') {
   $stmt = $pdo->query(
     "SELECT id, nombre, iniciales, color, rol, email, cedula, foto, perfil, activo,
-            telegram_chat_id, celular,
+            telegram_chat_id, celular, notif_menciones_correo, notif_menciones_tg,
             (pin_hash IS NOT NULL) AS tiene_pin
      FROM usuarios
      ORDER BY activo DESC, nombre ASC"
@@ -76,10 +76,12 @@ if ($method === 'POST') {
 
   $telegramChatId = ($d['telegram_chat_id'] ?? '') ?: null;
   $celular        = ($d['celular'] ?? '') ?: null;
+  $notifCorreo    = isset($d['notif_menciones_correo']) ? (int)!!$d['notif_menciones_correo'] : 1;
+  $notifTg        = isset($d['notif_menciones_tg'])     ? (int)!!$d['notif_menciones_tg']     : 1;
 
   $stmt = $pdo->prepare(
-    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo, telegram_chat_id, celular)
-     VALUES (?,?,?,?,?,?,?,?,?,1,?,?)"
+    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo, telegram_chat_id, celular, notif_menciones_correo, notif_menciones_tg)
+     VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)"
   );
   $stmt->execute([
     $id,
@@ -93,6 +95,8 @@ if ($method === 'POST') {
     $pin_hash,
     $telegramChatId,
     $celular,
+    $notifCorreo,
+    $notifTg,
   ]);
 
   jsonOut(['ok' => true, 'id' => $id], 201);
@@ -136,6 +140,8 @@ if ($method === 'PUT') {
   $cedula         = array_key_exists('cedula', $d)          ? (($d['cedula']          ?? '') ?: null) : $prev['cedula'];
   $telegramChatId = array_key_exists('telegram_chat_id', $d) ? (($d['telegram_chat_id'] ?? '') ?: null) : $prev['telegram_chat_id'];
   $celular        = array_key_exists('celular', $d)          ? (($d['celular']          ?? '') ?: null) : $prev['celular'];
+  $notifCorreo    = isset($d['notif_menciones_correo']) ? (int)!!$d['notif_menciones_correo'] : (int)$prev['notif_menciones_correo'];
+  $notifTg        = isset($d['notif_menciones_tg'])     ? (int)!!$d['notif_menciones_tg']     : (int)$prev['notif_menciones_tg'];
   $perfil         = in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : $prev['perfil'];
   $activo         = isset($d['activo']) ? (int)$d['activo'] : (int)$prev['activo'];
 
@@ -144,10 +150,10 @@ if ($method === 'PUT') {
 
   $stmt = $pdo->prepare(
     "UPDATE usuarios
-     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?, telegram_chat_id=?, celular=?
+     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?, telegram_chat_id=?, celular=?, notif_menciones_correo=?, notif_menciones_tg=?
      WHERE id=?"
   );
-  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $telegramChatId, $celular, $id]);
+  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $telegramChatId, $celular, $notifCorreo, $notifTg, $id]);
 
   jsonOut(['ok' => true]);
 }
