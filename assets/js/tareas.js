@@ -1929,7 +1929,7 @@ async function _marcarFacturadoDesdeModal() {
   const t = editingId ? tasks.find(x => x.id === editingId) : null;
   if (!t) return;
   const nextEstado = ['it','if'].includes(t.area) ? 'facturado' : t.estado;
-  document.getElementById('f-estado').value = nextEstado;
+  document.getElementById('f-est').value = nextEstado;
   document.getElementById('f-factura').value = nro;
   await saveTask();
 }

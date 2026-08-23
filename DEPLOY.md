@@ -42,6 +42,12 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — fix: botón "Marcar como Facturado" del modal no guardaba el estado)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260822g`:
+
+- Bug: `_marcarFacturadoDesdeModal()` escribía el nuevo estado en `#f-estado` (el filtro de estado de la barra superior del tablero) en vez de `#f-est` (el select real del modal). `saveTask()` lee el estado desde `#f-est`, así que nunca veía el cambio: se guardaba el número de factura pero la tarjeta se quedaba en "Por facturar". Afectaba a IT e IF por igual. Corregido el ID del elemento.
+
 ## Cambios pendientes de deploy (2026-08-22 — badge de ID de tarjeta ampliado de 4 a 6 caracteres)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260822f`, `assets/js/informes.js?v=20260822c`, `assets/js/reportes.js?v=20260822a`, `backend/api/comentarios.php`:
