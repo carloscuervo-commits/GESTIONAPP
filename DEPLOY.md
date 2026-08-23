@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — archivadas agrupadas por cliente + tarjeta compacta)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260822d`:
+
+- La sección "Archivadas" ahora agrupa las tarjetas por cliente, orden alfabético ("Sin cliente" al final), cada grupo colapsado por defecto mostrando el nombre del cliente y la cantidad de tarjetas entre paréntesis.
+- Al expandir un cliente, las tarjetas se muestran en formato compacto (`taskCardCompacta`: ID, título, fecha, técnicos, ✅ si facturada) en vez de la tarjeta completa — pensado para que la sección siga siendo navegable a medida que crecen las archivadas.
+- Nuevas funciones `_renderArchivadasAgrupadas()`, `toggleArchCliente()` y `taskCardCompacta()`.
+
 ## Cambios pendientes de deploy (2026-08-22 — buscar tarjetas por ID)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260822c`:

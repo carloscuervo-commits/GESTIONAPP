@@ -362,13 +362,71 @@ function renderKanban() {
         <button class="arch-toggle" onclick="toggleArchSection('${areaKey}')">
           📦 Archivadas (${archVisible.length}) ${expanded ? '▴' : '▾'}
         </button>
-        <div id="arch-cards" style="display:${expanded ? 'flex' : 'none'};gap:12px;flex-wrap:wrap;opacity:0.72">
-          ${archVisible.map(taskCard).join('')}
+        <div id="arch-cards" style="display:${expanded ? 'flex' : 'none'};flex-direction:column;opacity:0.85">
+          ${_renderArchivadasAgrupadas(archVisible, areaKey)}
         </div>`;
     } else {
       archDiv.innerHTML = '';
     }
   }
+}
+
+// Tarjetas archivadas agrupadas por cliente (colapsado por defecto, orden
+// alfabético; "Sin cliente" al final). Dentro de cada grupo se usan tarjetas
+// compactas en vez del diseño completo — con muchas archivadas, el formato
+// grande hacía que la sección fuera imposible de recorrer.
+function _renderArchivadasAgrupadas(archVisible, areaKey) {
+  const grupos = {};
+  archVisible.forEach(t => {
+    const cliente = (t.cliente || '').trim() || 'Sin cliente';
+    (grupos[cliente] = grupos[cliente] || []).push(t);
+  });
+  const clientes = Object.keys(grupos).sort((a, b) => {
+    if (a === 'Sin cliente') return 1;
+    if (b === 'Sin cliente') return -1;
+    return a.localeCompare(b, 'es', { sensitivity: 'base' });
+  });
+  return clientes.map((cliente, i) => {
+    const items = [...grupos[cliente]].sort((a, b) =>
+      (b.fechaProg || b.fecha || b.createdAt || '').localeCompare(a.fechaProg || a.fecha || a.createdAt || ''));
+    const gid = `arch-cli-${areaKey}-${i}`;
+    return `<div class="arch-cliente-grupo">
+      <button class="arch-cliente-toggle" onclick="toggleArchCliente('${gid}')"
+        style="display:flex;align-items:center;gap:6px;width:100%;text-align:left;background:none;border:none;padding:6px 4px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-secondary)">
+        <span class="arch-cliente-caret">▸</span>
+        <span>${esc(cliente)}</span>
+        <span style="color:var(--text-muted);font-weight:400">(${items.length})</span>
+      </button>
+      <div id="${gid}" style="display:none;flex-direction:column;margin-left:10px;border-left:2px solid var(--border)">
+        ${items.map(taskCardCompacta).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleArchCliente(gid) {
+  const el = document.getElementById(gid);
+  if (!el) return;
+  const btn = el.previousElementSibling;
+  const caret = btn ? btn.querySelector('.arch-cliente-caret') : null;
+  const opening = el.style.display === 'none';
+  el.style.display = opening ? 'flex' : 'none';
+  if (caret) caret.textContent = opening ? '▾' : '▸';
+}
+
+// Fila compacta para tarjetas dentro de un grupo de archivadas — sin drag,
+// sin botones de acción, solo lo necesario para identificar y abrir.
+function taskCardCompacta(t) {
+  const team  = t.team || [];
+  const fecha = t.fechaProg || t.fecha || '';
+  return `<div class="task-card-compacta" onclick="openModal('${t.id}')"
+      style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px">
+    <span style="font-size:10px;font-weight:700;color:#94a3b8;white-space:nowrap">#${t.id.slice(0,4).toUpperCase()}</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${esc(t.titulo)}</span>
+    ${fecha ? `<span style="color:var(--text-muted);white-space:nowrap">📅 ${esc(fecha)}</span>` : ''}
+    ${team.length ? `<span style="white-space:nowrap;display:flex;gap:2px">${teamAvatars(team)}</span>` : ''}
+    ${t.factura ? `<span title="Facturada" style="color:#166534;white-space:nowrap">✅</span>` : ''}
+  </div>`;
 }
 
 function toggleArchSection(areaKey) {
