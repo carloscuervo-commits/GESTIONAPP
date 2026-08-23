@@ -150,7 +150,8 @@ function getFiltered() {
     if (t.estado === 'archivado' && !incluirArchivados && est !== 'archivado') return false;
     const teamNames = (t.team||[]).map(id=>getMember(id)?.name||'').join(' ').toLowerCase();
     const teamInitials = (t.team||[]).join(' ').toLowerCase();
-    if (q && !((t.titulo||'').toLowerCase().includes(q)||(t.cliente||'').toLowerCase().includes(q)||teamNames.includes(q)||teamInitials.includes(q))) return false;
+    const idTarjeta = ('#' + (t.id||'').slice(0,4)).toLowerCase();
+    if (q && !((t.titulo||'').toLowerCase().includes(q)||(t.cliente||'').toLowerCase().includes(q)||teamNames.includes(q)||teamInitials.includes(q)||idTarjeta.includes(q))) return false;
     if (est && t.estado !== est) return false;
     if (resp && !(t.team||[]).includes(resp)) return false;
     return true;

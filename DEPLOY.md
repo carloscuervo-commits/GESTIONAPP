@@ -42,6 +42,12 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — fix: la búsqueda por ID no funcionaba en el tablero activo)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260822e`:
+
+- Bug: al agregar búsqueda por ID (`#XXXX`) solo se parchó el filtro de la sección Archivadas; `getFiltered()`, que es el filtro real del tablero activo, se quedó sin el `idTarjeta` — por eso buscar un ID no mostraba nada. Corregido agregando la misma comparación en `getFiltered()`.
+
 ## Cambios pendientes de deploy (2026-08-22 — archivadas agrupadas por cliente + tarjeta compacta)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260822d`:
