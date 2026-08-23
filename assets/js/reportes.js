@@ -1384,7 +1384,7 @@ async function generarPDFReporte(btn) {
       .trim().split(/\s+/).slice(0, 5)
       .map(w => w.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/g, '')[0] || '')
       .filter(Boolean).join('').toUpperCase() || 'XX';
-    const _tareaShort = (r.tarea_id || t.id || '').slice(0, 4).toUpperCase();
+    const _tareaShort = (r.tarea_id || t.id || '').slice(0, 6).toUpperCase();
     const nombreArchivo = `${_clienteInic}-${_fechaPDF}-${_tareaShort}.pdf`;
 
     const blobPdf = doc.output('blob');

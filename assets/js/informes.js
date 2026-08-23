@@ -189,7 +189,7 @@ function calcReportesBusqueda(filtros) {
     .filter(r => pasaFiltroEstadoReporte(r, filtros.estadoReporte))
     .map(r => ({
       fecha: (r.check_in || '').slice(0, 10),
-      idTarjeta: `#${(r.tarea_id || '').slice(0, 4).toUpperCase()}`,
+      idTarjeta: `#${(r.tarea_id || '').slice(0, 6).toUpperCase()}`,
       cliente: r.cliente || '-',
       tarea: r.titulo || '-',
       tecnico: getMember(r.tecnico_checkin_id)?.name || r.tecnico_checkin_id || '-',
@@ -229,7 +229,7 @@ function renderReportesBusquedaHTML(filtros) {
     </tr></thead>
     <tbody>${filas.map(r => `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(r.tarea_id)}','${esc(r.area || '')}')" title="Abrir tarjeta">${esc((r.check_in || '').slice(0, 10))}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em" onclick="abrirTarjetaInforme('${esc(r.tarea_id)}','${esc(r.area || '')}')" title="Abrir tarjeta">#${esc((r.tarea_id || '').slice(0, 4).toUpperCase())}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em" onclick="abrirTarjetaInforme('${esc(r.tarea_id)}','${esc(r.area || '')}')" title="Abrir tarjeta">#${esc((r.tarea_id || '').slice(0, 6).toUpperCase())}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.titulo || '-')}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(getMember(r.tecnico_checkin_id)?.name || r.tecnico_checkin_id || '-')}</td>

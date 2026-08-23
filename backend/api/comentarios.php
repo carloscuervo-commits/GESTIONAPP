@@ -113,7 +113,7 @@ if ($method === 'POST') {
 
       $tituloEsc   = htmlspecialchars($tarea['titulo'] ?: 'Tarea', ENT_QUOTES, 'UTF-8');
       $clienteEsc  = htmlspecialchars($tarea['cliente'] ?: '—', ENT_QUOTES, 'UTF-8');
-      $idTarjeta   = '#' . strtoupper(substr($tareaId, 0, 4));
+      $idTarjeta   = '#' . strtoupper(substr($tareaId, 0, 6));
       $estadoEsc   = htmlspecialchars(_estadoLegible($tarea['estado'] ?? ''), ENT_QUOTES, 'UTF-8');
       $fechaEjecEsc = htmlspecialchars(_fechaLegible($tarea['fecha_programacion'] ?? null), ENT_QUOTES, 'UTF-8');
       $textoEscHtml = nl2br(htmlspecialchars($texto, ENT_QUOTES, 'UTF-8'));

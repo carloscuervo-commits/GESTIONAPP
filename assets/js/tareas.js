@@ -150,7 +150,7 @@ function getFiltered() {
     if (t.estado === 'archivado' && !incluirArchivados && est !== 'archivado') return false;
     const teamNames = (t.team||[]).map(id=>getMember(id)?.name||'').join(' ').toLowerCase();
     const teamInitials = (t.team||[]).join(' ').toLowerCase();
-    const idTarjeta = ('#' + (t.id||'').slice(0,4)).toLowerCase();
+    const idTarjeta = ('#' + (t.id||'').slice(0,6)).toLowerCase();
     if (q && !((t.titulo||'').toLowerCase().includes(q)||(t.cliente||'').toLowerCase().includes(q)||teamNames.includes(q)||teamInitials.includes(q)||idTarjeta.includes(q))) return false;
     if (est && t.estado !== est) return false;
     if (resp && !(t.team||[]).includes(resp)) return false;
@@ -262,7 +262,7 @@ function taskCard(t) {
     ${segBadge}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
       ${t.cliente?`<div style="font-size:11px;font-weight:700;color:#169BBC;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.03em">${esc(t.cliente)}</div>`:'<div></div>'}
-      <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.05em;white-space:nowrap;margin-top:1px">#${t.id.slice(0,4).toUpperCase()}</div>
+      <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.05em;white-space:nowrap;margin-top:1px">#${t.id.slice(0,6).toUpperCase()}</div>
     </div>
     <div class="task-title">${esc(t.titulo)}</div>
     <div class="task-meta">
@@ -346,7 +346,7 @@ function renderKanban() {
     ? arch.filter(t => {
         const teamNames = (t.team||[]).map(id=>getMember(id)?.name||'').join(' ').toLowerCase();
         const teamInitials = (t.team||[]).join(' ').toLowerCase();
-        const idTarjeta = ('#' + (t.id||'').slice(0,4)).toLowerCase();
+        const idTarjeta = ('#' + (t.id||'').slice(0,6)).toLowerCase();
         if (q && !((t.titulo||'').toLowerCase().includes(q)||(t.cliente||'').toLowerCase().includes(q)||teamNames.includes(q)||teamInitials.includes(q)||idTarjeta.includes(q))) return false;
         if (resp && !(t.team||[]).includes(resp)) return false;
         return true;
@@ -422,7 +422,7 @@ function taskCardCompacta(t) {
   const fecha = t.fechaProg || t.fecha || '';
   return `<div class="task-card-compacta" onclick="openModal('${t.id}')"
       style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px">
-    <span style="font-size:10px;font-weight:700;color:#94a3b8;white-space:nowrap">#${t.id.slice(0,4).toUpperCase()}</span>
+    <span style="font-size:10px;font-weight:700;color:#94a3b8;white-space:nowrap">#${t.id.slice(0,6).toUpperCase()}</span>
     <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${esc(t.titulo)}</span>
     ${fecha ? `<span style="color:var(--text-muted);white-space:nowrap">📅 ${esc(fecha)}</span>` : ''}
     ${team.length ? `<span style="white-space:nowrap;display:flex;gap:2px">${teamAvatars(team)}</span>` : ''}
@@ -1329,7 +1329,7 @@ function openModal(id, preArea, preEstado) {
   const t=id?tasks.find(x=>x.id===id):null;
   document.getElementById('modal-title-text').textContent=t?'Editar Tarea':'Nueva Tarea';
   const shortIdEl = document.getElementById('modal-short-id');
-  if (shortIdEl) { shortIdEl.textContent = t ? `#${t.id.slice(0,4).toUpperCase()}` : ''; shortIdEl.style.display = t ? 'inline' : 'none'; }
+  if (shortIdEl) { shortIdEl.textContent = t ? `#${t.id.slice(0,6).toUpperCase()}` : ''; shortIdEl.style.display = t ? 'inline' : 'none'; }
   document.getElementById('btn-delete').style.display=t?'inline-block':'none';
   document.getElementById('f-titulo').value=t?.titulo||'';
   document.getElementById('f-desc').value=t?.desc||'';

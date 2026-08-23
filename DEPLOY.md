@@ -42,6 +42,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-22 — badge de ID de tarjeta ampliado de 4 a 6 caracteres)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260822f`, `assets/js/informes.js?v=20260822c`, `assets/js/reportes.js?v=20260822a`, `backend/api/comentarios.php`:
+
+- Se detectó (vía phpMyAdmin) que dos tarjetas distintas de Laguna Seca mostraban el mismo badge `#MRCA` — no era un ID duplicado, era una colisión de los primeros 4 caracteres del ID aleatorio (65,536 combinaciones posibles, esperable con suficientes tarjetas).
+- El badge de ID (tarjetas, tarjeta compacta de archivadas, modal, búsqueda, tabla de reportes de "Informes", nombre de archivo del PDF de visita, aviso de @mención por correo/Telegram) ahora usa 6 caracteres en vez de 4 en todos los sitios. Como el badge siempre se calcula al vuelo desde `id` (nunca se guarda), el cambio aplica automáticamente a tarjetas antiguas y nuevas sin migración.
+
 ## Cambios pendientes de deploy (2026-08-22 — fix: la búsqueda por ID no funcionaba en el tablero activo)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260822e`:
