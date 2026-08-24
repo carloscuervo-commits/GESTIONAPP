@@ -42,6 +42,12 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-24 — permitir varios correos por cliente)
+
+Sin migraciones ni cron. `tareas-equipo.html`:
+
+- El campo "Correo electrónico" del modal de cliente ya soportaba varios correos separados por coma a nivel de guardado y de envío (el backend de `reporte_enviar_correo.php` acepta un arreglo de destinatarios), pero el `<input type="email">` sin `multiple` los marcaba visualmente como inválidos. Se agregó el atributo `multiple`, se actualizó el placeholder y se agregó una nota explicando que se puede ingresar más de un correo.
+
 ## Cambios pendientes de deploy (2026-08-22 — fix: botón "Marcar como Facturado" del modal no guardaba el estado)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260822g`:
