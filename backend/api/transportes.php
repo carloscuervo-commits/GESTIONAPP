@@ -23,12 +23,14 @@ if ($method === 'GET') {
       FROM visita_participantes vp
       JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
       JOIN tareas t   ON t.id = r.tarea_id
+      LEFT JOIN clientes c ON LOWER(c.nombre) = LOWER(t.cliente)
       WHERE r.tarea_id = ?
         AND t.area IN ('it','if')
         AND t.modalidad = 'en_sitio'
         AND vp.check_in IS NOT NULL
         AND vp.check_out IS NOT NULL
         AND (vp.transporte_estado IS NULL OR vp.transporte_estado = 'pendiente')
+        AND c.valor_transporte > 0
     ");
     $stmt->execute([$tareaId]);
     $row = $stmt->fetch();
