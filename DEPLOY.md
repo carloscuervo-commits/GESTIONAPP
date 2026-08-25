@@ -42,6 +42,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-24 — columna ID tarjeta en todos los informes)
+
+Sin migraciones ni cron. `assets/js/informes.js?v=20260824a`:
+
+- Se agregó la columna "ID tarjeta" (`#XXXXXX`, mismo formato de 6 caracteres del resto de la app) a todos los informes que muestran tarjetas y aún no la tenían: Actividades de un técnico, Tarjetas de un cliente, Facturas generadas (cuando la factura viene de una tarjeta), Llegadas tardías, Checks fuera de sitio y Visitas sin reporte. El informe "Reportes de tarjetas operativas" ya la tenía.
+- `renderTablaInformeHTML()` (usado por los informes genéricos) ahora también hace clicable cualquier columna con key `idTarjeta`, no solo la primera columna — así se puede abrir la tarjeta haciendo clic en el ID además de en la fecha/columna principal.
+
 ## Cambios pendientes de deploy (2026-08-24 — no mostrar "Registrar transporte" si el cliente no tiene valor configurado)
 
 Sin migraciones ni cron. `backend/api/transportes.php`:

@@ -78,6 +78,7 @@ function calcActividadesTecnico(filtros) {
     .map(x => ({
       tipo: '📋 Tarjeta asignada',
       fecha: x.ref,
+      idTarjeta: `#${(x.t.id || '').slice(0, 6).toUpperCase()}`,
       cliente: x.t.cliente || '-',
       tarea: x.t.titulo || '-',
       area: (AREAS[x.t.area] || {}).label || x.t.area,
@@ -92,6 +93,7 @@ function calcActividadesTecnico(filtros) {
     .map(r => ({
       tipo: '🚐 Visita registrada',
       fecha: (r.check_in || '').slice(0, 10),
+      idTarjeta: `#${(r.tarea_id || '').slice(0, 6).toUpperCase()}`,
       cliente: r.cliente || '-',
       tarea: r.titulo || '-',
       area: '-',
@@ -106,7 +108,7 @@ function calcActividadesTecnico(filtros) {
 
   return {
     columnas: [
-      { key: 'tipo', label: 'Tipo' }, { key: 'fecha', label: 'Fecha' }, { key: 'cliente', label: 'Cliente' },
+      { key: 'tipo', label: 'Tipo' }, { key: 'fecha', label: 'Fecha' }, { key: 'idTarjeta', label: 'ID tarjeta' }, { key: 'cliente', label: 'Cliente' },
       { key: 'tarea', label: 'Tarea' }, { key: 'area', label: 'Área' }, { key: 'estado', label: 'Estado' },
       { key: 'checkIn', label: 'Check-in' }, { key: 'checkOut', label: 'Check-out' }, { key: 'duracion', label: 'Duración' },
     ],
@@ -124,6 +126,7 @@ function calcTarjetasCliente(filtros) {
   const filas = tasks
     .filter(t => !filtros.cliente || (t.cliente || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
     .map(t => ({
+      idTarjeta: `#${(t.id || '').slice(0, 6).toUpperCase()}`,
       area: (AREAS[t.area] || {}).label || t.area,
       tarea: t.titulo || '-',
       estado: (AREA_FLOWS[t.area] || []).find(e => e.id === t.estado)?.label || t.estado,
@@ -136,7 +139,7 @@ function calcTarjetasCliente(filtros) {
     .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''));
   return {
     columnas: [
-      { key: 'area', label: 'Área' }, { key: 'tarea', label: 'Tarea' }, { key: 'estado', label: 'Estado' },
+      { key: 'idTarjeta', label: 'ID tarjeta' }, { key: 'area', label: 'Área' }, { key: 'tarea', label: 'Tarea' }, { key: 'estado', label: 'Estado' },
       { key: 'tecnicos', label: 'Técnicos' }, { key: 'fechaCreacion', label: 'Fecha creación' },
       { key: 'fechaProgramacion', label: 'Fecha programación' }, { key: 'factura', label: 'Factura' },
     ],
@@ -152,17 +155,19 @@ function calcFacturasModulo(filtros) {
     .filter(f => dentroDeRango(f.fecha_factura, filtros.desde, filtros.hasta))
     .filter(f => !filtros.cliente || (f.cliente_nombre || '').toLowerCase().includes(filtros.cliente.toLowerCase()))
     .map(f => ({
+      idTarjeta: f.tarea_id ? `#${f.tarea_id.slice(0, 6).toUpperCase()}` : '-',
       numeroFactura: f.numero_factura || '-',
       cliente: f.cliente_nombre || '-',
       total: f.total !== null && f.total !== undefined ? Number(f.total) : null,
       fecha: f.fecha_factura || '-',
       origen: f.tarea_id ? 'Desde tarjeta de cotización' : 'Cotización subida manualmente',
       creadoEn: (f.creado_en || '').slice(0, 16).replace('T', ' '),
+      _tarea_id: f.tarea_id || null,
     }))
     .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
   return {
     columnas: [
-      { key: 'numeroFactura', label: 'Factura' }, { key: 'cliente', label: 'Cliente' },
+      { key: 'idTarjeta', label: 'ID tarjeta' }, { key: 'numeroFactura', label: 'Factura' }, { key: 'cliente', label: 'Cliente' },
       { key: 'total', label: 'Total', tipo: 'moneda' }, { key: 'fecha', label: 'Fecha factura' },
       { key: 'origen', label: 'Origen' }, { key: 'creadoEn', label: 'Creado en' },
     ],
@@ -266,6 +271,7 @@ async function renderTardiasHTML(filtros) {
   // Guardar para exportar a Excel
   _informeColumnas = [
     { key: 'fecha',        label: 'Fecha' },
+    { key: 'idTarjeta',    label: 'ID tarjeta' },
     { key: 'cliente',      label: 'Cliente' },
     { key: 'tarea',        label: 'Tarea' },
     { key: 'tecnico',      label: 'Técnico' },
@@ -277,6 +283,7 @@ async function renderTardiasHTML(filtros) {
     const minutosTarde = _calcMinutosTarde(f.hora_programacion, f.check_in);
     return {
       fecha:        (f.fecha_programacion || '').slice(0, 10),
+      idTarjeta:    `#${(f.tarea_id || '').slice(0, 6).toUpperCase()}`,
       cliente:      f.cliente  || '-',
       tarea:        f.titulo   || '-',
       tecnico:      getMember(f.tecnico_id)?.name || f.tecnico_id || '-',
@@ -294,6 +301,7 @@ async function renderTardiasHTML(filtros) {
   return `<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Fecha</th>
+      <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">ID tarjeta</th>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Cliente</th>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Tarea</th>
       <th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">Técnico</th>
@@ -303,6 +311,7 @@ async function renderTardiasHTML(filtros) {
     </tr></thead>
     <tbody>${_informeFilas.map(f => `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(f._tarea_id)}','${esc(f._tarea_area || '')}')" title="Abrir tarjeta">${esc(f.fecha)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em" onclick="abrirTarjetaInforme('${esc(f._tarea_id)}','${esc(f._tarea_area || '')}')" title="Abrir tarjeta">${esc(f.idTarjeta)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.cliente)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.tarea)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(f.tecnico)}</td>
@@ -356,6 +365,7 @@ async function renderFueraSitioHTML(filtros) {
 
   _informeColumnas = [
     { key: 'fecha',      label: 'Fecha / Hora' },
+    { key: 'idTarjeta',  label: 'ID tarjeta' },
     { key: 'tecnico',    label: 'Técnico' },
     { key: 'cliente',    label: 'Cliente' },
     { key: 'tarea',      label: 'Tarea' },
@@ -367,6 +377,7 @@ async function renderFueraSitioHTML(filtros) {
   ];
   _informeFilas = filas.map(f => ({
     fecha:            (f.creado_en || '').slice(0, 16).replace('T', ' '),
+    idTarjeta:        `#${(f.tarea_id || '').slice(0, 6).toUpperCase()}`,
     tecnico:          f.tecnico_nombre || f.tecnico_id || '-',
     cliente:          f.tarea_cliente  || '-',
     tarea:            f.tarea_titulo   || '-',
@@ -396,8 +407,8 @@ async function renderFueraSitioHTML(filtros) {
     : '<span style="color:var(--text-muted);font-size:12px">—</span>';
 
   const colsHeader = _fueraSitioArchivados
-    ? ['Fecha / Hora','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación','Gestionado por','Observación']
-    : ['Fecha / Hora','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación',''];
+    ? ['Fecha / Hora','ID tarjeta','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación','Gestionado por','Observación']
+    : ['Fecha / Hora','ID tarjeta','Técnico','Cliente','Tarea','Tipo','Distancia','Radio','Acción','Ubicación',''];
 
   const filasTR = _informeFilas.map(r => {
     const extraCol = _fueraSitioArchivados
@@ -411,6 +422,7 @@ async function renderFueraSitioHTML(filtros) {
          </td>`;
     return `<tr id="fs-row-${r.id}">
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(r._tarea_id)}','${esc(r._tarea_area || '')}')" title="Abrir tarjeta">${esc(r.fecha)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em" onclick="abrirTarjetaInforme('${esc(r._tarea_id)}','${esc(r._tarea_area || '')}')" title="Abrir tarjeta">${esc(r.idTarjeta)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tecnico)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.cliente)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${esc(r.tarea)}</td>
@@ -517,6 +529,7 @@ async function renderSinReporteHTML(filtros) {
 
   _informeColumnas = [
     { key: 'fecha',    label: 'Fecha sin reporte' },
+    { key: 'idTarjeta', label: 'ID tarjeta' },
     { key: 'areaLabel', label: 'Área' },
     { key: 'cliente',  label: 'Cliente' },
     { key: 'tarea',    label: 'Tarea' },
@@ -527,6 +540,7 @@ async function renderSinReporteHTML(filtros) {
 
   _informeFilas = filas.map(r => ({
     fecha:      (r.sin_reporte_at || '').slice(0, 16).replace('T', ' '),
+    idTarjeta:  `#${(r.tarea_id || '').slice(0, 6).toUpperCase()}`,
     areaLabel:  (AREAS[r.area] || {}).label || r.area || '-',
     areaColor:  (AREAS[r.area] || {}).color || '#94a3b8',
     cliente:    r.cliente  || '-',
@@ -541,13 +555,14 @@ async function renderSinReporteHTML(filtros) {
     return '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Sin visitas marcadas sin reporte para el rango seleccionado. ✅</div>';
   }
 
-  const cols = ['Fecha sin reporte','Área','Cliente','Tarea','Técnico(s)','Check-in','Check-out'];
+  const cols = ['Fecha sin reporte','ID tarjeta','Área','Cliente','Tarea','Técnico(s)','Check-in','Check-out'];
   const thStyle = 'padding:8px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);white-space:nowrap';
   const tdStyle = 'padding:7px 12px;border-bottom:1px solid var(--border);font-size:13px';
 
   const filasTR = _informeFilas.map(r => `
     <tr style="cursor:pointer" onclick="openModal('${esc(r._tarea_id)}');setArea('it')">
       <td style="${tdStyle};white-space:nowrap;color:#dc2626;font-weight:600">${esc(r.fecha)}</td>
+      <td style="${tdStyle};color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em">${esc(r.idTarjeta)}</td>
       <td style="${tdStyle}"><span style="background:${r.areaColor}20;color:${r.areaColor};border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700">${esc(r.areaLabel)}</span></td>
       <td style="${tdStyle}">${esc(r.cliente)}</td>
       <td style="${tdStyle}">${esc(r.tarea)}</td>
@@ -765,8 +780,9 @@ function renderTablaInformeHTML(columnas, filas) {
     <thead><tr>${columnas.map(c => `<th style="text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);background:var(--bg)">${esc(c.label)}</th>`).join('')}</tr></thead>
     <tbody>${filas.map(fila => `<tr>${columnas.map((c, i) => {
       const val = formatCeldaInforme(fila[c.key], c.tipo);
-      if (i === 0 && fila._tarea_id) {
-        return `<td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--primary);font-weight:600" onclick="abrirTarjetaInforme('${esc(fila._tarea_id)}','${esc(fila._tarea_area || '')}')" title="Abrir tarjeta">${val}</td>`;
+      if ((i === 0 || c.key === 'idTarjeta') && fila._tarea_id) {
+        const idStyle = c.key === 'idTarjeta' ? 'color:var(--text-muted);font-weight:600;font-size:11px;letter-spacing:.03em' : 'color:var(--primary);font-weight:600';
+        return `<td style="padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;${idStyle}" onclick="abrirTarjetaInforme('${esc(fila._tarea_id)}','${esc(fila._tarea_area || '')}')" title="Abrir tarjeta">${val}</td>`;
       }
       return `<td style="padding:7px 10px;border-bottom:1px solid var(--border)">${val}</td>`;
     }).join('')}</tr>`).join('')}</tbody>
