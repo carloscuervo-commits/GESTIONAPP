@@ -23,7 +23,7 @@ if ($method === 'GET') {
       FROM visita_participantes vp
       JOIN reportes r ON r.id COLLATE utf8mb4_general_ci = vp.reporte_id COLLATE utf8mb4_general_ci
       JOIN tareas t   ON t.id = r.tarea_id
-      LEFT JOIN clientes c ON LOWER(c.nombre) = LOWER(t.cliente)
+      LEFT JOIN clientes c ON LOWER(c.nombre COLLATE utf8mb4_general_ci) = LOWER(t.cliente COLLATE utf8mb4_general_ci)
       WHERE r.tarea_id = ?
         AND t.area IN ('it','if')
         AND t.modalidad = 'en_sitio'

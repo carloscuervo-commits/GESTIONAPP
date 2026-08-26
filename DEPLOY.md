@@ -70,6 +70,7 @@ Sin migraciones ni cron. `assets/js/informes.js?v=20260824a`:
 Sin migraciones ni cron. `backend/api/transportes.php`:
 
 - La consulta `?pendientes_tarea=` (que decide si se muestra el botón "🚗 Registrar transporte" en el modal de la tarjeta) no filtraba por `clientes.valor_transporte`, así que el botón aparecía aunque el cliente no tuviera transporte configurado — y al darle clic fallaba con "cliente sin valor de transporte". Se agregó `LEFT JOIN clientes` + `AND c.valor_transporte > 0`, igual que ya validaba `crearTransportesTarea()`.
+- **Fix (2026-08-26)**: el `LEFT JOIN clientes` de arriba se agregó sin `COLLATE`, y como `clientes.nombre` es `utf8mb4_unicode_ci` y `tareas.cliente` es `utf8mb4_general_ci`, MySQL rechazaba la consulta con error de colación — el backend devolvía respuesta vacía y el navegador mostraba `SyntaxError: Unexpected end of JSON input` en consola al abrir cualquier tarjeta. Corregido agregando `COLLATE utf8mb4_general_ci` a ambos lados del `ON`.
 
 ## Cambios pendientes de deploy (2026-08-24 — permitir varios correos por cliente)
 
