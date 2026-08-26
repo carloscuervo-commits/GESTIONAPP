@@ -1571,6 +1571,20 @@ function seleccionarFacturaAlegra(i) {
   document.getElementById('f-factura').value = f.numero;
   lista.style.display = 'none';
   document.getElementById('facturas-alegra-info').textContent = `✅ Factura ${f.numero} seleccionada.`;
+  _facturaCampoCambio();
+}
+
+// Se dispara al escribir manualmente un número de factura (evento "change" del
+// campo) o al seleccionar una desde la búsqueda en Alegra. Si la tarjeta está
+// en un estado donde tiene sentido "Marcar como Facturado" (mismo criterio que
+// ya usa el botón — ver toggleFacturaField), lo hace automáticamente en vez de
+// obligar a un clic aparte.
+async function _facturaCampoCambio() {
+  const nro = (document.getElementById('f-factura')?.value || '').trim();
+  if (!nro) return;
+  const btnFact = document.getElementById('btn-marcar-facturado');
+  if (!btnFact || btnFact.style.display === 'none') return;
+  await _marcarFacturadoDesdeModal();
 }
 // ===================== FIN BUSCAR FACTURAS EN ALEGRA =====================
 

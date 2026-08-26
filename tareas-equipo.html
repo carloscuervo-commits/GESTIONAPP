@@ -495,7 +495,7 @@
       <div class="form-group full" id="grupo-factura" style="display:none">
         <label>📄 Número de factura Alegra *</label>
         <div style="display:flex;gap:6px">
-          <input type="text" id="f-factura" placeholder="ej: FE1752" style="flex:1" autocomplete="off">
+          <input type="text" id="f-factura" placeholder="ej: FE1752" style="flex:1" autocomplete="off" onchange="_facturaCampoCambio()">
           <button type="button" class="btn-cancel" onclick="buscarFacturasAlegraCliente()">🔍 Buscar en Alegra</button>
         </div>
         <div id="facturas-alegra-info" style="margin-top:4px;font-size:.85em;color:var(--text-muted)"></div>
@@ -831,7 +831,7 @@
 
 <script src="assets/js/core.js?v=20260826a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260826a"></script>
+<script src="assets/js/tareas.js?v=20260826b"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
 <script src="assets/js/facturacion.js?v=20260621b"></script>
 <script src="assets/js/reportes.js?v=20260826c"></script>

@@ -42,6 +42,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-26 — poner número de factura mueve la tarjeta a Facturado automáticamente)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260826b`, `tareas-equipo.html`:
+
+- Antes, escribir o seleccionar (desde "🔍 Buscar en Alegra") un número de factura solo llenaba el campo `#f-factura` — mover la tarjeta a "Facturado" requería siempre un clic aparte en "✓ Marcar facturado".
+- Ahora, en cuanto el campo de factura tiene un valor (por escritura manual o por selección en Alegra) y la tarjeta está en un estado donde aplica marcar como facturado (mismo criterio que ya usaba el botón), se llama automáticamente a `_marcarFacturadoDesdeModal()` — nueva función `_facturaCampoCambio()`.
+
 ## Cambios pendientes de deploy (2026-08-26 — ID de tarjeta en el PDF de reporte de visita)
 
 Sin migraciones ni cron. `assets/js/reportes.js?v=20260826c`:
