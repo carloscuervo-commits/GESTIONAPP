@@ -1554,24 +1554,31 @@ async function renderHistorialVisitasModal(tareaId) {
       // visita en curso (nadie ha hecho checkout todavía). Si ya hay checkout
       // real, borrarla aquí sería destructivo — el cierre debe ser por el flujo
       // normal (correo) o pidiéndolo explícitamente, no con un botón de paso.
-      const puedeEliminarReporte = esAdmin && !todosConCheckout;
+      // Si el reporte ya se envió, nunca se puede borrar aquí (aunque algún
+      // participante haya quedado sin checkout registrado) — borrar un reporte
+      // que el cliente ya recibió sería destructivo y engañoso.
+      const puedeEliminarReporte = esAdmin && !todosConCheckout && !enviado;
       // Botones de reporte propios de esta visita (no en la barra superior) para
       // que quede claro a cuál visita pertenece cada uno cuando hay varias.
       const reporteAccionesHtml = (() => {
-        if (!todosConCheckout) return ''; // se maneja con Pausar/Finalizar en la tarjeta
         const botones = [];
         if (enviado) {
+          // El reporte ya se generó y se envió — debe poder verse/reenviarse
+          // siempre, incluso si algún participante quedó con el checkout sin
+          // registrar (eso no invalida el reporte que ya salió al cliente).
           botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
           botones.push(`<button onclick="event.stopPropagation();reenviarCorreoHistorial('${r.id}',this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✉️ Reenviar correo</button>`);
           botones.push(`<button onclick="event.stopPropagation();compartirPDFWhatsAppHistorial('${r.id}',this)" style="background:#25D366;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📲 WhatsApp</button>`);
           if (esAdmin) {
             botones.push(`<button onclick="continuarReporte('${r.id}',event,true)" style="background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✏️ Editar reporte</button>`);
           }
-        } else {
+        } else if (todosConCheckout) {
           // Falta generar el PDF, o ya está generado pero aún no se envió: en
           // ambos casos hay que abrir el formulario para completar el ciclo.
           botones.push(`<button onclick="continuarReporte('${r.id}',event)" style="background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📝 Completar reporte</button>`);
         }
+        // Si no está enviado y falta algún checkout, no se muestra ningún botón
+        // aquí — se maneja con Pausar/Finalizar en la tarjeta.
         return botones.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${botones.join('')}</div>` : '';
       })();
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">

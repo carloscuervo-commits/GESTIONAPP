@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-26 — fix: reportes ya enviados sin botones en el historial de visitas)
+
+Sin migraciones ni cron. `assets/js/reportes.js?v=20260826a`:
+
+- Bug: en "Historial de visitas" del modal, los botones (Ver PDF, Reenviar correo, WhatsApp, Editar reporte) solo se mostraban si **todos** los participantes de esa visita tenían checkout registrado — pero la etiqueta "✅ Enviado" se calcula aparte (solo depende de `pdf_archivo` + `enviado_en`). Si un participante quedaba sin checkout (ej. un técnico olvidó cerrar) pero el reporte igual se generó y envió, la visita mostraba "Enviado" sin ninguna forma de verlo o reenviarlo.
+- Corregido: si el reporte ya está enviado, siempre se muestran sus botones, sin importar checkouts pendientes de participantes.
+- De paso se cerró un riesgo relacionado: el botón "🗑️ Borrar visita" ya no aparece para reportes que ya se enviaron (antes podía aparecer si algún participante quedaba sin checkout, permitiendo borrar por accidente un reporte que el cliente ya recibió).
+
 ## Cambios pendientes de deploy (2026-08-24 — columna ID tarjeta en todos los informes)
 
 Sin migraciones ni cron. `assets/js/informes.js?v=20260824a`:
