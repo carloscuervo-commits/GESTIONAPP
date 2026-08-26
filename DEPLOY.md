@@ -42,6 +42,21 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-26 — ID de tarjeta en el PDF de reporte de visita)
+
+Sin migraciones ni cron. `assets/js/reportes.js?v=20260826c`:
+
+- El PDF de reporte de visita (el que se genera y envía al cliente) ahora muestra "ID tarjeta: #XXXXXX" como primer dato de la tabla de información, antes de Cliente/Tarea/Fecha. Ya estaba en el nombre del archivo pero no era visible dentro del documento.
+
+## Cambios pendientes de deploy (2026-08-26 — solo admin puede eliminar tarjetas)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260826a`, `assets/js/core.js?v=20260826a`, `backend/api/tareas.php`:
+
+- Bug de permisos: el botón "🗑 Eliminar" del modal de tarjeta se mostraba a cualquier usuario logueado (técnico incluido), sin verificar perfil — y el backend (`DELETE /tareas.php`) tampoco validaba nada, cualquiera con la URL podía borrar cualquier tarjeta.
+- `tareas.js`: el botón ahora solo se muestra si `currentUser.perfil === 'admin'`.
+- `core.js` (`syncDelete`): ahora envía el token de sesión (`Authorization: Bearer`) igual que ya hacía `usuarios.js` para sus acciones de admin.
+- `backend/api/tareas.php`: se agregó `requireAdmin($pdo)` (mismo patrón ya usado en `usuarios.php`) y se llama al inicio del handler `DELETE` — rechaza con 401/403 si no hay token válido de un usuario admin.
+
 ## Cambios pendientes de deploy (2026-08-26 — fix grave: checkout diferido del último participante nunca se guardaba)
 
 Sin migraciones ni cron. `assets/js/reportes.js?v=20260826b`:

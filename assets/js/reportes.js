@@ -1280,6 +1280,7 @@ async function generarPDFReporte(btn) {
       return new Date(src.replace(' ', 'T')).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Bogota' });
     })();
     const filas = [
+      ['ID tarjeta', t.id ? `#${t.id.slice(0, 6).toUpperCase()}` : '-'],
       ['Cliente', t.cliente || '-'],
       ['Tarea',   t.titulo  || '-'],
       ['Fecha',   fechaVisita],

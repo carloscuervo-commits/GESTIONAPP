@@ -64,7 +64,15 @@ async function syncTask(task, isNew) {
 
 async function syncDelete(id) {
   if (!API_BASE) return;
-  try { await fetch(`${API_BASE}/tareas.php?id=${id}`, { method: 'DELETE' }); }
+  const token = localStorage.getItem('sesion_token');
+  try {
+    const res = await fetch(`${API_BASE}/tareas.php?id=${id}`, {
+      method: 'DELETE',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.error) { alert(data.error); return; }
+  }
   catch (e) { console.error('Error eliminando en servidor', e); alert('No se pudo eliminar en el servidor.'); }
 }
 

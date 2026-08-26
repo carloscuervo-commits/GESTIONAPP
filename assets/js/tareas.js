@@ -1330,7 +1330,7 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('modal-title-text').textContent=t?'Editar Tarea':'Nueva Tarea';
   const shortIdEl = document.getElementById('modal-short-id');
   if (shortIdEl) { shortIdEl.textContent = t ? `#${t.id.slice(0,6).toUpperCase()}` : ''; shortIdEl.style.display = t ? 'inline' : 'none'; }
-  document.getElementById('btn-delete').style.display=t?'inline-block':'none';
+  document.getElementById('btn-delete').style.display=(t && currentUser?.perfil==='admin')?'inline-block':'none';
   document.getElementById('f-titulo').value=t?.titulo||'';
   document.getElementById('f-desc').value=t?.desc||'';
   const defaultArea = preArea || t?.area || (currentArea!=='all'&&currentArea!=='cartera'?currentArea:'it');

@@ -15,6 +15,21 @@ function rowConTeam($pdo, $row) {
   return $row;
 }
 
+// Verifica que el token enviado en Authorization: Bearer pertenezca a un
+// usuario activo con perfil 'admin'. Llama a jsonOut() y muere si no autorizado.
+// Mismo patrón que requireAdmin() en usuarios.php.
+function requireAdmin($pdo) {
+  $auth  = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+  $token = '';
+  if (preg_match('/Bearer\s+(.+)/i', $auth, $m)) $token = trim($m[1]);
+  if (!$token) jsonOut(['error' => 'No autorizado — se requiere sesión'], 401);
+
+  $stmt = $pdo->prepare("SELECT perfil FROM usuarios WHERE token_sesion = ? AND activo = 1");
+  $stmt->execute([$token]);
+  $u = $stmt->fetch();
+  if (!$u || $u['perfil'] !== 'admin') jsonOut(['error' => 'Se requiere perfil administrador'], 403);
+}
+
 function registrarHistorial($pdo, $tareaId, $estadoAnt, $estadoNuevo, $usuarioId) {
   if ($estadoAnt === $estadoNuevo) return;
   $stmt = $pdo->prepare("INSERT INTO tarea_historial (tarea_id, estado_ant, estado_nuevo, usuario_id) VALUES (?,?,?,?)");
@@ -325,6 +340,7 @@ if ($method === 'PUT') {
 // DELETE /tareas.php?id=UUID
 // --------------------------------------------------------------
 if ($method === 'DELETE') {
+  requireAdmin($pdo);
   $id = $_GET['id'] ?? null;
   if (!$id) jsonOut(['error' => 'id requerido'], 400);
 
