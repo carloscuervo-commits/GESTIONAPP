@@ -63,6 +63,7 @@ async function cargarVisitasActivas() {
             if (!borradoresActivos[_p.tareaId]) borradoresActivos[_p.tareaId] = [];
             const _visitaLocal = Object.assign({}, _p.visita, {
               estado: 'enviado',
+              _checkoutLocalPendiente: true,
               participantes: (_p.visita.participantes || []).map(p =>
                 p.id === _p.participanteId ? Object.assign({}, p, { check_out: _p.checkoutAt }) : p
               )
@@ -658,9 +659,14 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       sessionStorage.setItem('_pendingCheckout', JSON.stringify(_pendingCheckout));
       delete visitasActivas[tareaId];
       if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
-      // Marcar localmente el participante como terminado (sin hora real aún)
+      // Marcar localmente el participante como terminado (sin hora real aún).
+      // _checkoutLocalPendiente queda como marca explícita de "esto es un
+      // estado fabricado en el navegador, el servidor todavía no tiene el
+      // checkout real" — no se puede usar `estado` para esto porque ambos
+      // casos (pendiente vs. ya confirmado) terminan mostrando 'enviado'.
       const visitaLocal = Object.assign({}, visita, {
         estado: 'enviado',
+        _checkoutLocalPendiente: true,
         participantes: (visita.participantes || []).map(p =>
           p.id === participanteId ? Object.assign({}, p, { check_out: new Date().toISOString().replace('T',' ').substring(0,19) }) : p
         )
@@ -1204,15 +1210,19 @@ async function generarPDFReporte(btn) {
   }
 
   // El PDF debe mostrar la hora en que se generó (no la del clic en "Finalizar"),
-  // pero SOLO mientras el reporte siga genuinamente abierto en el servidor
-  // (estado==='activo'). _pendingCheckout es una variable local que puede
-  // quedar desincronizada (ej. se reabre este mismo reporte en la misma
-  // sesión del navegador después de que el checkout real ya quedó registrado
-  // por otro camino) — sin esta validación, regenerar el PDF más tarde vuelve
-  // a estampar "ahora" encima de una hora de checkout que ya estaba bien,
-  // dejando una hora de salida incorrecta (y más tardía) impresa en el PDF.
+  // pero SOLO mientras el checkout diferido siga genuinamente pendiente de
+  // confirmar en el servidor. Antes esto se decidía con `estado==='activo'`,
+  // pero el objeto local ya se marca 'enviado' desde que se crea el checkout
+  // diferido (ver finalizarVisitaParticipante) — con esa comparación esta
+  // rama caía SIEMPRE en el "else" y borraba _pendingCheckout antes de que
+  // el checkout real se guardara, dejando el reporte enviado con check_out
+  // NULL en la base de datos. Ahora se usa `_checkoutLocalPendiente`, una
+  // marca explícita que solo existe en el objeto fabricado localmente — un
+  // reporte recién traído del servidor (ej. al reabrirlo con continuarReporte)
+  // nunca la trae, así que ahí sí se limpia correctamente cualquier
+  // _pendingCheckout obsoleto.
   if (_pendingCheckout && _pendingCheckout.visita.id === reporteActual.id) {
-    if (reporteActual.estado === 'activo') {
+    if (reporteActual._checkoutLocalPendiente) {
       const _ahoraGeneracion = new Date().toISOString().replace('T', ' ').substring(0, 19);
       reporteActual.check_out = _ahoraGeneracion;
       reporteActual.participantes = (reporteActual.participantes || []).map(p =>

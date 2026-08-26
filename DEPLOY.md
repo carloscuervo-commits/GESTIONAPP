@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-26 — fix grave: checkout diferido del último participante nunca se guardaba)
+
+Sin migraciones ni cron. `assets/js/reportes.js?v=20260826b`:
+
+- Bug (probablemente afectaba muchas visitas, no solo casos aislados): cuando el ÚLTIMO participante de una visita da "Finalizar", el checkout real se difiere (`_pendingCheckout`) hasta que se envía el reporte por correo — mientras tanto el objeto local se marca artificialmente `estado:'enviado'` solo para la interfaz. `generarPDFReporte()` tenía una validación que decidía si ese checkout diferido seguía pendiente comparando `reporteActual.estado === 'activo'` — pero como el objeto local YA estaba en `'enviado'` desde el paso anterior, esa comparación siempre daba falso, y el código concluía erróneamente "el checkout ya se aplicó en el servidor", descartando `_pendingCheckout` **antes** de que `_completarCheckout()` llegara a guardarlo. Resultado: el reporte se generaba y enviaba con éxito, pero `visita_participantes.check_out` se quedaba en NULL para siempre — la visita nunca cerraba en la base de datos aunque el cliente sí recibiera el PDF.
+- Corregido usando una marca explícita (`_checkoutLocalPendiente`) en vez de `estado` para distinguir "checkout fabricado localmente, aún sin confirmar" de "ya confirmado por el servidor" — un reporte recién traído del backend nunca trae esa marca.
+- **Pendiente**: una vez desplegado, correr un SQL para encontrar reportes existentes con `enviado_en` presente pero algún participante con `check_out` NULL, y corregirlos manualmente caso por caso.
+
 ## Cambios pendientes de deploy (2026-08-26 — fix: reportes ya enviados sin botones en el historial de visitas)
 
 Sin migraciones ni cron. `assets/js/reportes.js?v=20260826a`:
