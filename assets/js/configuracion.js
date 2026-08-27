@@ -80,6 +80,16 @@
       label: '📋 Contrato por consumir antes del cierre',
       desc: 'Avisa a administradores cuando a un contrato le falta poco para cerrar su ciclo mensual y aún tiene horas contratadas sin consumir (umbral de días configurable abajo). Se puede desactivar por cliente en el modal de Clientes. Requiere cron <code>aviso_contratos_pendientes.php</code> una vez al día.',
     },
+    {
+      claveCorreo: 'aviso_proyecto_sin_visita', claveTelegram: 'aviso_proyecto_sin_visita_tg',
+      label: '🔔 Proyecto sin visita del día',
+      desc: 'Avisa a administradores si, pasada la hora de alarma de una tarjeta tipo Proyecto, ese día aún no se ha registrado ninguna visita. Requiere cron <code>aviso_proyectos.php</code> en horario laboral.',
+    },
+    {
+      claveCorreo: 'aviso_proyecto_plazo', claveTelegram: 'aviso_proyecto_plazo_tg',
+      label: '⏳ Proyecto con plazo por vencer',
+      desc: 'Avisa una sola vez a administradores cuando un proyecto se acerca a (o ya superó) su cantidad de días estimada (umbral de días hábiles configurable abajo). Requiere cron <code>aviso_proyectos.php</code> en horario laboral.',
+    },
   ];
 
   // ── API ───────────────────────────────────────────────────
@@ -137,6 +147,7 @@
     const umbralHoras   = _config['horas_contrato_umbral'] ?? '2';
     const horaCorteAuto = _config['checkout_auto_hora']    ?? '18:30';
     const umbralDiasContrato = _config['contrato_pendiente_dias_umbral'] ?? '10';
+    const umbralDiasProyecto = _config['proyecto_plazo_dias_umbral']     ?? '2';
 
     el.innerHTML = `
       <div style="max-width:760px">
@@ -179,6 +190,18 @@
                 style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
                 onchange="cfgGuardarUmbralDiasContrato(this.value)">
               <span style="font-size:13px;color:var(--text-muted)">días</span>
+            </div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="font-weight:600;font-size:13px;color:var(--text,#1e293b)">⏳ Umbral de días hábiles — plazo de proyecto</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Se avisa una sola vez cuando a un proyecto le quedan estos días hábiles o menos para llegar a su cantidad de días estimada (o ya la superó).</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="cfg-proyecto-dias-umbral" min="0" max="30" step="1" value="${esc(String(umbralDiasProyecto))}"
+                style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
+                onchange="cfgGuardarUmbralDiasProyecto(this.value)">
+              <span style="font-size:13px;color:var(--text-muted)">días hábiles</span>
             </div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -287,6 +310,12 @@
     const num = parseInt(valor, 10);
     const final = isNaN(num) || num < 1 ? '10' : String(num);
     saveTexto('contrato_pendiente_dias_umbral', final);
+  };
+
+  window.cfgGuardarUmbralDiasProyecto = function (valor) {
+    const num = parseInt(valor, 10);
+    const final = isNaN(num) || num < 0 ? '2' : String(num);
+    saveTexto('proyecto_plazo_dias_umbral', final);
   };
 
   window.cfgGuardarHoraCorteAuto = function (valor) {

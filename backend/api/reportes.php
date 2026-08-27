@@ -93,6 +93,9 @@ if ($method === 'GET') {
     $where  = ["vp.check_in IS NOT NULL",
                "t.fecha_programacion IS NOT NULL",
                "t.hora_programacion IS NOT NULL",
+               // Los proyectos no tienen hora de inicio — hora_programacion se
+               // reutiliza como hora de alarma administrativa, no aplica Tardía.
+               "t.tipo_tarea != 'proyecto'",
                // Tareas multi-día: check-in puede ser en cualquier día del rango programado
                "DATE(vp.check_in) BETWEEN t.fecha_programacion AND DATE_ADD(t.fecha_programacion, INTERVAL (COALESCE(t.dias_programacion, 1) - 1) DAY)",
                "TIME(vp.check_in) > t.hora_programacion"];
@@ -898,9 +901,13 @@ if ($method === 'PUT') {
   $tecnicoCheckoutId = array_key_exists('tecnicoCheckoutId', $d) ? $d['tecnicoCheckoutId'] : $prev['tecnico_checkout_id'];
   $checkIn = array_key_exists('checkIn', $d) ? $d['checkIn'] : $prev['check_in'];
   $checkOut = array_key_exists('checkOut', $d) ? $d['checkOut'] : $prev['check_out'];
+  // % de avance del proyecto (solo tarjetas tipo Proyecto; columna aparte de "datos")
+  $avanceProyectoPct = array_key_exists('avanceProyectoPct', $d)
+    ? ($d['avanceProyectoPct'] === null ? null : max(0, min(100, (int)$d['avanceProyectoPct'])))
+    : $prev['avance_proyecto_pct'];
 
-  $pdo->prepare("UPDATE reportes SET plantilla=?, datos=?, pdf_archivo=?, estado=?, tecnico_checkin_id=?, tecnico_checkout_id=?, check_in=?, check_out=? WHERE id=?")
-    ->execute([$plantilla, json_encode($datosNuevos, JSON_UNESCAPED_UNICODE), $pdfArchivo, $estado, $tecnicoCheckinId, $tecnicoCheckoutId, $checkIn, $checkOut, $id]);
+  $pdo->prepare("UPDATE reportes SET plantilla=?, datos=?, pdf_archivo=?, estado=?, tecnico_checkin_id=?, tecnico_checkout_id=?, check_in=?, check_out=?, avance_proyecto_pct=? WHERE id=?")
+    ->execute([$plantilla, json_encode($datosNuevos, JSON_UNESCAPED_UNICODE), $pdfArchivo, $estado, $tecnicoCheckinId, $tecnicoCheckoutId, $checkIn, $checkOut, $avanceProyectoPct, $id]);
 
   // Si se editaron los horarios desde el admin, sincronizar con el participante
   // (aplica solo cuando hay un único participante para no pisar horas de multi-técnico).

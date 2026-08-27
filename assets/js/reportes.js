@@ -759,8 +759,10 @@ function cerrarFormularioReporte() {
   // falta continuar en otra visita (trabajo de varios días) — en ese caso no
   // se cambia el estado y queda disponible para "Iniciar visita" otra vez.
   // Si la tarea ya está en "Por facturar" o más, no preguntar.
+  // Las tarjetas tipo Proyecto nunca preguntan "¿terminó?" — quedan en
+  // ejecución hasta que un admin las mueva manualmente a "Por facturar".
   const _tareaPopup = reporteActual ? tasks.find(t => t.id === reporteActual.tarea_id) : null;
-  if (_tareaPopup && ['realizado','facturado','archivado'].includes(_tareaPopup.estado)) {
+  if (_tareaPopup && (['realizado','facturado','archivado'].includes(_tareaPopup.estado) || _tareaPopup.tipoTarea === 'proyecto')) {
     reporteActual = null;
     cargarVisitasActivas();
     return;
@@ -837,7 +839,7 @@ async function confirmarSinReporte() {
   // Cerrar formulario y mostrar popup tarea-terminada (si aplica)
   document.getElementById('reporte-modal').classList.remove('open');
   const _tareaPopup = reporteActual ? tasks.find(t => t.id === reporteActual.tarea_id) : null;
-  if (_tareaPopup && !['realizado','facturado','archivado'].includes(_tareaPopup.estado)) {
+  if (_tareaPopup && !['realizado','facturado','archivado'].includes(_tareaPopup.estado) && _tareaPopup.tipoTarea !== 'proyecto') {
     const _nombreDiv = document.getElementById('popup-tarea-terminada-nombre');
     if (_nombreDiv && _tareaPopup) {
       _nombreDiv.textContent = [_tareaPopup.cliente, _tareaPopup.titulo].filter(Boolean).join(' · ');
@@ -988,6 +990,15 @@ function renderFormularioReporte() {
   const tecnicoOut = getMember(r.tecnico_checkout_id)?.name || '-';
   const esAdmin = currentUser && currentUser.perfil === 'admin';
 
+  const esProyecto = t.tipoTarea === 'proyecto';
+  const avanceHtml = esProyecto ? `<div class="form-group full" style="margin-bottom:16px">
+      <label>% de avance del proyecto</label>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Pon aquí el avance que crees que tiene el proyecto en general (no solo lo hecho en esta visita).</div>
+      <input type="number" id="campo-avance-proyecto-pct" min="0" max="100" step="1" placeholder="0-100"
+        value="${r.avance_proyecto_pct != null ? r.avance_proyecto_pct : ''}"
+        style="width:120px" onblur="guardarCamposReporte()">
+      <span style="font-size:13px;color:var(--text-muted);margin-left:6px">%</span>
+    </div>` : '';
   const seccionesHtml = plantilla.secciones.map(sec => renderSeccion(sec, r)).join('');
   const yaGenerado = !!r.pdf_archivo;
 
@@ -1003,6 +1014,7 @@ function renderFormularioReporte() {
       </div>
       ${esAdmin ? renderCabeceraEditableAdmin(r) : ''}
     </div>
+    ${avanceHtml}
     ${seccionesHtml}
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
       <button class="btn-save" id="btn-generar-pdf" onclick="generarPDFReporte(this)">📄 ${yaGenerado ? 'Regenerar PDF' : 'Generar PDF'}</button>
@@ -1085,9 +1097,18 @@ function guardarCamposReporte() {
     if (el) datos[s.id] = el.value;
   });
   reporteActual.datos = { ...(reporteActual.datos || {}), ...datos };
+  const body = { plantilla: reporteActual.plantilla, datos };
+  // % de avance del proyecto: solo aplica a tarjetas tipo Proyecto, es una
+  // columna aparte de reportes (no va dentro de "datos").
+  const elAvance = document.getElementById('campo-avance-proyecto-pct');
+  if (elAvance) {
+    const val = elAvance.value === '' ? null : Math.max(0, Math.min(100, parseInt(elAvance.value, 10)));
+    reporteActual.avance_proyecto_pct = val;
+    body.avanceProyectoPct = val;
+  }
   fetch(`${API_BASE}/reportes.php?id=${reporteActual.id}`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ plantilla: reporteActual.plantilla, datos }),
+    body: JSON.stringify(body),
   }).catch(e => console.error('No se pudo guardar el reporte', e));
 }
 
@@ -1201,6 +1222,12 @@ async function generarPDFReporte(btn) {
     if (_campoAcciones) { _campoAcciones.scrollIntoView({ behavior: 'smooth', block: 'center' }); _campoAcciones.focus(); }
     return;
   }
+  const _campoAvance = document.getElementById('campo-avance-proyecto-pct');
+  if (_campoAvance && _campoAvance.value === '') {
+    alert('⚠️ Necesito que indiques el % de avance del proyecto antes de generar el PDF.');
+    _campoAvance.scrollIntoView({ behavior: 'smooth', block: 'center' }); _campoAvance.focus();
+    return;
+  }
   const _tieneFirma = (reporteActual.fotos || []).some(f => f.seccion_id === 'firma_cliente');
   if (!_tieneFirma) {
     alert('⚠️ Aún me falta la firma de conformidad del cliente para poder generar el PDF.');
@@ -1285,6 +1312,9 @@ async function generarPDFReporte(btn) {
       ['Tarea',   t.titulo  || '-'],
       ['Fecha',   fechaVisita],
     ];
+    if (t.tipoTarea === 'proyecto' && r.avance_proyecto_pct != null) {
+      filas.push(['% de avance', `${r.avance_proyecto_pct}%`]);
+    }
     if (partes.length > 0) {
       partes.forEach((p, i) => {
         const nombre   = getMember(p.tecnico_id)?.name || p.tecnico_id || '-';
@@ -1529,6 +1559,7 @@ async function renderHistorialVisitasModal(tareaId) {
     // Para badge Tardía: obtener horaProg y fechaProg de la tarea
     const tarea = tasks.find(t => t.id === tareaId);
     const esContrato = tarea?.tipoTarea === 'contrato';
+    const esProyectoTarea = tarea?.tipoTarea === 'proyecto';
     const horaProg  = tarea?.horaProg  || null; // "HH:MM"
     const fechaProg = tarea?.fechaProg || null; // "YYYY-MM-DD"
 
@@ -1611,7 +1642,9 @@ async function renderHistorialVisitasModal(tareaId) {
           // Usar snapshot por participante si existe; fallback a valores de la tarea
           const horaSnap  = p.hora_prog_snap  || horaProg;
           const fechaSnap = p.fecha_prog_snap || fechaProg;
-          const esTardia = horaSnap && fechaSnap && fechaCheckIn === fechaSnap && checkIn && checkIn > horaSnap.slice(0,5);
+          // Los proyectos no tienen "hora de inicio" — horaProg se reutiliza como
+          // hora de alarma administrativa, no como compromiso de llegada del técnico.
+          const esTardia = !esProyectoTarea && horaSnap && fechaSnap && fechaCheckIn === fechaSnap && checkIn && checkIn > horaSnap.slice(0,5);
           const tardiBadge = esTardia
             ? ' <span style="background:#fef2f2;color:#dc2626;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:700">🕐 Tardía</span>'
             : '';

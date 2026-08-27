@@ -42,6 +42,27 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — nueva tarjeta tipo "Proyecto")
+
+**Requiere migración SQL y nuevo cron.** `db/036_tipo_proyecto.sql`, `assets/js/tareas.js?v=20260827a`, `assets/js/core.js?v=20260827a`, `assets/js/reportes.js?v=20260827a`, `assets/js/configuracion.js?v=20260827a`, `tareas-equipo.html`, `backend/api/tareas.php`, `backend/api/reportes.php`, `backend/lib/proyectos.php` (nuevo), `backend/cron/aviso_proyectos.php` (nuevo):
+
+- **Migración `db/036_tipo_proyecto.sql`** (correr en phpMyAdmin antes del deploy): agrega `reportes.avance_proyecto_pct` (TINYINT 0-100) y 5 claves nuevas en `configuracion` (`aviso_proyecto_sin_visita[_tg]`, `aviso_proyecto_plazo[_tg]`, `proyecto_plazo_dias_umbral` = 2). No se necesitó tocar `tareas` — `tipo_tarea` ya incluía `'proyecto'` desde la migración 009.
+- **Qué es una tarjeta tipo Proyecto**: multidía, visible automáticamente a todos los técnicos del área (sin asignar uno por uno), sin "hora de inicio" (ese campo se reutiliza como "🔔 Hora de alarma"), y aunque se cumplan los días estimados igual se puede seguir haciendo check-in.
+- **Selector "Tipo de tarea"**: antes solo aparecía si el cliente tenía contrato configurado. Ahora "Evento"/"Proyecto" están siempre disponibles para IT/IF (con o sin contrato); "Contrato" sigue reservado a clientes con contrato activo (`tareas.js`: `_aplicarResultadoContrato` y funciones relacionadas).
+- **Visibilidad**: `core.js` (`tareasVisibles`) — un técnico ve una tarjeta si está en su `team` **o** si es tipo Proyecto (sin importar el equipo asignado).
+- **Alarma "sin visita del día"**: si pasada la hora de alarma no hay ningún check-in registrado ese día hábil en un proyecto "en ejecución", se avisa a administradores (correo/Telegram, togglable en Configuración). Cron nuevo `backend/cron/aviso_proyectos.php`, dedupe diario vía `avisos_enviados`.
+- **Alarma "plazo por vencer"**: aviso único a administradores cuando al proyecto le quedan `proyecto_plazo_dias_umbral` días hábiles o menos para llegar a la cantidad de días estimada (o ya la superó) — sugiere ampliar los días si aplica. Mismo cron, dedupe por fecha fin estimada (se repite si se reprograma). `backend/lib/proyectos.php` (nuevo) replica en PHP el mismo calendario de festivos colombianos que ya usa el frontend (`core.js`), para que cron y tarjeta calculen exactamente lo mismo.
+- **Cierre de visita distinto**: en tarjetas Proyecto no se pregunta "¿la tarea quedó terminada?" — el reporte se cierra y la tarjeta se queda en "En ejecución" hasta que un admin la mueva manualmente a "Por facturar" (`reportes.js`: `cerrarFormularioReporte`, `confirmarSinReporte`).
+- **% de avance del proyecto**: nuevo primer campo del formulario de reporte (solo tarjetas Proyecto, 0-100, obligatorio para generar el PDF), con el texto "Pon aquí el avance que crees que tiene el proyecto en general". Se guarda en `reportes.avance_proyecto_pct` (columna aparte de `datos`) y también queda impreso en el PDF de la visita.
+- **Badge "Día X de Y"**: para proyectos, se pone en rojo con ⚠️ cuando se exceden los días estimados (antes el cálculo tenía tope y nunca podía mostrar exceso — nueva función `diasExcedidosProyecto()` en `core.js`). El último % de avance reportado se muestra de forma prominente en la tarjeta, justo debajo del badge de días.
+- **"Tardía" no aplica a proyectos**: ni en el historial de visitas del modal (`reportes.js`) ni en el informe de tardías (`backend/api/reportes.php?tardias=1`), porque la hora de alarma ya no representa un compromiso de llegada.
+- **Nuevo bloque en el dashboard "🏗️ Proyectos activos"** (solo admin): días transcurridos vs. estimados y último % de avance por proyecto, agrupado por área — se arma en el cliente a partir de `tasks`, sin llamada aparte al backend (`tareas.js`: `renderProyectosActivosCard`).
+- **Configuración**: dos nuevos interruptores de aviso (correo/Telegram) y el campo de umbral de días hábiles, siguiendo el mismo patrón que "Contrato por consumir".
+- **Programar el cron nuevo en cPanel** (Cron Jobs), en horario laboral, ej. cada hora de 7am a 6pm:
+  ```
+  0 7-18 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/aviso_proyectos.php > /dev/null 2>&1
+  ```
+
 ## Cambios pendientes de deploy (2026-08-26 — poner número de factura mueve la tarjeta a Facturado automáticamente)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260826b`, `tareas-equipo.html`:

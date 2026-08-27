@@ -238,9 +238,13 @@ function taskCard(t) {
     } else if (t.estado === 'programado') {
       if ((t.diasProg || 1) > 1) {
         const diaActual  = diaActualEnProg(t);
+        const diasExceso = (t.tipoTarea === 'proyecto' && typeof diasExcedidosProyecto === 'function') ? diasExcedidosProyecto(t) : 0;
+        const excedido   = diasExceso > 0;
         const restantes  = t.diasProg - diaActual;
-        const restTxt    = restantes > 0 ? `${restantes} día${restantes===1?'':'s'} restante${restantes===1?'':'s'}` : 'último día';
-        diasEstadoBadge  = `<div style="font-size:11px;font-weight:600;color:#6366f1;margin-bottom:4px">🔧 Día ${diaActual} de ${t.diasProg} · ${restTxt}</div>`;
+        const restTxt    = excedido ? `excedido por ${diasExceso} día${diasExceso===1?'':'s'}` : (restantes > 0 ? `${restantes} día${restantes===1?'':'s'} restante${restantes===1?'':'s'}` : 'último día');
+        const colorDias  = excedido ? '#ef4444' : '#6366f1';
+        const diaMostrado = excedido ? (t.diasProg + diasExceso) : diaActual;
+        diasEstadoBadge  = `<div style="font-size:11px;font-weight:600;color:${colorDias};margin-bottom:4px">${excedido?'⚠️':'🔧'} Día ${diaMostrado} de ${t.diasProg} · ${restTxt}</div>`;
       } else {
         const dias = diasHabilesDesde(t.programadoAt);
         diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">🔧 ${dias} día${dias===1?'':'s'} en ejecución</div>`;
@@ -249,6 +253,9 @@ function taskCard(t) {
   } else if (porCotizar) {
     diasEstadoBadge = `<div style="font-size:11px;font-weight:600;color:${porCotizar.vencido?'#ef4444':'#64748b'};margin-bottom:4px">⏳ ${porCotizar.dias} día${porCotizar.dias===1?'':'s'} sin cotizar</div>`;
   }
+  const avanceBadge = (t.tipoTarea === 'proyecto' && t.avanceProyectoPct != null)
+    ? `<div style="font-size:11px;font-weight:700;color:#0D3B40;margin-bottom:4px">📊 Avance del proyecto: ${t.avanceProyectoPct}%</div>`
+    : '';
   return `<div class="task-card" data-id="${t.id}" draggable="true"
       ondragstart="onDragStart(event,'${t.id}')"
       ondragend="onDragEnd(event)"
@@ -259,6 +266,7 @@ function taskCard(t) {
     ${alerta ? `<div style="font-size:11px;font-weight:700;color:${alerta.vencido?'#ef4444':'#92400e'};margin-bottom:4px">🧾 ${alerta.dias} día${alerta.dias===1?'':'s'} hábil${alerta.dias===1?'':'es'} sin facturar</div>` : ''}
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${diasEstadoBadge}
+    ${avanceBadge}
     ${segBadge}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
       ${t.cliente?`<div style="font-size:11px;font-weight:700;color:#169BBC;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.03em">${esc(t.cliente)}</div>`:'<div></div>'}
@@ -580,6 +588,7 @@ function renderDashboard() {
         ifAlerts.length)}
     </div>
     <div id="contratos-vigentes-section"></div>
+    <div id="proyectos-activos-section"></div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
       <div onclick="goToArea('comercial','')" style="font-weight:700;font-size:15px;color:#3b82f6;margin-bottom:14px;cursor:pointer">
         💼 Comercial <span style="font-size:12px;font-weight:400;color:var(--text-muted)">→ ver todo</span>
@@ -708,6 +717,7 @@ function renderDashboard() {
   actualizarBadgeFueraSitio();
   cargarAlertasSinReporte();
   cargarContratosVigentes();
+  renderProyectosActivosCard();
 }
 
 // Banner persistente de técnicos tardíos (actualizado también por alarma.js cada 60s)
@@ -928,6 +938,59 @@ function renderContratosVigentesCard() {
   el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
     <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40);margin-bottom:4px">📋 Contratos vigentes</div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Consumo del ciclo actual de cada contrato — úsalo para saber qué falta programar antes del cierre.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px">
+      ${itRows ? `<div>${itRows}</div>` : ''}
+      ${ifRows ? `<div>${ifRows}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// --------------------------------------------------------------
+// Proyectos activos — tarjeta del dashboard con días transcurridos vs.
+// estimados y último % de avance reportado, para las tarjetas tipo Proyecto
+// que están "en ejecución" (estado programado). No requiere fetch aparte:
+// se arma con lo que ya está en `tasks` (avanceProyectoPct viene incluido
+// desde apiToTask()).
+// --------------------------------------------------------------
+function renderProyectosActivosCard() {
+  const el = document.getElementById('proyectos-activos-section');
+  if (!el) return;
+  if (!currentUser || currentUser.perfil !== 'admin') { el.innerHTML = ''; return; }
+
+  const proyectos = tasks.filter(t => t.tipoTarea === 'proyecto' && t.estado === 'programado');
+  if (!proyectos.length) { el.innerHTML = ''; return; }
+
+  const fila = t => {
+    const diasProg   = t.diasProg || 1;
+    const diaActual  = (typeof diaActualEnProg === 'function' ? diaActualEnProg(t) : null) || 1;
+    const diasExceso = (typeof diasExcedidosProyecto === 'function') ? diasExcedidosProyecto(t) : 0;
+    const excedido   = diasExceso > 0;
+    const diaMostrado = excedido ? (diasProg + diasExceso) : diaActual;
+    const pct = t.avanceProyectoPct != null ? t.avanceProyectoPct : null;
+    const areaColor = t.area === 'it' ? '#6366f1' : '#f97316';
+    const diasColor = excedido ? '#dc2626' : '#0D3B40';
+    return `<div onclick="openModal('${t.id}')"
+        style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:${areaColor}25;color:${areaColor};flex-shrink:0">${t.area.toUpperCase()}</span>
+          <span style="font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.cliente ? esc(t.cliente) + ' · ' : ''}${esc(t.titulo)}</span>
+        </div>
+        <span style="font-size:12px;color:${diasColor};font-weight:700;white-space:nowrap">${excedido?'⚠️ ':''}Día ${diaMostrado} de ${diasProg}</span>
+      </div>
+      ${pct != null ? `<div style="background:var(--bg);border-radius:99px;height:6px;overflow:hidden">
+        <div style="background:#169BBC;height:100%;width:${pct}%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">📊 Avance: ${pct}%</div>` : `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">📊 Aún sin % de avance reportado</div>`}
+    </div>`;
+  };
+
+  const itRows = proyectos.filter(t => t.area === 'it').map(fila).join('');
+  const ifRows = proyectos.filter(t => t.area === 'if').map(fila).join('');
+
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
+    <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40);margin-bottom:4px">🏗️ Proyectos activos</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Días transcurridos vs. estimados y último % de avance reportado.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px">
       ${itRows ? `<div>${itRows}</div>` : ''}
       ${ifRows ? `<div>${ifRows}</div>` : ''}
@@ -1165,9 +1228,10 @@ function updateFormForArea() {
   const elRepInterno = document.getElementById('grp-reporte-interno');
   const esAdmin = currentUser && currentUser.perfil === 'admin';
   if (elRepInterno) elRepInterno.style.display = (itIf && esAdmin) ? '' : 'none';
-  // Tipo de tarea: inicialmente oculto — se muestra solo si el cliente tiene contrato
+  // Tipo de tarea: visible en IT/IF (evento/proyecto siempre disponibles;
+  // "contrato" solo se habilita si el cliente tiene contrato — ver _aplicarResultadoContrato)
   const elTipoTarea = document.getElementById('grp-tipo-tarea');
-  if (elTipoTarea) elTipoTarea.style.display = 'none';
+  if (elTipoTarea) elTipoTarea.style.display = itIf ? 'block' : 'none';
   if (!itIf) {
     const selTipo = document.getElementById('f-tipo-tarea');
     if (selTipo) selTipo.value = 'evento';
@@ -1186,8 +1250,8 @@ function _aplicarResultadoContrato(c, area, mostrarConfirm = false) {
   const selTipo = document.getElementById('f-tipo-tarea');
   if (!elGrp || !selTipo) return;
   const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
+  elGrp.style.display = 'block'; // evento/proyecto siempre seleccionables en IT/IF, con o sin contrato
   if (tieneContrato) {
-    elGrp.style.display = 'block';
     if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
     if (mostrarConfirm) {
       _mostrarConfirmContrato(c, area);
@@ -1195,8 +1259,8 @@ function _aplicarResultadoContrato(c, area, mostrarConfirm = false) {
       actualizarInfoContrato(c);
     }
   } else {
-    elGrp.style.display = 'none';
-    selTipo.value = 'evento';
+    // Sin contrato: "contrato" no es válido, pero "proyecto" y "evento" sí.
+    if (selTipo.value === 'contrato') selTipo.value = 'evento';
     const infoEl = document.getElementById('contrato-horas-info');
     if (infoEl) infoEl.style.display = 'none';
   }
@@ -1257,37 +1321,37 @@ function _confirmarTipoContrato(esContrato) {
 // Si el cliente aún no tiene alegra_id en la BD, hace fallback por nombre.
 async function _verificarContratoCliente(alegraId, area, nombre = null) {
   const elGrp = document.getElementById('grp-tipo-tarea');
-  if (!elGrp || !['it','if'].includes(area) || !alegraId || !API_BASE) {
+  if (!elGrp || !['it','if'].includes(area)) {
     if (elGrp) elGrp.style.display = 'none';
     const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
     return;
   }
+  if (!alegraId || !API_BASE) { _aplicarResultadoContrato(null, area); return; }
   try {
     const res = await fetch(`${API_BASE}/clientes.php?alegra_id=${encodeURIComponent(alegraId)}`);
     const c = await res.json();
     if (c.error && nombre) return _verificarContratoClientePorNombre(nombre, area, true);
     _aplicarResultadoContrato(c, area, true);
   } catch {
-    elGrp.style.display = 'none';
-    const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
+    _aplicarResultadoContrato(null, area);
   }
 }
 
 // Verificar contrato por nombre (al editar tarea existente o cambiar área).
 async function _verificarContratoClientePorNombre(nombre, area) {
   const elGrp = document.getElementById('grp-tipo-tarea');
-  if (!elGrp || !['it','if'].includes(area) || !nombre || !API_BASE) {
+  if (!elGrp || !['it','if'].includes(area)) {
     if (elGrp) elGrp.style.display = 'none';
     const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
     return;
   }
+  if (!nombre || !API_BASE) { _aplicarResultadoContrato(null, area); return; }
   try {
     const res = await fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(nombre)}`);
     const c = await res.json();
     _aplicarResultadoContrato(c, area);
   } catch {
-    elGrp.style.display = 'none';
-    const s = document.getElementById('f-tipo-tarea'); if (s) s.value = 'evento';
+    _aplicarResultadoContrato(null, area);
   }
 }
 
@@ -1318,7 +1382,21 @@ async function actualizarInfoContrato(clienteRow) {
 }
 
 
+// Ajusta las etiquetas de fecha/hora de programación según el tipo de tarea:
+// las tarjetas tipo Proyecto no piden "hora de inicio" sino "hora de alarma"
+// (aviso a admins si no se ha registrado visita ese día).
+function _actualizarLabelsProyecto() {
+  const esProyecto = document.getElementById('f-tipo-tarea')?.value === 'proyecto';
+  const horaLabel = document.getElementById('f-hora-prog-label');
+  if (horaLabel) horaLabel.textContent = esProyecto ? '🔔 Hora de alarma:' : '🕗 Hora de inicio:';
+  const diasLabel = document.getElementById('f-dias-prog-label');
+  if (diasLabel) diasLabel.textContent = esProyecto ? 'día(s) estimados' : 'día(s)';
+  const ayuda = document.getElementById('f-hora-prog-ayuda');
+  if (ayuda) ayuda.style.display = esProyecto ? 'block' : 'none';
+}
+
 function onTipoTareaChange() {
+  _actualizarLabelsProyecto();
   const area = document.getElementById('f-area')?.value;
   const cliente = document.getElementById('f-cliente')?.value.trim();
   if (['it','if'].includes(area) && cliente) _verificarContratoClientePorNombre(cliente, area);
@@ -1359,10 +1437,13 @@ function openModal(id, preArea, preEstado) {
   // Tipo de tarea — pre-cargar valor guardado, luego verificar contrato del cliente
   const selTipo = document.getElementById('f-tipo-tarea');
   if (selTipo) selTipo.value = t?.tipoTarea || 'evento';
+  _actualizarLabelsProyecto();
   // _verificarContratoCliente mostrará/ocultará el selector y ajustará el valor si es necesario
   const clienteParaContrato = t?.cliente || '';
   if (['it','if'].includes(defaultArea) && clienteParaContrato) {
     setTimeout(() => _verificarContratoClientePorNombre(clienteParaContrato, defaultArea), 0);
+  } else if (['it','if'].includes(defaultArea)) {
+    _aplicarResultadoContrato(null, defaultArea);
   } else {
     const elGrp = document.getElementById('grp-tipo-tarea');
     if (elGrp) elGrp.style.display = 'none';
@@ -1483,11 +1564,16 @@ function onClienteInput() {
   clearTimeout(clienteSuggestTimer);
   if (q.length < 2) {
     box.style.display = 'none';
-    // Sin cliente → ocultar tipo_tarea
-    const elGrp = document.getElementById('grp-tipo-tarea');
-    if (elGrp) elGrp.style.display = 'none';
-    const selTipo = document.getElementById('f-tipo-tarea');
-    if (selTipo) selTipo.value = 'evento';
+    // Sin cliente → tipo_tarea sigue visible (evento/proyecto), pero sin info de contrato
+    const area = document.getElementById('f-area')?.value;
+    if (['it','if'].includes(area)) {
+      _aplicarResultadoContrato(null, area);
+    } else {
+      const elGrp = document.getElementById('grp-tipo-tarea');
+      if (elGrp) elGrp.style.display = 'none';
+      const selTipo = document.getElementById('f-tipo-tarea');
+      if (selTipo) selTipo.value = 'evento';
+    }
     return;
   }
   clienteSuggestTimer = setTimeout(() => buscarClientesAlegra(q), 300);

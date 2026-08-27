@@ -40,16 +40,22 @@ function registrarHistorial($pdo, $tareaId, $estadoAnt, $estadoNuevo, $usuarioId
 // GET /tareas.php          -> lista todas (con filtros opcionales ?area=&estado=)
 // GET /tareas.php?id=UUID  -> una tarea
 // --------------------------------------------------------------
+// Subconsulta: último % de avance registrado en un reporte de la tarea
+// (solo aplica a tarjetas tipo Proyecto, pero no hace daño calcularlo siempre).
+$AVANCE_PROYECTO_SUBQUERY = "(SELECT r.avance_proyecto_pct FROM reportes r
+    WHERE r.tarea_id = t.id AND r.avance_proyecto_pct IS NOT NULL
+    ORDER BY r.creado_en DESC LIMIT 1) AS avance_proyecto_pct";
+
 if ($method === 'GET') {
   if (!empty($_GET['id'])) {
-    $stmt = $pdo->prepare("SELECT * FROM tareas WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT t.*, $AVANCE_PROYECTO_SUBQUERY FROM tareas t WHERE t.id = ?");
     $stmt->execute([$_GET['id']]);
     $row = $stmt->fetch();
     if (!$row) jsonOut(['error' => 'No encontrada'], 404);
     jsonOut(rowConTeam($pdo, $row));
   }
 
-  $sql = "SELECT * FROM tareas WHERE 1=1";
+  $sql = "SELECT t.*, $AVANCE_PROYECTO_SUBQUERY FROM tareas t WHERE 1=1";
   $params = [];
   if (!empty($_GET['area']))   { $sql .= " AND area = ?";   $params[] = $_GET['area']; }
   if (!empty($_GET['estado'])) { $sql .= " AND estado = ?"; $params[] = $_GET['estado']; }

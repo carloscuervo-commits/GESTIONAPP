@@ -46,6 +46,7 @@ function apiToTask(r) {
     tipoTarea: r.tipo_tarea || 'evento',
     avisarCliente: r.avisar_cliente == null ? true : r.avisar_cliente == 1,
     reporteInterno: r.reporte_interno == 1,
+    avanceProyectoPct: (r.avance_proyecto_pct === null || r.avance_proyecto_pct === undefined) ? null : parseInt(r.avance_proyecto_pct),
   };
 }
 
@@ -304,10 +305,12 @@ function alertaPorCotizar(t) {
 function getMember(id) { return TEAM.find(m=>m.id===id); }
 
 // Tareas visibles para el usuario actual: un técnico solo ve las tarjetas
-// donde está asignado en el equipo (t.team incluye su id). Admin ve todas.
+// donde está asignado en el equipo (t.team incluye su id), salvo las
+// tarjetas tipo Proyecto, que son visibles para todos los técnicos sin
+// necesidad de asignarlos uno a uno. Admin ve todas.
 function tareasVisibles() {
   if (currentUser && currentUser.perfil === 'tecnico') {
-    return tasks.filter(t => (t.team||[]).includes(currentUser.id));
+    return tasks.filter(t => (t.team||[]).includes(currentUser.id) || t.tipoTarea === 'proyecto');
   }
   return tasks;
 }
@@ -351,6 +354,24 @@ function diaActualEnProg(t) {
     if (esDiaHabil(cur)) dia++;
   }
   return Math.min(dia, t.diasProg); // nunca supera el total
+}
+
+// Para tarjetas tipo Proyecto: días hábiles transcurridos MÁS ALLÁ de la
+// cantidad de días estimada (diaActualEnProg tiene tope en diasProg y por
+// eso no sirve para detectar excesos). Retorna 0 si aún no se excede.
+function diasExcedidosProyecto(t) {
+  if (!t.fechaProg || (t.diasProg || 1) <= 1) return 0;
+  const inicio = new Date(t.fechaProg + 'T00:00:00');
+  const hoy    = new Date();
+  hoy.setHours(0,0,0,0);
+  inicio.setHours(0,0,0,0);
+  let dia = 1; // día 1 = fecha de inicio
+  const cur = new Date(inicio);
+  while (cur < hoy) {
+    cur.setDate(cur.getDate() + 1);
+    if (esDiaHabil(cur)) dia++;
+  }
+  return Math.max(0, dia - t.diasProg);
 }
 
 function nombreCorto(id) {
