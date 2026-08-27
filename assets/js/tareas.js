@@ -256,6 +256,9 @@ function taskCard(t) {
   const avanceBadge = (t.tipoTarea === 'proyecto' && t.avanceProyectoPct != null)
     ? `<div style="font-size:11px;font-weight:700;color:#0D3B40;margin-bottom:4px">📊 Avance del proyecto: ${t.avanceProyectoPct}%</div>`
     : '';
+  const horasProyectoBadge = (t.tipoTarea === 'proyecto' && t.diasTrabajadosProyecto > 0)
+    ? `<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px">⏱ ${t.horasTrabajadasProyecto}h trabajadas · 📆 ${t.diasTrabajadosProyecto} día${t.diasTrabajadosProyecto===1?'':'s'}</div>`
+    : '';
   return `<div class="task-card" data-id="${t.id}" draggable="true"
       ondragstart="onDragStart(event,'${t.id}')"
       ondragend="onDragEnd(event)"
@@ -267,6 +270,7 @@ function taskCard(t) {
     ${sinProgramar ? `<div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">⚠️ Sin fecha de programación</div>` : ''}
     ${diasEstadoBadge}
     ${avanceBadge}
+    ${horasProyectoBadge}
     ${segBadge}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
       ${t.cliente?`<div style="font-size:11px;font-weight:700;color:#169BBC;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.03em">${esc(t.cliente)}</div>`:'<div></div>'}
@@ -982,6 +986,7 @@ function renderProyectosActivosCard() {
         <div style="background:#169BBC;height:100%;width:${pct}%"></div>
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px">📊 Avance: ${pct}%</div>` : `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">📊 Aún sin % de avance reportado</div>`}
+      ${(t.diasTrabajadosProyecto || 0) > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">⏱ ${t.horasTrabajadasProyecto}h trabajadas · 📆 ${t.diasTrabajadosProyecto} día${t.diasTrabajadosProyecto===1?'':'s'}</div>` : ''}
     </div>`;
   };
 

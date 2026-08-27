@@ -47,6 +47,8 @@ function apiToTask(r) {
     avisarCliente: r.avisar_cliente == null ? true : r.avisar_cliente == 1,
     reporteInterno: r.reporte_interno == 1,
     avanceProyectoPct: (r.avance_proyecto_pct === null || r.avance_proyecto_pct === undefined) ? null : parseInt(r.avance_proyecto_pct),
+    horasTrabajadasProyecto: (r.horas_trabajadas_proyecto === null || r.horas_trabajadas_proyecto === undefined) ? 0 : parseFloat(r.horas_trabajadas_proyecto),
+    diasTrabajadosProyecto: (r.dias_trabajados_proyecto === null || r.dias_trabajados_proyecto === undefined) ? 0 : parseInt(r.dias_trabajados_proyecto),
   };
 }
 

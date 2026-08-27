@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — proyectos: total de horas y días trabajados)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260827c`, `assets/js/core.js?v=20260827b`, `backend/api/tareas.php`:
+
+- Cerca al % de avance (tarjeta y bloque "🏗️ Proyectos activos" del dashboard) ahora se muestra también la sumatoria total de horas trabajadas por todos los técnicos (todas las visitas cerradas, restando pausas) y la cantidad de días distintos en que hubo al menos una visita — ej. "⏱ 20h trabajadas · 📆 3 días".
+- `backend/api/tareas.php`: dos subconsultas nuevas en el `GET` (`horas_trabajadas_proyecto`, `dias_trabajados_proyecto`), agregadas por `tarea_id` desde `visita_participantes`/`visita_pausas`/`reportes`. Solo aplican a tarjetas tipo Proyecto pero se calculan para todas sin problema.
+- `core.js` (`apiToTask`): mapea los dos campos nuevos a `horasTrabajadasProyecto` / `diasTrabajadosProyecto`.
+
 ## Cambios pendientes de deploy (2026-08-27 — proyectos: siempre reporte interno + tarjeta más compacta)
 
 Sin migraciones ni cron nuevos (complementa el cambio de "nueva tarjeta tipo Proyecto" de más abajo — desplegar juntos). `assets/js/tareas.js?v=20260827b`, `backend/api/tareas.php`:

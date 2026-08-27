@@ -46,16 +46,35 @@ $AVANCE_PROYECTO_SUBQUERY = "(SELECT r.avance_proyecto_pct FROM reportes r
     WHERE r.tarea_id = t.id AND r.avance_proyecto_pct IS NOT NULL
     ORDER BY r.creado_en DESC LIMIT 1) AS avance_proyecto_pct";
 
+// Subconsultas: total de horas trabajadas (suma de todos los técnicos, todas
+// las visitas cerradas, restando pausas) y cantidad de días distintos con al
+// menos un check-in — solo tiene sentido para tarjetas tipo Proyecto, pero no
+// hace daño calcularlo siempre.
+$HORAS_PROYECTO_SUBQUERY = "(SELECT ROUND(SUM(
+      GREATEST(0, TIMESTAMPDIFF(MINUTE, vp.check_in, vp.check_out)
+        - COALESCE((SELECT SUM(TIMESTAMPDIFF(MINUTE, vpz.pausa_inicio, vpz.pausa_fin))
+                    FROM visita_pausas vpz
+                    WHERE vpz.participante_id = vp.id AND vpz.pausa_fin IS NOT NULL), 0))
+    ) / 60, 1)
+    FROM visita_participantes vp
+    JOIN reportes r4 ON r4.id = vp.reporte_id COLLATE utf8mb4_general_ci
+    WHERE r4.tarea_id = t.id AND vp.check_out IS NOT NULL) AS horas_trabajadas_proyecto";
+$DIAS_TRABAJADOS_PROYECTO_SUBQUERY = "(SELECT COUNT(DISTINCT DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')))
+    FROM visita_participantes vp
+    JOIN reportes r5 ON r5.id = vp.reporte_id COLLATE utf8mb4_general_ci
+    WHERE r5.tarea_id = t.id AND vp.check_in IS NOT NULL) AS dias_trabajados_proyecto";
+$PROYECTO_SUBQUERIES = "$AVANCE_PROYECTO_SUBQUERY, $HORAS_PROYECTO_SUBQUERY, $DIAS_TRABAJADOS_PROYECTO_SUBQUERY";
+
 if ($method === 'GET') {
   if (!empty($_GET['id'])) {
-    $stmt = $pdo->prepare("SELECT t.*, $AVANCE_PROYECTO_SUBQUERY FROM tareas t WHERE t.id = ?");
+    $stmt = $pdo->prepare("SELECT t.*, $PROYECTO_SUBQUERIES FROM tareas t WHERE t.id = ?");
     $stmt->execute([$_GET['id']]);
     $row = $stmt->fetch();
     if (!$row) jsonOut(['error' => 'No encontrada'], 404);
     jsonOut(rowConTeam($pdo, $row));
   }
 
-  $sql = "SELECT t.*, $AVANCE_PROYECTO_SUBQUERY FROM tareas t WHERE 1=1";
+  $sql = "SELECT t.*, $PROYECTO_SUBQUERIES FROM tareas t WHERE 1=1";
   $params = [];
   if (!empty($_GET['area']))   { $sql .= " AND area = ?";   $params[] = $_GET['area']; }
   if (!empty($_GET['estado'])) { $sql .= " AND estado = ?"; $params[] = $_GET['estado']; }
