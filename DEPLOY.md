@@ -42,6 +42,18 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — cola de facturas pendientes por límite mensual de Alegra)
+
+**Requiere migración SQL.** `db/037_facturas_pendientes.sql`, `assets/js/facturacion.js?v=20260827a`, `assets/js/tareas.js?v=20260827d`, `tareas-equipo.html`, `backend/lib/alegra_facturas.php` (nuevo), `backend/api/facturas_pendientes.php` (nuevo), `backend/api/alegra_crear_factura.php` (refactor):
+
+- **Motivo**: el plan de Alegra tiene un límite mensual de facturación que a veces se agota antes de fin de mes. Ahora la persona de Facturación puede dejar la factura completamente lista (cliente buscado en Alegra, ítems, cantidades, precios, fechas — el mismo flujo de siempre) sin crearla todavía, y crearla apenas se resetee el límite.
+- **Migración `db/037_facturas_pendientes.sql`**: tabla `facturas_pendientes` — guarda el payload JSON exacto que se le mandaría a Alegra (cliente, ítems, fechas), estado (`pendiente`/`creada`/`cancelada`), y el resultado (número de factura, alegra_id) una vez creada.
+- **`backend/lib/alegra_facturas.php` (nuevo)**: se extrajo la lógica de creación (POST a `api.alegra.com/invoices` + registro en `facturas_generadas`) que antes vivía solo en `alegra_crear_factura.php`, para que también la use `facturas_pendientes.php` — así una factura "pendiente" se crea exactamente igual que una inmediata, sin duplicar código ni arriesgar que se desincronicen.
+- **`backend/api/alegra_crear_factura.php`**: ahora es un wrapper delgado sobre esa función compartida (mismo comportamiento externo, sin cambios para el usuario).
+- **`backend/api/facturas_pendientes.php` (nuevo)**: `POST` guarda como pendiente (no crea nada en Alegra todavía), `GET` lista pendientes/creadas, `PUT ?id=N&accion=crear` crea esa factura puntual en Alegra ahora, `PUT ?accion=crear_todas` crea todas las pendientes de una vez (reporta cuáles fallaron sin detener las demás), `DELETE ?id=N` cancela (no borra, queda con estado `cancelada` para trazabilidad).
+- **`facturacion.js`**: en el formulario de "Crear factura desde cotización" hay un botón nuevo "📥 Dejar lista para después" junto al de siempre. Nueva sección "📋 Facturas pendientes por crear" (debajo del formulario, en la vista Facturación) con cada pendiente — botones "✅ Crear ahora" por fila, "✅ Crear todas las pendientes" en bloque, y "🗑️ Cancelar". Al crearse (una por una o en bloque), si la factura viene de una tarea IT/IF, la tarjeta se mueve a "Facturado" igual que con el flujo inmediato.
+- **`tareas.js`**: hook para cargar la lista de pendientes al entrar a la pestaña "🧾 Facturación" (`setArea`).
+
 ## Cambios pendientes de deploy (2026-08-27 — proyectos: total de horas y días trabajados)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260827c`, `assets/js/core.js?v=20260827b`, `backend/api/tareas.php`:

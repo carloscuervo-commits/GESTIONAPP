@@ -1058,7 +1058,7 @@ function setArea(a) {
   document.querySelector('.btn-add').style.display       = isOther ? 'none' : 'inline-flex';
   if (isOther) document.getElementById('dashboard-view').style.display = 'none';
   if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
-  else if (isFacturacion) { /* nada que cargar al entrar */ }
+  else if (isFacturacion) { if (typeof cargarFacturasPendientes === 'function') cargarFacturasPendientes(); }
   else if (isInformes)  { renderInformesView(); }
   else if (isClientes)  { cargarClientes(); }
   else if (isAgenda)       { iniciarAgenda(); }
