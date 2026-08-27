@@ -58,9 +58,9 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - **"Tardía" no aplica a proyectos**: ni en el historial de visitas del modal (`reportes.js`) ni en el informe de tardías (`backend/api/reportes.php?tardias=1`), porque la hora de alarma ya no representa un compromiso de llegada.
 - **Nuevo bloque en el dashboard "🏗️ Proyectos activos"** (solo admin): días transcurridos vs. estimados y último % de avance por proyecto, agrupado por área — se arma en el cliente a partir de `tasks`, sin llamada aparte al backend (`tareas.js`: `renderProyectosActivosCard`).
 - **Configuración**: dos nuevos interruptores de aviso (correo/Telegram) y el campo de umbral de días hábiles, siguiendo el mismo patrón que "Contrato por consumir".
-- **Programar el cron nuevo en cPanel** (Cron Jobs), en horario laboral, ej. cada hora de 7am a 6pm:
+- **Programar el cron nuevo en cPanel** (Cron Jobs), en horario laboral, ej. cada hora de 7am a 6pm. El campo "Minute/Hour" de cPanel no siempre acepta rangos (`7-18`) — usar lista separada por comas en su lugar:
   ```
-  0 7-18 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/aviso_proyectos.php > /dev/null 2>&1
+  0 7,8,9,10,11,12,13,14,15,16,17,18 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/aviso_proyectos.php > /dev/null 2>&1
   ```
 
 ## Cambios pendientes de deploy (2026-08-26 — poner número de factura mueve la tarjeta a Facturado automáticamente)
