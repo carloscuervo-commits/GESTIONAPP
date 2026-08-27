@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — proyectos: siempre reporte interno + tarjeta más compacta)
+
+Sin migraciones ni cron nuevos (complementa el cambio de "nueva tarjeta tipo Proyecto" de más abajo — desplegar juntos). `assets/js/tareas.js?v=20260827b`, `backend/api/tareas.php`:
+
+- Las tarjetas tipo Proyecto ahora son **siempre** de reporte interno — al cliente nunca le llega nada (ni el reporte de visita ni el aviso del día anterior), sin excepción. Se fuerza en dos capas: en el formulario (`saveTask()` ya no lee los checkboxes para este tipo) y, más importante, en el servidor (`backend/api/tareas.php`, POST y PUT) — `avisar_cliente` y `reporte_interno` se calculan ahí mismo según `tipo_tarea`, ignorando lo que mande el frontend. Esto también corrige que el `INSERT` de creación nunca guardaba `reporte_interno` (quedaba siempre en 0 por default de la tabla).
+- El modal de tarjeta ahora oculta, solo para tipo Proyecto: los checkboxes "Avisar al cliente el día anterior" y "Reporte solo interno" (ya no aplican, quedan fijos) y "Equipo asignado" (no hace falta asignar técnicos uno a uno — la tarjeta ya es visible a todos). Esto además deja la tarjeta más pequeña.
+- Si conviertes una tarjeta vieja (evento/contrato) a tipo Proyecto, este cambio también aplica retroactivamente en ese momento — el guardado siguiente deja `reporte_interno=1` y `avisar_cliente=0` aunque la tarjeta ya tuviera reportes enviados antes al cliente (esos reportes viejos no se tocan, solo el comportamiento de ahí en adelante).
+
 ## Cambios pendientes de deploy (2026-08-27 — nueva tarjeta tipo "Proyecto")
 
 **Requiere migración SQL y nuevo cron.** `db/036_tipo_proyecto.sql`, `assets/js/tareas.js?v=20260827a`, `assets/js/core.js?v=20260827a`, `assets/js/reportes.js?v=20260827a`, `assets/js/configuracion.js?v=20260827a`, `tareas-equipo.html`, `backend/api/tareas.php`, `backend/api/reportes.php`, `backend/lib/proyectos.php` (nuevo), `backend/cron/aviso_proyectos.php` (nuevo):

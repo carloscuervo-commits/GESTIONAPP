@@ -1242,6 +1242,10 @@ function updateFormForArea() {
     const clienteActual = document.getElementById('f-cliente')?.value.trim();
     if (clienteActual) _verificarContratoClientePorNombre(clienteActual, area);
   }
+  // _actualizarLabelsProyecto() es la autoridad final sobre avisar-cliente/
+  // reporte-interno/equipo (los oculta si tipoTarea sigue siendo 'proyecto'
+  // tras cambiar de área, ej. IT → IF) y sobre las etiquetas de hora/días.
+  if (typeof _actualizarLabelsProyecto === 'function') _actualizarLabelsProyecto();
 }
 
 // Lógica compartida para mostrar/ocultar el selector tipo_tarea dado el objeto cliente.
@@ -1312,6 +1316,7 @@ function _confirmarTipoContrato(esContrato) {
   const selTipo = document.getElementById('f-tipo-tarea');
   if (selTipo) {
     selTipo.value = esContrato ? 'contrato' : 'evento';
+    _actualizarLabelsProyecto();
     // Actualizar info de horas si es contrato
     if (esContrato) onTipoTareaChange();
   }
@@ -1382,9 +1387,16 @@ async function actualizarInfoContrato(clienteRow) {
 }
 
 
-// Ajusta las etiquetas de fecha/hora de programación según el tipo de tarea:
-// las tarjetas tipo Proyecto no piden "hora de inicio" sino "hora de alarma"
-// (aviso a admins si no se ha registrado visita ese día).
+// Ajusta el formulario según el tipo de tarea. Las tarjetas tipo Proyecto:
+//  - no piden "hora de inicio" sino "hora de alarma" (aviso a admins si no
+//    se ha registrado visita ese día);
+//  - son SIEMPRE de reporte interno (nunca le llega nada al cliente), así
+//    que no tiene sentido mostrar los checkboxes "avisar cliente" ni
+//    "reporte interno" — se ocultan y su valor se fuerza al guardar
+//    (ver saveTask()) y también en el servidor (tareas.php);
+//  - son visibles automáticamente a todos los técnicos del área (no hay que
+//    asignar equipo uno a uno), así que se oculta "Equipo asignado" para que
+//    la tarjeta quede más compacta.
 function _actualizarLabelsProyecto() {
   const esProyecto = document.getElementById('f-tipo-tarea')?.value === 'proyecto';
   const horaLabel = document.getElementById('f-hora-prog-label');
@@ -1393,6 +1405,16 @@ function _actualizarLabelsProyecto() {
   if (diasLabel) diasLabel.textContent = esProyecto ? 'día(s) estimados' : 'día(s)';
   const ayuda = document.getElementById('f-hora-prog-ayuda');
   if (ayuda) ayuda.style.display = esProyecto ? 'block' : 'none';
+
+  const area = document.getElementById('f-area')?.value;
+  const itIf = ['it','if'].includes(area);
+  const elAvisar = document.getElementById('grp-avisar-cliente');
+  if (elAvisar) elAvisar.style.display = (itIf && !esProyecto) ? '' : 'none';
+  const elRepInterno = document.getElementById('grp-reporte-interno');
+  const esAdminLabel = currentUser && currentUser.perfil === 'admin';
+  if (elRepInterno) elRepInterno.style.display = (itIf && esAdminLabel && !esProyecto) ? '' : 'none';
+  const elTeam = document.getElementById('grp-team');
+  if (elTeam) elTeam.style.display = (area === 'comercial' || esProyecto) ? 'none' : '';
 }
 
 function onTipoTareaChange() {
@@ -1843,8 +1865,12 @@ async function saveTask() {
   const solicitudComercial = ['it','if'].includes(area) ? document.getElementById('f-solicitud-comercial').value.trim() : '';
   const incluyeProg = area === 'admin' ? !!(document.getElementById('f-incluye-prog')?.checked) : false;
   const tipoTarea = ['it','if'].includes(area) ? (document.getElementById('f-tipo-tarea')?.value || 'evento') : 'evento';
-  const avisarCliente   = ['it','if'].includes(area) ? !!(document.getElementById('f-avisar-cliente')?.checked)   : false;
-  const reporteInterno  = ['it','if'].includes(area) ? !!(document.getElementById('f-reporte-interno')?.checked)  : false;
+  const esProyectoSave = tipoTarea === 'proyecto';
+  // Las tarjetas tipo Proyecto son siempre de reporte interno (nunca le llega
+  // nada al cliente) y nunca avisan al cliente el día anterior — los checkboxes
+  // ni se muestran para este tipo. El backend también lo fuerza por seguridad.
+  const avisarCliente   = esProyectoSave ? false : (['it','if'].includes(area) ? !!(document.getElementById('f-avisar-cliente')?.checked)   : false);
+  const reporteInterno  = esProyectoSave ? true  : (['it','if'].includes(area) ? !!(document.getElementById('f-reporte-interno')?.checked)  : false);
 
   // Si técnico crea una nueva tarea, asignarse automáticamente
   let teamFinal = [...selectedTeam];

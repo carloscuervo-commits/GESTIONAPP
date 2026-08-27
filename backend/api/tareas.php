@@ -85,15 +85,23 @@ if ($method === 'POST') {
   $programadoEn = ($d['estado'] === 'programado') ? $now : null;
   $seguimientoHistorial = isset($d['seguimientoHistorial']) ? json_encode($d['seguimientoHistorial']) : null;
 
+  // Las tarjetas tipo Proyecto son SIEMPRE de reporte interno (nunca le
+  // llega nada al cliente) y nunca avisan al cliente el día anterior —
+  // se fuerza en el servidor sin importar lo que mande el frontend.
+  $tipoTareaIn = in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento';
+  $esProyectoIn = $tipoTareaIn === 'proyecto';
+  $avisarClienteIn = $esProyectoIn ? 0 : (isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : 1);
+  $reporteInternoIn = $esProyectoIn ? 1 : (isset($d['reporteInterno']) ? (int)$d['reporteInterno'] : 0);
+
   $stmt = $pdo->prepare("INSERT INTO tareas
     (id, titulo, descripcion, area, estado, tipo_tarea, cliente, fecha_programacion, hora_programacion, dias_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, modalidad, factura, motivo_no_factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
-     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog, avisar_cliente)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog, avisar_cliente, reporte_interno)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'],
-    in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento',
+    $tipoTareaIn,
     $d['cliente'] ?? null,
     $d['fechaProg'] ?? null, $d['horaProg'] ?? '08:00', isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
     $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
@@ -104,7 +112,7 @@ if ($method === 'POST') {
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $d['cotizacionDocx'] ?? null,
     empty($d['incluyeProg']) ? 0 : 1,
-    isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : 1,
+    $avisarClienteIn, $reporteInternoIn,
   ]);
 
   if (!empty($d['team'])) {
@@ -206,6 +214,15 @@ if ($method === 'PUT') {
   $nuevaFechaProg = $d['fechaProg'] ?? null;
   $alertaRetraso = ($nuevaFechaProg !== $prev['fecha_programacion']) ? 0 : (int)$prev['alerta_retraso_enviada'];
 
+  // Las tarjetas tipo Proyecto son SIEMPRE de reporte interno (nunca le
+  // llega nada al cliente) y nunca avisan al cliente el día anterior —
+  // se fuerza en el servidor sin importar lo que mande el frontend, tanto
+  // si ya era proyecto como si se está reclasificando una tarjeta vieja.
+  $tipoTareaUp = in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento';
+  $esProyectoUp = $tipoTareaUp === 'proyecto';
+  $avisarClienteUp = $esProyectoUp ? 0 : (isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : (int)($prev['avisar_cliente'] ?? 1));
+  $reporteInternoUp = $esProyectoUp ? 1 : (isset($d['reporteInterno']) ? (int)$d['reporteInterno'] : (int)($prev['reporte_interno'] ?? 0));
+
   $stmt = $pdo->prepare("UPDATE tareas SET
     titulo=?, descripcion=?, area=?, estado=?, tipo_tarea=?, cliente=?, fecha_programacion=?, hora_programacion=?, dias_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, modalidad=?, factura=?, motivo_no_factura=?,
@@ -215,7 +232,7 @@ if ($method === 'PUT') {
     WHERE id=?");
   $stmt->execute([
     $d['titulo'], $d['desc'] ?? null, $d['area'], $estado,
-    in_array($d['tipoTarea'] ?? '', ['evento','proyecto','contrato']) ? $d['tipoTarea'] : 'evento',
+    $tipoTareaUp,
     $d['cliente'] ?? null,
     $nuevaFechaProg, $d['horaProg'] ?? '08:00', isset($d['diasProg']) ? (int)$d['diasProg'] : 1,
     $d['fecha'] ?? null, $d['tiempo'] ?? null, $d['tiempoReal'] ?? null,
@@ -225,8 +242,7 @@ if ($method === 'PUT') {
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
     $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx,
     empty($d['incluyeProg']) ? 0 : 1,
-    isset($d['avisarCliente']) ? (int)$d['avisarCliente'] : (int)($prev['avisar_cliente'] ?? 1),
-    isset($d['reporteInterno']) ? (int)$d['reporteInterno'] : (int)($prev['reporte_interno'] ?? 0),
+    $avisarClienteUp, $reporteInternoUp,
     $alertaRetraso, $id,
   ]);
 
