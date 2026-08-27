@@ -123,6 +123,12 @@
       <input type="file" id="fact-file-input" accept=".docx" style="font-size:13px">
       <button class="btn-save" id="fact-procesar-btn" onclick="procesarCotizacionFile()">Procesar cotización</button>
     </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+      <div style="flex:1;height:1px;background:var(--border,#e5e7eb)"></div>
+      <span style="font-size:11px;color:var(--text-muted)">o</span>
+      <div style="flex:1;height:1px;background:var(--border,#e5e7eb)"></div>
+    </div>
+    <button class="btn-cancel" style="margin-top:12px" onclick="iniciarFacturaManual()">🧾 Crear factura manual (sin cotización)</button>
     <div id="fact-status" style="margin-top:14px;font-size:13px"></div>
     <div id="fact-resultado" style="margin-top:18px;display:none"></div>
   </div>
@@ -835,7 +841,7 @@
 <script src="assets/js/auth.js?v=20260704p"></script>
 <script src="assets/js/tareas.js?v=20260827d"></script>
 <script src="assets/js/cartera.js?v=20260614b"></script>
-<script src="assets/js/facturacion.js?v=20260827a"></script>
+<script src="assets/js/facturacion.js?v=20260827c"></script>
 <script src="assets/js/reportes.js?v=20260827a"></script>
 <script src="assets/js/comentarios.js?v=20260820a"></script>
 <script src="assets/js/informes.js?v=20260824a"></script>

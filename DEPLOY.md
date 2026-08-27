@@ -42,6 +42,22 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — factura manual sin cotización)
+
+Sin migraciones ni cron. `assets/js/facturacion.js?v=20260827c`, `tareas-equipo.html`:
+
+- Nuevo botón "🧾 Crear factura manual (sin cotización)" en la pestaña Facturación, junto al de subir .docx. Abre el mismo formulario de siempre (fechas, ítems, botones "Crear factura en Alegra" / "📥 Dejar lista para después") pero sin necesitar una cotización de por medio.
+- Cliente: en modo manual se busca por nombre en vivo contra Alegra (mismo endpoint `alegra_contactos.php` que ya usa el autocompletado de cliente en las tarjetas) en vez de venir de los candidatos que arroja el parseo de la cotización.
+- Ítems: en modo manual se pueden agregar/quitar líneas con "+ Agregar ítem" / 🗑️ (en el flujo por cotización el número de ítems sigue viniendo fijo del documento, sin cambios ahí).
+- Internamente reutiliza el mismo `renderFacturaForm()` y el mismo payload (`_recolectarPayloadFactura()`) que ya usan "Crear factura en Alegra" y "Dejar lista para después" — no hay dos caminos de código distintos que puedan desincronizarse.
+
+## Cambios pendientes de deploy (2026-08-27 — fix: sección "Facturas pendientes" invisible cuando no había ninguna)
+
+Sin migraciones ni cron. `assets/js/facturacion.js?v=20260827b`:
+
+- La sección "📋 Facturas pendientes por crear" solo se pintaba si ya había al menos una guardada — con la tabla recién creada (0 filas) quedaba completamente invisible, dando la impresión de que el botón "Dejar lista para después" no existía. Ahora la sección siempre se muestra (con "No hay ninguna pendiente ahora mismo" cuando está vacía), para que se pueda encontrar antes de haber guardado la primera.
+- Recordatorio de uso: el formulario con los botones "Crear factura en Alegra" / "📥 Dejar lista para después" solo aparece **después** de procesar una cotización (subiendo el .docx en la pestaña Facturación, o con "🧾 Generar factura desde cotización" desde una tarjeta ya Realizada) — antes de eso solo se ve la caja de "Crear factura desde cotización", que es justo lo que describiste.
+
 ## Cambios pendientes de deploy (2026-08-27 — cola de facturas pendientes por límite mensual de Alegra)
 
 **Requiere migración SQL.** `db/037_facturas_pendientes.sql`, `assets/js/facturacion.js?v=20260827a`, `assets/js/tareas.js?v=20260827d`, `tareas-equipo.html`, `backend/lib/alegra_facturas.php` (nuevo), `backend/api/facturas_pendientes.php` (nuevo), `backend/api/alegra_crear_factura.php` (refactor):

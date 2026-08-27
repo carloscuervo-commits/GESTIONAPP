@@ -83,9 +83,22 @@ function renderFacturaForm() {
     ? `<div style="background:#fff5f5;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">⚠️ ${esc(f.aviso_cliente)}</div>`
     : '';
 
+  const clienteFieldHtml = f.modoManual
+    ? `<label style="font-size:11px;color:var(--text-muted)">Cliente (buscar en Alegra)</label>
+       <input type="text" id="fact-manual-cliente-q" placeholder="Escribe el nombre del cliente..." autocomplete="off"
+         value="${esc(f.clienteManualNombre||'')}" oninput="buscarClienteFacturaManual(this.value)" style="width:100%">
+       <div id="fact-manual-cliente-suggestions" style="display:none;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-top:2px;max-height:180px;overflow:auto"></div>
+       <input type="hidden" id="fact-cliente-id" value="${f.clienteManualId||''}">
+       <div style="font-size:11px;margin-top:2px;color:${f.clienteManualId ? '#059669' : 'var(--text-muted)'}">${f.clienteManualId ? `✓ Cliente seleccionado (id ${f.clienteManualId})` : 'Escribe al menos 2 letras y elige un cliente de la lista.'}</div>`
+    : `<label style="font-size:11px;color:var(--text-muted)">Cliente</label>
+       ${opcionesCliente
+          ? `<select id="fact-cliente-id" style="width:100%">${opcionesCliente}</select>`
+          : `<input type="text" id="fact-cliente-id" placeholder="ID de cliente en Alegra" style="width:100%">`}
+       <div style="font-size:11px;color:var(--text-muted);margin-top:2px">En la cotización: "${esc(f.cliente_nombre_cotizacion||'-')}"</div>`;
+
   const itemsHtml = f.items.map((it, idx) => `
     <div style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:8px">
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:160px">
           <label style="font-size:11px;color:var(--text-muted)">Ítem Alegra</label>
           <select id="fact-item-${idx}-id" style="width:100%">
@@ -100,21 +113,20 @@ function renderFacturaForm() {
           <label style="font-size:11px;color:var(--text-muted)">Precio (sin IVA)</label>
           <input type="number" id="fact-item-${idx}-price" value="${it.price}" min="0" step="1" style="width:100%">
         </div>
+        ${f.modoManual && f.items.length > 1 ? `<button type="button" onclick="quitarItemFacturaManual(${idx})" title="Quitar ítem" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:7px 10px;font-size:12px;cursor:pointer">🗑️</button>` : ''}
       </div>
       <label style="font-size:11px;color:var(--text-muted)">Descripción</label>
       <textarea id="fact-item-${idx}-desc" rows="3" style="width:100%;font-size:13px">${esc(it.description)}</textarea>
     </div>
   `).join('');
 
+  const totalManual = f.items.reduce((s,it)=> s + (Number(it.price)||0)*(Number(it.quantity)||0), 0);
+
   resEl.innerHTML = `
     ${avisoHtml}
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
       <div style="flex:1;min-width:220px">
-        <label style="font-size:11px;color:var(--text-muted)">Cliente</label>
-        ${opcionesCliente
-          ? `<select id="fact-cliente-id" style="width:100%">${opcionesCliente}</select>`
-          : `<input type="text" id="fact-cliente-id" placeholder="ID de cliente en Alegra" style="width:100%">`}
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">En la cotización: "${esc(f.cliente_nombre_cotizacion||'-')}"</div>
+        ${clienteFieldHtml}
       </div>
       <div style="width:140px">
         <label style="font-size:11px;color:var(--text-muted)">Fecha factura</label>
@@ -128,10 +140,10 @@ function renderFacturaForm() {
         <label style="font-size:11px;color:var(--text-muted)">Fecha ejecución/entrega</label>
         <input type="date" id="fact-ejecucion" value="${f.date}" style="width:100%">
       </div>
-      <div style="width:100px">
+      ${f.modoManual ? '' : `<div style="width:100px">
         <label style="font-size:11px;color:var(--text-muted)">CTINN</label>
         <input type="text" value="${esc(f.ctinn||'-')}" disabled style="width:100%">
-      </div>
+      </div>`}
     </div>
     <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:12px">
       ℹ️ La fecha de vencimiento se estableció por defecto a 8 días desde hoy. Si deseas cambiarla, edita el campo "Fecha vencimiento".<br>
@@ -139,8 +151,9 @@ function renderFacturaForm() {
     </div>
     <div style="font-weight:600;font-size:13px;margin-bottom:6px">Ítems de la factura</div>
     ${itemsHtml}
+    ${f.modoManual ? `<button type="button" class="btn-cancel" onclick="agregarItemFacturaManual()" style="margin-bottom:12px">+ Agregar ítem</button>` : ''}
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
-      Total cotización (referencia): ${formatCOP(f.totales_cotizacion?.total||0)}
+      ${f.modoManual ? 'Total (referencia inicial)' : 'Total cotización (referencia)'}: ${formatCOP(f.modoManual ? totalManual : (f.totales_cotizacion?.total||0))}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn-save" onclick="crearFacturaAlegra()">Crear factura en Alegra</button>
@@ -148,6 +161,101 @@ function renderFacturaForm() {
     </div>
     <div id="fact-crear-status" style="margin-top:10px;font-size:13px"></div>
   `;
+}
+
+// ----------------- Factura manual (sin cotización) -----------------
+
+function iniciarFacturaManual() {
+  const hoy = new Date();
+  const venc = new Date(Date.now() + 8*24*60*60*1000);
+  facturaActual = {
+    modoManual: true,
+    tareaId: null,
+    ctinn: null,
+    cliente_nombre_cotizacion: '',
+    clientes_candidatos: [],
+    aviso_cliente: null,
+    clienteManualId: null,
+    clienteManualNombre: '',
+    date: hoy.toISOString().split('T')[0],
+    dueDate: venc.toISOString().split('T')[0],
+    items: [{ alegra_item_id: ALEGRA_ITEM_OPCIONES[0].id, description: '', quantity: 1, price: 0 }],
+    totales_cotizacion: null,
+  };
+  const statusEl = document.getElementById('fact-status');
+  if (statusEl) statusEl.innerHTML = '';
+  renderFacturaForm();
+  document.getElementById('fact-resultado')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Antes de mutar/re-renderizar el formulario (agregar/quitar ítem, elegir
+// cliente), captura en facturaActual lo que el usuario ya haya escrito, para
+// no perder ediciones en curso al reconstruir el HTML.
+function _sincronizarFormularioFacturaDesdeDOM() {
+  const f = facturaActual;
+  if (!f) return;
+  const elFecha = document.getElementById('fact-fecha');
+  const elVenc = document.getElementById('fact-vencimiento');
+  if (elFecha && elFecha.value) f.date = elFecha.value;
+  if (elVenc && elVenc.value) f.dueDate = elVenc.value;
+  if (Array.isArray(f.items)) {
+    f.items.forEach((it, idx) => {
+      const elId = document.getElementById(`fact-item-${idx}-id`);
+      const elQty = document.getElementById(`fact-item-${idx}-qty`);
+      const elPrice = document.getElementById(`fact-item-${idx}-price`);
+      const elDesc = document.getElementById(`fact-item-${idx}-desc`);
+      if (elId) it.alegra_item_id = Number(elId.value);
+      if (elQty) it.quantity = Number(elQty.value) || 1;
+      if (elPrice) it.price = Number(elPrice.value) || 0;
+      if (elDesc) it.description = elDesc.value;
+    });
+  }
+}
+
+function agregarItemFacturaManual() {
+  _sincronizarFormularioFacturaDesdeDOM();
+  facturaActual.items.push({ alegra_item_id: ALEGRA_ITEM_OPCIONES[0].id, description: '', quantity: 1, price: 0 });
+  renderFacturaForm();
+}
+
+function quitarItemFacturaManual(idx) {
+  if (facturaActual.items.length <= 1) return;
+  _sincronizarFormularioFacturaDesdeDOM();
+  facturaActual.items.splice(idx, 1);
+  renderFacturaForm();
+}
+
+let _clienteManualBusqueda = [];
+let _clienteManualTimer = null;
+function buscarClienteFacturaManual(q) {
+  facturaActual.clienteManualNombre = q;
+  facturaActual.clienteManualId = null; // se invalida hasta que elija uno de la lista
+  clearTimeout(_clienteManualTimer);
+  const box = document.getElementById('fact-manual-cliente-suggestions');
+  if (!q || q.trim().length < 2) { if (box) box.style.display = 'none'; return; }
+  if (!API_BASE) return;
+  _clienteManualTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/alegra_contactos.php?q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+      _clienteManualBusqueda = Array.isArray(data) ? data : [];
+      if (!box) return;
+      box.innerHTML = _clienteManualBusqueda.length
+        ? _clienteManualBusqueda.map((c,i) => `<div onmousedown="seleccionarClienteFacturaManual(${i})" style="padding:8px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border,#e5e7eb)">${esc(c.name)}</div>`).join('')
+        : '<div style="padding:8px;font-size:12px;color:var(--text-muted)">Sin coincidencias en Alegra</div>';
+      box.style.display = 'block';
+    } catch (e) { console.error(e); }
+  }, 300);
+}
+
+function seleccionarClienteFacturaManual(idx) {
+  const c = _clienteManualBusqueda[idx];
+  if (!c) return;
+  _sincronizarFormularioFacturaDesdeDOM();
+  facturaActual.clienteManualId = c.id;
+  facturaActual.clienteManualNombre = c.name;
+  facturaActual.cliente_nombre_cotizacion = c.name;
+  renderFacturaForm();
 }
 
 // Recolecta del formulario el mismo payload que se le manda a Alegra, tanto
@@ -161,7 +269,12 @@ function _recolectarPayloadFactura() {
   const dueDate = document.getElementById('fact-vencimiento').value;
   const ejecucion = document.getElementById('fact-ejecucion').value;
 
-  if (!clienteId) { statusEl.innerHTML = '<span style="color:#ef4444">Falta el ID del cliente en Alegra.</span>'; return null; }
+  if (!clienteId) {
+    statusEl.innerHTML = f.modoManual
+      ? '<span style="color:#ef4444">Busca y selecciona el cliente en la lista de Alegra antes de continuar.</span>'
+      : '<span style="color:#ef4444">Falta el ID del cliente en Alegra.</span>';
+    return null;
+  }
 
   let ejecucionTexto = '';
   if (ejecucion) {
@@ -274,8 +387,6 @@ function renderFacturasPendientesList() {
   if (!el) return;
   const pendientes = _facturasPendientesData.filter(f => f.estado === 'pendiente');
   const creadas = _facturasPendientesData.filter(f => f.estado === 'creada');
-
-  if (!pendientes.length && !creadas.length) { el.innerHTML = ''; return; }
 
   const filaPendiente = f => {
     const totalTxt = f.total_estimado != null ? formatCOP(f.total_estimado) : '-';
