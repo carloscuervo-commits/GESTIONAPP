@@ -17,7 +17,16 @@ require_once __DIR__ . '/../config/config_alegra.php';
 /**
  * Crea una factura en Alegra y registra el resultado en facturas_generadas.
  *
- * @param array       $datos   { date, dueDate?, client:{id}, items:[{id,description,quantity,price,tax?}],
+ * OJO con la fecha: la factura SIEMPRE queda con la fecha del día en que
+ * esta función corre de verdad (hora Colombia) — nunca con una fecha elegida
+ * de antemano en el formulario. Esto es intencional: una factura "dejada
+ * lista para después" puede crearse varios días después de diligenciarse
+ * (cuando se resetee el límite mensual de Alegra), y debe quedar fechada el
+ * día real de creación, no el día en que se diligenció. Por eso $datos NO
+ * recibe date/dueDate — solo plazoDias, con el que se calcula dueDate a
+ * partir de la fecha real de hoy.
+ *
+ * @param array       $datos   { plazoDias?, client:{id}, items:[{id,description,quantity,price,tax?}],
  *                                clienteNombre?, tareaId? }
  * @param PDO         $pdo
  * @return array      ['ok' => bool, 'data' => array|null, 'error' => string|null, 'status' => int|null, 'detalle' => mixed]
@@ -27,15 +36,14 @@ function crearFacturaEnAlegra(array $datos, PDO $pdo): array {
     return ['ok' => false, 'httpStatus' => 500, 'error' => 'Credenciales de Alegra no configuradas'];
   }
 
-  $date = $datos['date'] ?? null;
   $client = $datos['client'] ?? null;
   $items = $datos['items'] ?? null;
-  $dueDate = $datos['dueDate'] ?? null;
   $clienteNombre = $datos['clienteNombre'] ?? null;
   $tareaId = $datos['tareaId'] ?? null;
+  $plazoDias = isset($datos['plazoDias']) && is_numeric($datos['plazoDias']) ? max(0, (int)$datos['plazoDias']) : 8;
 
-  if (!$date || empty($client['id']) || !is_array($items) || empty($items)) {
-    return ['ok' => false, 'httpStatus' => 400, 'error' => 'Faltan datos: se requiere date, client.id e items[]'];
+  if (empty($client['id']) || !is_array($items) || empty($items)) {
+    return ['ok' => false, 'httpStatus' => 400, 'error' => 'Faltan datos: se requiere client.id e items[]'];
   }
   foreach ($items as $it) {
     if (empty($it['id']) || !isset($it['price']) || !isset($it['quantity'])) {
@@ -43,21 +51,15 @@ function crearFacturaEnAlegra(array $datos, PDO $pdo): array {
     }
   }
 
-  // La fecha de vencimiento es obligatoria para Alegra; si no se envía,
-  // por defecto se usa la fecha de la factura + 8 días.
-  if (!$dueDate) {
-    $dueDate = date('Y-m-d', strtotime($date . ' +8 days'));
-  }
-
-  // Plazo de pago en días = diferencia entre dueDate y date (mínimo 0)
-  $dias = (int) round((strtotime($dueDate) - strtotime($date)) / 86400);
-  if ($dias < 0) $dias = 0;
+  $hoy = new DateTime('now', new DateTimeZone('America/Bogota'));
+  $date = $hoy->format('Y-m-d');
+  $dueDate = (clone $hoy)->modify("+{$plazoDias} days")->format('Y-m-d');
 
   $payload = [
     'date'            => $date,
     'dueDate'         => $dueDate,
     'paymentForm'     => 'CREDIT',
-    'termsConditions' => 'Pago a ' . $dias . ' días',
+    'termsConditions' => 'Pago a ' . $plazoDias . ' días',
     'client'  => ['id' => $client['id']],
     'items'  => array_map(function ($it) {
       return [

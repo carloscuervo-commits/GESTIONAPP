@@ -42,6 +42,16 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — factura: fecha real al crear, plazo en días, catálogo completo de ítems)
+
+Sin migraciones. Nuevo `backend/api/alegra_items.php`, `backend/lib/alegra_facturas.php`, `backend/api/facturas_pendientes.php`, `assets/js/facturacion.js?v=20260827d`, `tareas-equipo.html`:
+
+- **Fecha de la factura**: se eliminó el campo "Fecha factura" del formulario. La factura queda fechada en Alegra con el día real del servidor (zona horaria `America/Bogota`) en el momento exacto en que se crea de verdad en Alegra — al pulsar "Crear factura en Alegra", o el día en que se procese desde "Facturas pendientes" si se dejó lista para después. Ya no se puede elegir ni enviar una fecha desde el navegador; se calcula siempre en `crearFacturaEnAlegra()` (backend), aunque el formulario haya quedado diligenciado varios días antes.
+- **Plazo de pago**: se reemplazaron los campos "Fecha vencimiento" y "Fecha ejecución/entrega" por un único campo "Días de plazo factura" (por defecto 8). El vencimiento en Alegra se calcula como fecha de creación + esos días.
+- **Fecha de ejecución/entrega**: eliminada por completo — ya no se agrega texto automático a la descripción de los ítems.
+- **Catálogo de ítems**: el selector fijo de 4 ítems (`ALEGRA_ITEM_OPCIONES`) se reemplazó por un buscador en vivo contra el catálogo real de Alegra (`GET alegra_items.php?q=`, mismo patrón que la búsqueda de cliente), para poder facturar cualquier ítem del catálogo y no solo esos 4.
+- `facturas_pendientes.php` ya no exige `date` al guardar; guarda `plazoDias` en el payload y lo usa al crear la factura después.
+
 ## Cambios pendientes de deploy (2026-08-27 — factura manual sin cotización)
 
 Sin migraciones ni cron. `assets/js/facturacion.js?v=20260827c`, `tareas-equipo.html`:

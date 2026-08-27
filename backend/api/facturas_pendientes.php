@@ -5,7 +5,9 @@
  *
  * GET    /facturas_pendientes.php[?estado=pendiente]  -> listar
  * POST   /facturas_pendientes.php                     -> guardar como pendiente
- *          body: { date, dueDate, client:{id}, items:[...], clienteNombre, tareaId }
+ *          body: { plazoDias, client:{id}, items:[...], clienteNombre, tareaId }
+ *          (sin date/dueDate: la factura se fecha con el día real en que se
+ *          cree en Alegra, no con el día en que se diligencia el formulario)
  * PUT    /facturas_pendientes.php?id=N&accion=crear    -> crear esa factura en Alegra ahora
  * PUT    /facturas_pendientes.php?accion=crear_todas    -> crear todas las pendientes en Alegra ahora
  * DELETE /facturas_pendientes.php?id=N                 -> cancelar (no se borra, queda con estado 'cancelada')
@@ -60,11 +62,11 @@ if ($method === 'GET') {
 // --------------------------------------------------------------
 if ($method === 'POST') {
   $d = jsonInput();
-  $date = $d['date'] ?? null;
   $client = $d['client'] ?? null;
   $items = $d['items'] ?? null;
-  if (!$date || empty($client['id']) || !is_array($items) || empty($items)) {
-    jsonOut(['error' => 'Faltan datos: se requiere date, client.id e items[]'], 400);
+  $plazoDias = isset($d['plazoDias']) && is_numeric($d['plazoDias']) ? max(0, (int)$d['plazoDias']) : 8;
+  if (empty($client['id']) || !is_array($items) || empty($items)) {
+    jsonOut(['error' => 'Faltan datos: se requiere client.id e items[]'], 400);
   }
   foreach ($items as $it) {
     if (empty($it['id']) || !isset($it['price']) || !isset($it['quantity'])) {
@@ -76,8 +78,7 @@ if ($method === 'POST') {
   foreach ($items as $it) $totalEstimado += (float)$it['price'] * (float)$it['quantity'];
 
   $payload = [
-    'date'          => $date,
-    'dueDate'       => $d['dueDate'] ?? null,
+    'plazoDias'     => $plazoDias,
     'client'        => $client,
     'items'         => $items,
     'clienteNombre' => $d['clienteNombre'] ?? null,

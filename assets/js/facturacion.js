@@ -1,10 +1,14 @@
 // ===================== FACTURACION =====================
-const ALEGRA_ITEM_OPCIONES = [
-  { id: 16, label: 'IT — Mano de obra (id 16)' },
-  { id: 12, label: 'MIT — Mercancía/materiales IT (id 12)' },
-  { id: 17, label: 'IF — Mano de obra (id 17)' },
-  { id: 8,  label: 'MIF — Mercancía/materiales IF (id 8)' },
-];
+// Etiquetas de referencia solo para mostrar un nombre legible cuando un ítem
+// ya trae un alegra_item_id conocido (p.ej. asignado por el parseo de
+// cotización) pero aún no se ha buscado/confirmado su nombre real en Alegra.
+// El catálogo completo se trae en vivo desde alegra_items.php (buscarItemFactura).
+const ALEGRA_ITEM_LABELS_CONOCIDOS = {
+  16: 'IT — Mano de obra',
+  12: 'MIT — Mercancía/materiales IT',
+  17: 'IF — Mano de obra',
+  8:  'MIF — Mercancía/materiales IF',
+};
 let facturaActual = null; // datos devueltos por alegra_factura_desde_cotizacion.php, editados en el formulario
 
 async function generarFacturaDesdeTarea(id, event) {
@@ -29,6 +33,7 @@ async function generarFacturaDesdeTarea(id, event) {
     }
     statusEl.innerHTML = '✅ Cotización procesada. Revisa los datos antes de crear la factura.';
     facturaActual = data;
+    facturaActual.plazoDias = facturaActual.plazoDias || 8;
     renderFacturaForm();
   } catch (e) {
     console.error(e);
@@ -64,6 +69,7 @@ async function procesarCotizacionFile() {
     }
     statusEl.innerHTML = '✅ Cotización procesada. Revisa los datos antes de crear la factura.';
     facturaActual = data;
+    facturaActual.plazoDias = facturaActual.plazoDias || 8;
     renderFacturaForm();
   } catch (e) {
     console.error(e);
@@ -99,11 +105,14 @@ function renderFacturaForm() {
   const itemsHtml = f.items.map((it, idx) => `
     <div style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:8px">
       <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:flex-end">
-        <div style="flex:1;min-width:160px">
-          <label style="font-size:11px;color:var(--text-muted)">Ítem Alegra</label>
-          <select id="fact-item-${idx}-id" style="width:100%">
-            ${ALEGRA_ITEM_OPCIONES.map(o=>`<option value="${o.id}" ${o.id===it.alegra_item_id?'selected':''}>${o.label}</option>`).join('')}
-          </select>
+        <div style="flex:1;min-width:200px;position:relative">
+          <label style="font-size:11px;color:var(--text-muted)">Ítem Alegra (buscar)</label>
+          <input type="text" id="fact-item-${idx}-q" placeholder="Escribe para buscar el ítem en Alegra..." autocomplete="off"
+            value="${esc(it.alegra_item_nombre || ALEGRA_ITEM_LABELS_CONOCIDOS[it.alegra_item_id] || '')}"
+            oninput="buscarItemFactura(${idx}, this.value)" style="width:100%">
+          <div id="fact-item-${idx}-suggestions" style="display:none;position:absolute;left:0;right:0;z-index:5;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-top:2px;max-height:180px;overflow:auto"></div>
+          <input type="hidden" id="fact-item-${idx}-id" value="${it.alegra_item_id||''}">
+          <div style="font-size:11px;margin-top:2px;color:${it.alegra_item_id ? '#059669' : 'var(--text-muted)'}">${it.alegra_item_id ? `✓ Ítem seleccionado (id ${it.alegra_item_id})` : 'Escribe al menos 2 letras y elige un ítem de la lista.'}</div>
         </div>
         <div style="width:90px">
           <label style="font-size:11px;color:var(--text-muted)">Cantidad</label>
@@ -128,17 +137,9 @@ function renderFacturaForm() {
       <div style="flex:1;min-width:220px">
         ${clienteFieldHtml}
       </div>
-      <div style="width:140px">
-        <label style="font-size:11px;color:var(--text-muted)">Fecha factura</label>
-        <input type="date" id="fact-fecha" value="${f.date}" style="width:100%">
-      </div>
-      <div style="width:140px">
-        <label style="font-size:11px;color:var(--text-muted)">Fecha vencimiento</label>
-        <input type="date" id="fact-vencimiento" value="${f.dueDate}" style="width:100%">
-      </div>
-      <div style="width:140px">
-        <label style="font-size:11px;color:var(--text-muted)">Fecha ejecución/entrega</label>
-        <input type="date" id="fact-ejecucion" value="${f.date}" style="width:100%">
+      <div style="width:160px">
+        <label style="font-size:11px;color:var(--text-muted)">Días de plazo factura</label>
+        <input type="number" id="fact-plazo-dias" value="${f.plazoDias != null ? f.plazoDias : 8}" min="0" step="1" style="width:100%">
       </div>
       ${f.modoManual ? '' : `<div style="width:100px">
         <label style="font-size:11px;color:var(--text-muted)">CTINN</label>
@@ -146,8 +147,8 @@ function renderFacturaForm() {
       </div>`}
     </div>
     <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:12px">
-      ℹ️ La fecha de vencimiento se estableció por defecto a 8 días desde hoy. Si deseas cambiarla, edita el campo "Fecha vencimiento".<br>
-      ℹ️ La "Fecha ejecución/entrega" se agrega automáticamente a la descripción de cada ítem.
+      ℹ️ La factura queda fechada en Alegra con el día real en que se cree (al presionar "Crear factura en Alegra", o el día en que se procese desde "Facturas pendientes" si se deja lista para después).<br>
+      ℹ️ El vencimiento se calcula sumando los "días de plazo" a esa fecha de creación.
     </div>
     <div style="font-weight:600;font-size:13px;margin-bottom:6px">Ítems de la factura</div>
     ${itemsHtml}
@@ -166,8 +167,6 @@ function renderFacturaForm() {
 // ----------------- Factura manual (sin cotización) -----------------
 
 function iniciarFacturaManual() {
-  const hoy = new Date();
-  const venc = new Date(Date.now() + 8*24*60*60*1000);
   facturaActual = {
     modoManual: true,
     tareaId: null,
@@ -177,9 +176,8 @@ function iniciarFacturaManual() {
     aviso_cliente: null,
     clienteManualId: null,
     clienteManualNombre: '',
-    date: hoy.toISOString().split('T')[0],
-    dueDate: venc.toISOString().split('T')[0],
-    items: [{ alegra_item_id: ALEGRA_ITEM_OPCIONES[0].id, description: '', quantity: 1, price: 0 }],
+    plazoDias: 8,
+    items: [{ alegra_item_id: null, alegra_item_nombre: '', description: '', quantity: 1, price: 0 }],
     totales_cotizacion: null,
   };
   const statusEl = document.getElementById('fact-status');
@@ -194,17 +192,17 @@ function iniciarFacturaManual() {
 function _sincronizarFormularioFacturaDesdeDOM() {
   const f = facturaActual;
   if (!f) return;
-  const elFecha = document.getElementById('fact-fecha');
-  const elVenc = document.getElementById('fact-vencimiento');
-  if (elFecha && elFecha.value) f.date = elFecha.value;
-  if (elVenc && elVenc.value) f.dueDate = elVenc.value;
+  const elPlazo = document.getElementById('fact-plazo-dias');
+  if (elPlazo && elPlazo.value !== '') f.plazoDias = Number(elPlazo.value) || 0;
   if (Array.isArray(f.items)) {
     f.items.forEach((it, idx) => {
       const elId = document.getElementById(`fact-item-${idx}-id`);
+      const elQ = document.getElementById(`fact-item-${idx}-q`);
       const elQty = document.getElementById(`fact-item-${idx}-qty`);
       const elPrice = document.getElementById(`fact-item-${idx}-price`);
       const elDesc = document.getElementById(`fact-item-${idx}-desc`);
-      if (elId) it.alegra_item_id = Number(elId.value);
+      if (elId && elId.value) it.alegra_item_id = Number(elId.value);
+      if (elQ) it.alegra_item_nombre = elQ.value;
       if (elQty) it.quantity = Number(elQty.value) || 1;
       if (elPrice) it.price = Number(elPrice.value) || 0;
       if (elDesc) it.description = elDesc.value;
@@ -214,7 +212,7 @@ function _sincronizarFormularioFacturaDesdeDOM() {
 
 function agregarItemFacturaManual() {
   _sincronizarFormularioFacturaDesdeDOM();
-  facturaActual.items.push({ alegra_item_id: ALEGRA_ITEM_OPCIONES[0].id, description: '', quantity: 1, price: 0 });
+  facturaActual.items.push({ alegra_item_id: null, alegra_item_nombre: '', description: '', quantity: 1, price: 0 });
   renderFacturaForm();
 }
 
@@ -258,6 +256,48 @@ function seleccionarClienteFacturaManual(idx) {
   renderFacturaForm();
 }
 
+// ----------------- Búsqueda de ítems en el catálogo real de Alegra -----------------
+// Mismo patrón que la búsqueda de cliente, pero un buscador por cada línea de
+// ítem (indexado por idx), porque una factura puede tener varias líneas.
+let _itemBusqueda = {}; // idx -> resultados de la última búsqueda
+let _itemBusquedaTimer = {}; // idx -> timer del debounce
+
+function buscarItemFactura(idx, q) {
+  const f = facturaActual;
+  if (!f || !f.items[idx]) return;
+  f.items[idx].alegra_item_nombre = q;
+  f.items[idx].alegra_item_id = null; // se invalida hasta que elija uno de la lista
+  const hidden = document.getElementById(`fact-item-${idx}-id`);
+  if (hidden) hidden.value = '';
+  clearTimeout(_itemBusquedaTimer[idx]);
+  const box = document.getElementById(`fact-item-${idx}-suggestions`);
+  if (!q || q.trim().length < 2) { if (box) box.style.display = 'none'; return; }
+  if (!API_BASE) return;
+  _itemBusquedaTimer[idx] = setTimeout(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/alegra_items.php?q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+      _itemBusqueda[idx] = Array.isArray(data) ? data : [];
+      if (!box) return;
+      box.innerHTML = _itemBusqueda[idx].length
+        ? _itemBusqueda[idx].map((it,i) => `<div onmousedown="seleccionarItemFactura(${idx}, ${i})" style="padding:8px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border,#e5e7eb)">${esc(it.name)}${it.reference?` <span style="color:var(--text-muted)">(${esc(it.reference)})</span>`:''}</div>`).join('')
+        : '<div style="padding:8px;font-size:12px;color:var(--text-muted)">Sin coincidencias en Alegra</div>';
+      box.style.display = 'block';
+    } catch (e) { console.error(e); }
+  }, 300);
+}
+
+function seleccionarItemFactura(idx, i) {
+  const c = (_itemBusqueda[idx]||[])[i];
+  if (!c) return;
+  _sincronizarFormularioFacturaDesdeDOM();
+  const it = facturaActual.items[idx];
+  it.alegra_item_id = c.id;
+  it.alegra_item_nombre = c.name;
+  if ((!it.price || Number(it.price) === 0) && c.price != null) it.price = c.price;
+  renderFacturaForm();
+}
+
 // Recolecta del formulario el mismo payload que se le manda a Alegra, tanto
 // para crear de inmediato como para dejarla guardada como pendiente.
 // Devuelve null (y muestra el error en fact-crear-status) si falta algo.
@@ -265,9 +305,8 @@ function _recolectarPayloadFactura() {
   const f = facturaActual;
   const statusEl = document.getElementById('fact-crear-status');
   const clienteId = document.getElementById('fact-cliente-id').value.trim();
-  const date = document.getElementById('fact-fecha').value;
-  const dueDate = document.getElementById('fact-vencimiento').value;
-  const ejecucion = document.getElementById('fact-ejecucion').value;
+  const plazoDiasRaw = document.getElementById('fact-plazo-dias').value;
+  const plazoDias = plazoDiasRaw === '' ? 8 : Math.max(0, Number(plazoDiasRaw) || 0);
 
   if (!clienteId) {
     statusEl.innerHTML = f.modoManual
@@ -276,26 +315,28 @@ function _recolectarPayloadFactura() {
     return null;
   }
 
-  let ejecucionTexto = '';
-  if (ejecucion) {
-    const [y, m, d] = ejecucion.split('-');
-    ejecucionTexto = ` - Fecha de ejecución/entrega: ${d}/${m}/${y}`;
+  const items = [];
+  for (let idx = 0; idx < f.items.length; idx++) {
+    const idVal = document.getElementById(`fact-item-${idx}-id`).value;
+    if (!idVal) {
+      statusEl.innerHTML = `<span style="color:#ef4444">Busca y selecciona el ítem de Alegra para la línea ${idx+1} antes de continuar.</span>`;
+      return null;
+    }
+    items.push({
+      id: Number(idVal),
+      description: document.getElementById(`fact-item-${idx}-desc`).value,
+      quantity: Number(document.getElementById(`fact-item-${idx}-qty`).value) || 1,
+      price: Number(document.getElementById(`fact-item-${idx}-price`).value) || 0,
+      tax: [{ id: 5 }],
+    });
   }
-
-  const items = f.items.map((it, idx) => ({
-    id: Number(document.getElementById(`fact-item-${idx}-id`).value),
-    description: document.getElementById(`fact-item-${idx}-desc`).value + ejecucionTexto,
-    quantity: Number(document.getElementById(`fact-item-${idx}-qty`).value) || 1,
-    price: Number(document.getElementById(`fact-item-${idx}-price`).value) || 0,
-    tax: [{ id: 5 }],
-  }));
 
   const clienteNombreSel = document.getElementById('fact-cliente-id').selectedOptions
     ? (document.getElementById('fact-cliente-id').selectedOptions[0]?.textContent || '')
     : '';
 
   return {
-    date, dueDate, client: { id: Number(clienteId) || clienteId }, items,
+    plazoDias, client: { id: Number(clienteId) || clienteId }, items,
     clienteNombre: clienteNombreSel || f.cliente_nombre_cotizacion || '',
     tareaId: f.tareaId || null,
   };
@@ -398,7 +439,7 @@ function renderFacturasPendientesList() {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div>
           <span style="font-weight:600;font-size:13px">${esc(f.cliente_nombre || 'Cliente sin nombre')}</span>
-          <span style="font-size:12px;color:var(--text-muted);margin-left:6px">${nItems} ítem${nItems===1?'':'s'} · ${totalTxt} · ${esc(f.payload?.date || '')}</span>
+          <span style="font-size:12px;color:var(--text-muted);margin-left:6px">${nItems} ítem${nItems===1?'':'s'} · ${totalTxt} · plazo ${esc(f.payload?.plazoDias ?? 8)} días</span>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="crearFacturaPendienteAhora(${f.id})" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer">✅ Crear ahora</button>
