@@ -394,12 +394,22 @@ function tomorrowISO() {
   return d.toISOString().split('T')[0];
 }
 
-function generarProgramacion(fechaISO) {
+// Tareas tipo Proyecto activas ese día (se excluyen del agrupado por equipo
+// normal — su técnico/hora del día sale de visitasProyectoMap, no de team).
+function _proyectosEnRango(fechaISO) {
+  return tasks.filter(t => t.tipoTarea === 'proyecto' && ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && enRangoProg(t, fechaISO));
+}
+
+// visitasProyectoMap: { tareaId: [{tecnicoId, hora}, ...] } — visitas puntuales
+// guardadas para ese día (ver proyecto_visitas.php). Filas con tecnicoId
+// 'NINGUNO' significan "se preguntó y quedó sin asignar", se muestran como tal.
+function generarProgramacion(fechaISO, visitasProyectoMap = {}) {
   const fechaTxt = formatFechaLarga(fechaISO);
-  const items = tasks.filter(t => ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && enRangoProg(t, fechaISO));
+  const items = tasks.filter(t => t.tipoTarea !== 'proyecto' && ['it','if'].includes(t.area) && ['solicitud','programado'].includes(t.estado) && enRangoProg(t, fechaISO));
   const adminItems = tasks.filter(t => ['it','if'].includes(t.area) && enRangoProg(t, fechaISO) && (t.laborAdmin||'').trim());
   const adminProgItems = tasks.filter(t => t.area === 'admin' && t.incluyeProg && enRangoProg(t, fechaISO));
-  if (!items.length && !adminItems.length && !adminProgItems.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
+  const proyectoItems = _proyectosEnRango(fechaISO);
+  if (!items.length && !adminItems.length && !adminProgItems.length && !proyectoItems.length) return `🗓️ Programación técnica – ${fechaTxt}\n\nNo hay trabajos programados para este día.`;
 
   // Agrupar IT/IF por equipo asignado
   const grupos = new Map();
@@ -443,12 +453,30 @@ function generarProgramacion(fechaISO) {
     });
   }
 
+  // Sección Proyectos: la visita del día (técnico + hora), no el equipo del
+  // proyecto ni la hora de alarma — sale de visitasProyectoMap (ver arriba).
+  if (proyectoItems.length) {
+    out += `\n🏗️ Proyectos\n`;
+    proyectoItems.forEach(t => {
+      out += `📍 ${t.cliente || 'Sin cliente'} — ${t.titulo}\n`;
+      const visitas = (visitasProyectoMap[t.id] || []).filter(v => v.tecnicoId && v.tecnicoId !== 'NINGUNO');
+      if (visitas.length) {
+        visitas.slice().sort((a,b) => (a.hora||'99:99').localeCompare(b.hora||'99:99')).forEach(v => {
+          out += `   👷 ${getMember(v.tecnicoId)?.name || v.tecnicoId}${v.hora ? `  🕗 ${v.hora}` : ''}\n`;
+        });
+      } else {
+        out += `   Sin técnico asignado para este día\n`;
+      }
+    });
+  }
+
   return out.trim();
 }
 
-function openProgModal() {
+async function openProgModal() {
+  _progVisitasEdit = {};
   document.getElementById('prog-fecha').value = tomorrowISO();
-  renderProgPreview();
+  await renderProgPreview();
   document.getElementById('prog-modal').classList.add('open');
 }
 
@@ -456,9 +484,122 @@ function closeProgModal() {
   document.getElementById('prog-modal').classList.remove('open');
 }
 
-function renderProgPreview() {
+// Borrador en edición dentro del modal, mientras no se guarda:
+// { tareaId: [{tecnicoId, hora}, ...] }
+let _progVisitasEdit = {};
+
+async function renderProgPreview() {
   const fecha = document.getElementById('prog-fecha').value;
-  document.getElementById('prog-preview').value = generarProgramacion(fecha);
+  const cont = document.getElementById('prog-proyectos-visitas');
+  const previewEl = document.getElementById('prog-preview');
+  const btnCopiar = document.getElementById('btn-copiar-prog');
+  if (!fecha) { if (cont) cont.innerHTML = ''; if (previewEl) previewEl.value = ''; return; }
+
+  const proyectos = _proyectosEnRango(fecha);
+  let visitasMap = {};
+  if (proyectos.length && typeof API_BASE !== 'undefined' && API_BASE) {
+    try {
+      const res = await fetch(`${API_BASE}/proyecto_visitas.php?fecha=${encodeURIComponent(fecha)}`);
+      const data = await res.json();
+      (Array.isArray(data) ? data : []).forEach(v => {
+        if (!visitasMap[v.tareaId]) visitasMap[v.tareaId] = [];
+        visitasMap[v.tareaId].push(v);
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  const pendientes = proyectos.filter(t => !(visitasMap[t.id] && visitasMap[t.id].length));
+
+  if (pendientes.length) {
+    if (cont) cont.innerHTML = _renderFormVisitasProyecto(pendientes, fecha);
+    if (previewEl) { previewEl.value = '⏳ Asigna técnico(s) y hora para el/los proyecto(s) de abajo, luego pulsa "Guardar y generar programación".'; }
+    if (btnCopiar) btnCopiar.style.display = 'none';
+  } else {
+    if (cont) cont.innerHTML = '';
+    if (btnCopiar) btnCopiar.style.display = '';
+    if (previewEl) previewEl.value = generarProgramacion(fecha, visitasMap);
+  }
+}
+
+function _renderFormVisitasProyecto(pendientes, fecha) {
+  pendientes.forEach(t => {
+    if (!_progVisitasEdit[t.id]) _progVisitasEdit[t.id] = [{ tecnicoId: '', hora: '' }];
+  });
+  const bloques = pendientes.map(t => {
+    const filas = _progVisitasEdit[t.id].map((v, i) => `
+      <div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">
+        <select onchange="_progVisitaSetCampo('${t.id}',${i},'tecnicoId',this.value)" style="flex:1">
+          <option value="">-- técnico --</option>
+          ${TEAM.map(m => `<option value="${m.id}" ${v.tecnicoId===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}
+        </select>
+        <input type="time" value="${v.hora||''}" onchange="_progVisitaSetCampo('${t.id}',${i},'hora',this.value)" style="width:110px">
+        ${_progVisitasEdit[t.id].length>1 ? `<button type="button" onclick="_progVisitaQuitarFila('${t.id}',${i})" title="Quitar" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:4px 8px;font-size:12px;cursor:pointer">🗑️</button>` : ''}
+      </div>
+    `).join('');
+    return `<div style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">🏗️ ${esc(t.cliente||'Sin cliente')} — ${esc(t.titulo)}</div>
+      ${filas}
+      <button type="button" onclick="_progVisitaAgregarFila('${t.id}')" style="background:none;border:1px dashed var(--border,#cbd5e1);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--text-muted);margin-top:2px">+ agregar técnico</button>
+      <div style="margin-top:6px">
+        <button type="button" onclick="_progVisitaSinAsignar('${t.id}')" style="background:none;border:none;color:var(--text-muted);font-size:11px;text-decoration:underline;cursor:pointer;padding:0">Dejar sin asignar este día (no volver a preguntar)</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-bottom:12px">
+    <div style="font-weight:700;font-size:13px;color:var(--teal,#0D3B40);margin-bottom:6px">🏗️ Hay proyecto(s) programados este día — asigna técnico y hora</div>
+    ${bloques}
+    <button type="button" class="btn-save" onclick="_progVisitasGuardarTodas()" style="width:100%">✅ Guardar y generar programación</button>
+  </div>`;
+}
+
+function _progVisitaSetCampo(tareaId, idx, campo, valor) {
+  if (!_progVisitasEdit[tareaId] || !_progVisitasEdit[tareaId][idx]) return;
+  _progVisitasEdit[tareaId][idx][campo] = valor;
+}
+
+function _progVisitaAgregarFila(tareaId) {
+  if (!_progVisitasEdit[tareaId]) _progVisitasEdit[tareaId] = [];
+  _progVisitasEdit[tareaId].push({ tecnicoId: '', hora: '' });
+  renderProgPreview();
+}
+
+function _progVisitaQuitarFila(tareaId, idx) {
+  if (!_progVisitasEdit[tareaId]) return;
+  _progVisitasEdit[tareaId].splice(idx, 1);
+  if (!_progVisitasEdit[tareaId].length) _progVisitasEdit[tareaId].push({ tecnicoId: '', hora: '' });
+  renderProgPreview();
+}
+
+async function _progVisitaSinAsignar(tareaId) {
+  const fecha = document.getElementById('prog-fecha').value;
+  if (typeof API_BASE === 'undefined' || !API_BASE) return;
+  try {
+    await fetch(`${API_BASE}/proyecto_visitas.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tareaId, fecha, visitas: [] }),
+    });
+  } catch (e) { console.error(e); }
+  delete _progVisitasEdit[tareaId];
+  renderProgPreview();
+}
+
+async function _progVisitasGuardarTodas() {
+  const fecha = document.getElementById('prog-fecha').value;
+  if (typeof API_BASE === 'undefined' || !API_BASE) return;
+  const ids = Object.keys(_progVisitasEdit);
+  for (const tareaId of ids) {
+    const visitas = (_progVisitasEdit[tareaId] || []).filter(v => v.tecnicoId);
+    try {
+      await fetch(`${API_BASE}/proyecto_visitas.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tareaId, fecha, visitas }),
+      });
+    } catch (e) { console.error(e); }
+  }
+  _progVisitasEdit = {};
+  renderProgPreview();
 }
 
 function copiarProgramacion() {

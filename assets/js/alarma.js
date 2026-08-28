@@ -84,6 +84,29 @@ let _retrasoAlertadas = _cargarRetrasoAlertadas(); // "tareaId|tecnicoId" ya ale
 // Se reconstruye en cada ciclo de 60s y al arrancar.
 let participantesHoy = {};
 
+// visitasProyectoHoy: tareaId → [{tecnicoId, hora}, ...] — visitas puntuales
+// programadas para HOY en tarjetas tipo Proyecto (ver proyecto_visitas.php).
+// Como esas tarjetas no tienen `team`, la tardanza para ellas se calcula con
+// esto en vez de team/horaProg. Se refresca en cada ciclo de _chequearRetrasoTecnicos.
+let visitasProyectoHoy = {};
+
+async function _cargarVisitasProyectoHoy(hoy) {
+  visitasProyectoHoy = {};
+  if (typeof API_BASE === 'undefined' || !API_BASE) return;
+  if (typeof tasks === 'undefined') return;
+  const hayProyectoHoy = tasks.some(t => t.tipoTarea === 'proyecto' && ['it','if'].includes(t.area) && t.estado === 'programado'
+    && (typeof enRangoProg === 'function' ? enRangoProg(t, hoy) : t.fechaProg === hoy));
+  if (!hayProyectoHoy) return;
+  try {
+    const res = await fetch(`${API_BASE}/proyecto_visitas.php?fecha=${encodeURIComponent(hoy)}`);
+    const data = await res.json();
+    (Array.isArray(data) ? data : []).forEach(v => {
+      if (!visitasProyectoHoy[v.tareaId]) visitasProyectoHoy[v.tareaId] = [];
+      visitasProyectoHoy[v.tareaId].push(v);
+    });
+  } catch (e) { console.error('Error cargando visitas de proyecto:', e); }
+}
+
 function _reconstruirParticipantesHoy(enVisita, borradores, hoy) {
   participantesHoy = {};
   [...(Array.isArray(enVisita) ? enVisita : []),
@@ -135,6 +158,8 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
     return;
   }
 
+  await _cargarVisitasProyectoHoy(hoy);
+
   tasks.forEach(t => {
     if (!['it','if'].includes(t.area)) return;
     if (t.estado !== 'programado') return;
@@ -142,12 +167,23 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
     // Excluir incumplidas (rango completo ya pasó)
     const fin = (typeof fechaProgFin === 'function') ? (fechaProgFin(t) || t.fechaProg) : t.fechaProg;
     if (fin < hoy) return;
-    if (!t.horaProg || horaActual < t.horaProg) return;
     // Si ya hay reporte enviado para esta tarea, la visita está completa → no es tardío
     if (typeof reportesEnviados !== 'undefined' && reportesEnviados.has(t.id)) return;
     if (typeof sinReporteHoy   !== 'undefined' && sinReporteHoy.has(t.id))   return;
-    if (typeof sinReporteHoy   !== 'undefined' && sinReporteHoy.has(t.id))   return;
     const checkinHoy = participantesHoy[t.id] || new Set();
+
+    // Proyecto: no tiene team ni horaProg útil para esto (horaProg es la
+    // alarma administrativa) — se usa la visita puntual de hoy (técnico+hora).
+    if (t.tipoTarea === 'proyecto') {
+      const visitas = (visitasProyectoHoy[t.id] || []).filter(v => v.tecnicoId && v.tecnicoId !== 'NINGUNO' && v.hora);
+      visitas.forEach(v => {
+        if (horaActual < v.hora) return;
+        if (!checkinHoy.has(v.tecnicoId)) tardios.push({ tarea: t, tecnicoId: v.tecnicoId, horaVisita: v.hora });
+      });
+      return;
+    }
+
+    if (!t.horaProg || horaActual < t.horaProg) return;
     (t.team || []).forEach(uid => {
       if (!checkinHoy.has(uid)) tardios.push({ tarea: t, tecnicoId: uid });
     });
@@ -156,15 +192,15 @@ async function _chequearRetrasoTecnicos(skipFetch = false) {
   // Actualizar banner aunque no haya nuevas alertas
   if (typeof renderAlertasRetraso === 'function') renderAlertasRetraso();
 
-  for (const { tarea: t, tecnicoId } of tardios) {
+  for (const { tarea: t, tecnicoId, horaVisita } of tardios) {
     const clave = `${t.id}|${tecnicoId}`;
     if (_retrasoAlertadas.has(clave)) continue;
     _retrasoAlertadas.add(clave);
     _guardarRetrasoAlertadas();
 
     _reproducirBeepRetraso();
-    _mostrarModalRetraso(t, tecnicoId);
-    _enviarAlertaRetraso(t.id);
+    _mostrarModalRetraso(t, tecnicoId, horaVisita);
+    _enviarAlertaRetraso(t.id, tecnicoId, horaVisita);
   }
 }
 
@@ -189,17 +225,18 @@ function _reproducirBeepRetraso() {
   } catch (e) { console.error('No se pudo reproducir alarma de retraso', e); }
 }
 
-function _mostrarModalRetraso(t, tecnicoId) {
+function _mostrarModalRetraso(t, tecnicoId, horaVisita) {
   const overlay = document.getElementById('retraso-modal');
   const content = document.getElementById('retraso-modal-content');
   if (!overlay || !content) return;
 
   // Mostrar el técnico específico tardío, no todo el equipo
   const tecnico = tecnicoId ? (getMember(tecnicoId)?.name || tecnicoId) : ((t.team||[]).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar');
+  const horaMostrar = horaVisita || t.horaProg;
   const item = document.createElement('div');
   item.style.cssText = 'padding:10px 12px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:13px';
   item.innerHTML = `${t.cliente ? `<div style="font-size:11px;font-weight:700;color:#169BBC;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:2px">${esc(t.cliente)}</div>` : ''}<strong>${esc(t.titulo)}</strong><br>
-    <span style="color:#64748b">👤 ${esc(tecnico)} · 🕗 Programado ${t.horaProg} · 📍 ${t.fechaProg}</span>`;
+    <span style="color:#64748b">👤 ${esc(tecnico)} · 🕗 Programado ${horaMostrar} · 📍 ${t.fechaProg}</span>`;
   content.appendChild(item);
   overlay.classList.add('open');
 
@@ -210,13 +247,13 @@ function _mostrarModalRetraso(t, tecnicoId) {
   }, 30000);
 }
 
-async function _enviarAlertaRetraso(tareaId) {
+async function _enviarAlertaRetraso(tareaId, tecnicoId, horaVisita) {
   if (!API_BASE) return;
   try {
     await fetch(`${API_BASE}/alertas.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tareaId }),
+      body: JSON.stringify({ tareaId, tecnicoId, horaVisita }),
     });
   } catch (e) {
     console.error('Error enviando alerta de retraso:', e);

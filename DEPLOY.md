@@ -42,6 +42,18 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — visitas puntuales de proyecto: programación + alarma de tardío)
+
+⚠️ **Requiere ejecutar la migración `db/038_proyecto_visitas.sql` en phpMyAdmin antes/durante el deploy.**
+
+Nuevo `backend/api/proyecto_visitas.php`, `backend/api/alertas.php` (modificado), `assets/js/core.js?v=20260827c`, `assets/js/alarma.js?v=20260827a`, `tareas-equipo.html`:
+
+- **Problema que resuelve**: las tarjetas Proyecto no tienen `team` (se ocultó a propósito para no perder la visibilidad a todos los técnicos), así que al "📋 Copiar programación" del día siguiente salían siempre como "Sin asignar" con la hora de alarma administrativa en vez de una hora de visita real.
+- **Nueva tabla `proyecto_visitas_programadas`** (tarea_id, fecha, tecnico_id, hora): visita puntual de un proyecto para un día específico, sin tocar `team` ni la hora de alarma del proyecto. Permite varios técnicos con horas distintas el mismo día.
+- **Modal "Copiar programación"**: si hay proyecto(s) activos en la fecha elegida sin visita ya resuelta, aparece un formulario (arriba de la vista previa) para asignar técnico(s) + hora por proyecto, o dejarlo explícitamente "sin asignar" (no vuelve a preguntar esa fecha). El texto generado muestra esos datos en una sección "🏗️ Proyectos" en vez de "Sin asignar".
+- **Alarma de técnico tardío** (`alarma.js`, solo admin): antes no aplicaba a proyecto porque dependía de `team`/hora de inicio. Ahora, para tarjetas proyecto, usa la visita programada de **hoy** (técnico + hora) — si ese técnico no tiene check-in a esa hora, dispara el mismo aviso (sonido + modal + correo/Telegram) que ya existe para tarjetas normales.
+- **Deduplicación del aviso de tardío para proyecto**: la columna `tareas.alerta_retraso_enviada` solo se resetea si cambia la fecha programada de la tarjeta, lo cual en un proyecto multidía significa "una sola vez en toda la vida del proyecto". Para proyecto, `alertas.php` ahora deduplica por día real usando `avisos_enviados` (tipo `proyecto_retraso`), igual que las otras alarmas de proyecto — sí se puede volver a avisar otro día.
+
 ## Cambios pendientes de deploy (2026-08-27 — factura: fecha real al crear, plazo en días, catálogo completo de ítems)
 
 Sin migraciones. Nuevo `backend/api/alegra_items.php`, `backend/lib/alegra_facturas.php`, `backend/api/facturas_pendientes.php`, `assets/js/facturacion.js?v=20260827d`, `tareas-equipo.html`:

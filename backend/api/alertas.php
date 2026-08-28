@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonOut(['error' => 'Método no sopor
 
 $d = jsonInput();
 $tareaId = $d['tareaId'] ?? null;
+$tecnicoIdIn = $d['tecnicoId'] ?? null;
+$horaVisitaIn = $d['horaVisita'] ?? null;
 if (!$tareaId) jsonOut(['error' => 'tareaId requerido'], 400);
 
 // Obtener tarea con nombres de técnicos
@@ -32,18 +34,37 @@ $tarea = $stmt->fetch();
 
 if (!$tarea) jsonOut(['error' => 'Tarea no encontrada'], 404);
 
-// Si la alerta ya se envió (en una sesión anterior), no duplicar
-if ($tarea['alerta_retraso_enviada']) {
-  jsonOut(['ok' => true, 'ya_enviada' => true]);
+$esProyecto = ($tarea['tipo_tarea'] ?? null) === 'proyecto';
+
+if ($esProyecto) {
+  // Las tarjetas proyecto duran semanas con la misma fecha_programacion, así
+  // que la columna alerta_retraso_enviada (que solo se resetea si cambia esa
+  // fecha) avisaría una sola vez en toda la vida del proyecto. Se deduplica
+  // por día real usando avisos_enviados, igual que las otras alarmas de
+  // proyecto (aviso_proyectos.php).
+  if (!$tecnicoIdIn) jsonOut(['error' => 'tecnicoId requerido para tarjetas proyecto'], 400);
+  $hoy = (new DateTime('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
+  $nuevo = registrarAvisoEnviado($pdo, 'proyecto_retraso', $tecnicoIdIn, $tareaId, $hoy);
+  if (!$nuevo) jsonOut(['ok' => true, 'ya_enviada' => true]);
+
+  $u = $pdo->prepare("SELECT nombre FROM usuarios WHERE id = ?");
+  $u->execute([$tecnicoIdIn]);
+  $tecnico = $u->fetchColumn() ?: $tecnicoIdIn;
+} else {
+  // Si la alerta ya se envió (en una sesión anterior), no duplicar
+  if ($tarea['alerta_retraso_enviada']) {
+    jsonOut(['ok' => true, 'ya_enviada' => true]);
+  }
+  // Marcar ANTES de enviar para evitar duplicados en caso de timeout del correo
+  $pdo->prepare("UPDATE tareas SET alerta_retraso_enviada = 1 WHERE id = ?")->execute([$tareaId]);
+  $tecnico = $tarea['nombres_equipo'] ?: 'Sin asignar';
 }
 
-// Marcar ANTES de enviar para evitar duplicados en caso de timeout del correo
-$pdo->prepare("UPDATE tareas SET alerta_retraso_enviada = 1 WHERE id = ?")->execute([$tareaId]);
-
 // Construir correo
-$tecnico  = $tarea['nombres_equipo'] ?: 'Sin asignar';
-$fecha    = $tarea['fecha_programacion'] ?: '-';
-$hora     = $tarea['hora_programacion'] ?: '08:00';
+// Para proyecto, "fecha prog." es la de HOY (la visita puntual), no la fecha
+// de inicio del proyecto completo (que puede ser de semanas atrás).
+$fecha    = $esProyecto ? $hoy : ($tarea['fecha_programacion'] ?: '-');
+$hora     = $esProyecto ? ($horaVisitaIn ?: ($tarea['hora_programacion'] ?: '08:00')) : ($tarea['hora_programacion'] ?: '08:00');
 $titulo   = $tarea['titulo'];
 $cliente  = $tarea['cliente'] ?: 'Sin cliente';
 $area     = strtoupper($tarea['area']);
