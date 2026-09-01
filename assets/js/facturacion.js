@@ -363,26 +363,44 @@ async function crearFacturaAlegra() {
       return;
     }
     const numeroFactura = data.numberTemplate?.fullNumber || data.id || '';
-    statusEl.innerHTML = `✅ Factura creada en Alegra (No. ${esc(numeroFactura)}).`;
-    _moverTareaAFacturado(payload.tareaId, numeroFactura, statusEl);
+    let mensaje = `✅ Factura No. ${numeroFactura} creada en Alegra.`;
+    if (_moverTareaAFacturado(payload.tareaId, numeroFactura)) {
+      mensaje += '\nLa tarea se movió a "Facturado".';
+    }
+    // Aviso claro e imposible de pasar por alto (antes solo se escribía un
+    // texto pequeño al fondo del formulario y todo quedaba igual en
+    // pantalla, dando la impresión de que no había pasado nada).
+    alert(mensaje);
+    // Factura ya creada: limpiar el formulario para seguir trabajando en el
+    // módulo — no tiene sentido dejar los mismos datos en pantalla.
+    facturaActual = null;
+    const resEl = document.getElementById('fact-resultado');
+    if (resEl) { resEl.style.display = 'none'; resEl.innerHTML = ''; }
+    const statusTop = document.getElementById('fact-status');
+    if (statusTop) {
+      statusTop.innerHTML = mensaje.replace('\n', '<br>');
+      statusTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo conectar con el servidor.</span>';
   }
 }
 
-// Si la factura se generó/creó desde una tarea de IT/IF, mover la tarjeta a "Facturado"
-function _moverTareaAFacturado(tareaId, numeroFactura, statusEl) {
-  if (!tareaId) return;
+// Si la factura se generó/creó desde una tarea de IT/IF, mover la tarjeta a
+// "Facturado". Devuelve true si movió una tarea, false si no había tareaId.
+function _moverTareaAFacturado(tareaId, numeroFactura) {
+  if (!tareaId) return false;
   const idx = tasks.findIndex(t=>t.id===tareaId);
   if (idx>=0) {
     tasks[idx].estado = 'facturado';
     tasks[idx].factura = String(numeroFactura);
     if (!tasks[idx].realizadoAt) tasks[idx].realizadoAt = new Date().toISOString();
     save();
-    if (statusEl) statusEl.innerHTML += '<br>✅ La tarea se movió a "Facturado".';
     syncTask(tasks[idx], false).then(() => render());
+    return true;
   }
+  return false;
 }
 
 // ----------------- Facturas pendientes (límite mensual de Alegra agotado) -----------------
@@ -478,8 +496,9 @@ async function crearFacturaPendienteAhora(id) {
       cargarFacturasPendientes();
       return;
     }
-    if (statusEl) statusEl.innerHTML = `✅ Factura creada en Alegra (No. ${esc(data.numeroFactura || '')}).`;
-    _moverTareaAFacturado(data.tareaId, data.numeroFactura, statusEl);
+    let msgPend = `✅ Factura creada en Alegra (No. ${esc(data.numeroFactura || '')}).`;
+    if (_moverTareaAFacturado(data.tareaId, data.numeroFactura)) msgPend += '<br>✅ La tarea se movió a "Facturado".';
+    if (statusEl) statusEl.innerHTML = msgPend;
     cargarFacturasPendientes();
   } catch (e) {
     console.error(e);
@@ -496,7 +515,7 @@ async function crearTodasFacturasPendientes() {
     const res = await fetch(`${API_BASE}/facturas_pendientes.php?accion=crear_todas`, { method: 'PUT' });
     const data = await res.json();
     if (data.error) { if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
-    (data.creadas || []).forEach(c => _moverTareaAFacturado(c.tareaId, c.numeroFactura, null));
+    (data.creadas || []).forEach(c => _moverTareaAFacturado(c.tareaId, c.numeroFactura));
     let msg = `✅ ${data.creadas.length} factura${data.creadas.length===1?'':'s'} creada${data.creadas.length===1?'':'s'} en Alegra.`;
     if (data.fallidas && data.fallidas.length) {
       msg += `<br><span style="color:#dc2626">⚠️ ${data.fallidas.length} fallaron — revisa el detalle en cada tarjeta.</span>`;

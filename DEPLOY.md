@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-31 — aviso claro + limpiar formulario al crear factura en Alegra)
+
+Sin migraciones ni cron. `assets/js/facturacion.js?v=20260831a`:
+
+- Antes, al crear la factura en Alegra el resultado solo se escribía como texto pequeño al fondo del formulario, y todo quedaba igual en pantalla (mismo cliente, ítems, etc.) — daba la impresión de que no había pasado nada.
+- Ahora `crearFacturaAlegra()` muestra un `alert()` con el número de factura creada (y si la tarjeta se movió a "Facturado"), y después limpia el formulario (`facturaActual = null`, oculta `#fact-resultado`) para poder seguir facturando de una. El mensaje también queda en `#fact-status` (arriba del módulo) para referencia.
+- `_moverTareaAFacturado()` cambió de firma (ya no recibe el elemento de status, ahora devuelve `true`/`false`) — se actualizaron sus otros dos usos en "Crear ahora" y "Crear todas las pendientes" para que sigan mostrando igual el aviso de tarea movida.
+
 ## Cambios pendientes de deploy (2026-08-31 — ocultar "Contrato" en tipo de tarea si el cliente no tiene contrato activo)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260831a`, `tareas-equipo.html`:
