@@ -2133,8 +2133,42 @@ async function _confirmarFacturaRapida(tareaId) {
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
 document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
-document.addEventListener('keydown',e=>{
-  if(e.key!=='Escape') return;
-  if(document.getElementById('modal')?.classList.contains('open')){ closeModal(); e.preventDefault(); return; }
-  if(document.getElementById('cartera-modal')?.classList.contains('open')){ closeCarteraModal(); e.preventDefault(); }
+
+// Escape cierra cualquier popup/modal abierto de Ginno sin guardar cambios
+// (igual que su botón "Cancelar"/"Cerrar"/click-fuera, nunca el de "Guardar").
+// Orden: primero los popups ANIDADOS (los que se abren encima de otro modal
+// ya abierto), luego sus modales padre — así Escape cierra solo el de más
+// arriba, no los dos de un tirón.
+// Exclusiones intencionales:
+//   - login-overlay: es el candado de acceso, no un popup con "cancelar".
+//   - popup-tarea-terminada: no tiene una opción neutra de "cancelar" — sus
+//     dos botones (Sí/No) cambian y guardan el estado de la tarjeta, así que
+//     Escape no hace nada aquí (se debe elegir explícitamente con un clic).
+const _ESC_MODALES = [
+  ['popup-aprobar-area',       () => resolverPopupAprobarArea(null)],                                    // anidado sobre #modal
+  ['popup-sin-reporte',        () => document.getElementById('popup-sin-reporte').classList.remove('open')], // anidado sobre #reporte-modal ('← Volver')
+  ['modal-motivo-no-factura',  () => cerrarMotivoNoFactura()],
+  ['admin-checkin-modal',      () => cerrarAdminCheckinModal()],
+  ['pausa-modal',              () => cerrarPausaModal()],
+  ['visita-tecnico-modal',     () => closeVisitaTecnicoModal()],
+  ['reporte-modal',            () => cerrarFormularioReporte()],
+  ['modal',                    () => closeModal()],
+  ['cliente-modal',            () => cerrarModalCliente()],
+  ['usuarios-modal',           () => cerrarModalUsuario()],
+  ['prog-modal',               () => closeProgModal()],
+  ['retraso-modal',            () => cerrarRetrasoModal()],
+  ['alarma-modal',             () => cerrarAlarma()],
+  ['cartera-modal',            () => closeCarteraModal()],
+  ['modal-visitas-pendientes', () => document.getElementById('modal-visitas-pendientes').classList.remove('open')],
+];
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  for (const [id, cerrar] of _ESC_MODALES) {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains('open')) {
+      cerrar();
+      e.preventDefault();
+      return;
+    }
+  }
 });

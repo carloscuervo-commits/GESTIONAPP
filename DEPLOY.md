@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-27 — Escape cierra cualquier popup sin guardar)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260827e`:
+
+- Se extendió el listener global de teclado (ya existía uno parcial solo para `#modal` y `#cartera-modal`) para cubrir los 16 popups/modales de Ginno: al pulsar **Escape** se cierra el que esté abierto arriba de todo, llamando exactamente a la misma función que usa su botón "Cancelar/Cerrar" (nunca guarda nada).
+- Respeta el anidado: si hay un popup abierto ENCIMA de otro modal (ej. "¿Aprobar cambio de área?" sobre la tarjeta, o "¿Continuar sin reporte?" sobre el formulario de reporte), Escape cierra solo el de arriba, no ambos de un tirón.
+- Dos exclusiones a propósito: `login-overlay` (candado de acceso, no aplica) y `popup-tarea-terminada` (sus dos botones Sí/No cambian y guardan el estado de la tarjeta — no hay una opción neutra de "cancelar", así que ahí Escape no hace nada; hay que elegir con clic).
+
 ## Cambios pendientes de deploy (2026-08-27 — visitas puntuales de proyecto: programación + alarma de tardío)
 
 ⚠️ **Requiere ejecutar la migración `db/038_proyecto_visitas.sql` en phpMyAdmin antes/durante el deploy.**
