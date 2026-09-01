@@ -42,6 +42,18 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-31 — fix: loop al archivar con transporte pendiente + aviso motivo "Contrato" sin tipoTarea contrato)
+
+⚠️ **Verificación de sintaxis pendiente**: el sandbox de Claude quedó sin conexión (VM caída) justo después de este cambio y no se pudo correr `node -c` sobre `tareas.js`. Se revisó el diff a mano (llaves/paréntesis balanceados, mismo patrón que `_mostrarConfirmContrato` ya existente) pero conviene correr una verificación automática antes de dar por bueno el deploy, o probarlo bien en caliente después de desplegar.
+
+`assets/js/tareas.js?v=20260831b`:
+
+- **Bug del loop al archivar (reportado por Carlos)**: al archivar una tarjeta desde el modal de detalle, si aparecía el popup de "🚗 Transporte por registrar" y se respondía "Ahora no", la tarjeta SÍ quedaba archivada en la base de datos, pero el modal de detalle se quedaba abierto con el botón "Archivar" desactualizado (nunca se cerraba el modal en ese flujo). Al volver a darle "Archivar" sobre ese botón viejo, se repetía todo el guardado y volvía a aparecer el popup de transporte — dando la sensación de loop infinito sin poder avanzar sin registrar el transporte.
+  - Causa: `_ejecutarArchivar()` nunca llamaba `closeModal()` (a diferencia del flujo normal de "Guardar tarea", que sí lo hace) y no era idempotente — una segunda llamada sobre una tarjeta ya archivada repetía todo, incluido el aviso de transporte.
+  - Corrección: `_ejecutarArchivar()` ahora cierra el modal de detalle y no hace nada si la tarjeta ya está archivada (evita repetir el guardado y, sobre todo, evita repetir el aviso de transporte). `archivarTask()` también gana el mismo guard por seguridad. Si el técnico/admin necesita registrar el transporte después, sigue disponible el botón "🚗 Registrar transporte" al reabrir la tarjeta (ya existía, `_transpActualizarBotonModal`).
+- **Motivo "Contrato" sin tipoTarea contrato (reportado por Carlos)**: al archivar sin factura, el motivo "📄 Contrato" del popup de motivo es un campo (`motivoNoFactura`) totalmente independiente de `tipoTarea` (el tipo real de la tarjeta) — se podía elegir "Contrato" como motivo en cualquier tarjeta, sin importar si de verdad era tipo Contrato, sin ningún aviso.
+  - Corrección: `confirmarMotivoNoFactura()` ahora detecta ese caso (motivo="Contrato" pero `tipoTarea` distinto de 'contrato') y muestra un popup de confirmación: "Cambiar a Contrato y archivar" (pone `tipoTarea='contrato'` y archiva) o "Cancelar archivado" (no hace nada, la tarjeta queda como estaba).
+
 ## Cambios pendientes de deploy (2026-08-31 — aviso claro + limpiar formulario al crear factura en Alegra)
 
 Sin migraciones ni cron. `assets/js/facturacion.js?v=20260831a`:

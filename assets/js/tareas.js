@@ -1110,8 +1110,9 @@ let _archivarPendienteId = null;
 function archivarTask(id, e) {
   if (e) { e.stopPropagation(); }
   const t = tasks.find(x => x.id === id);
+  if (!t || t.estado === 'archivado') return; // ya archivada — evita reabrir el flujo (y el aviso de transporte) dos veces
   // IT/IF en estado 'realizado' (= columna "Por facturar") sin factura → pedir motivo
-  if (t && ['it','if'].includes(t.area) && t.estado === 'realizado' && !t.factura) {
+  if (['it','if'].includes(t.area) && t.estado === 'realizado' && !t.factura) {
     _archivarPendienteId = id;
     document.getElementById('modal-motivo-no-factura').classList.add('open');
     return;
@@ -1120,11 +1121,21 @@ function archivarTask(id, e) {
   _ejecutarArchivar(id, null);
 }
 
-function _ejecutarArchivar(id, motivo) {
+// forzarTipoContrato: cuando el motivo de archivo es "Contrato" pero la
+// tarjeta no estaba guardada como tipoTarea='contrato' y el usuario, avisado,
+// decidió igual cambiarla — ver _mostrarConfirmArchivarComoContrato().
+function _ejecutarArchivar(id, motivo, forzarTipoContrato = false) {
+  const actual = tasks.find(x => x.id === id);
+  // Idempotente: si ya está archivada no se repite el guardado ni, sobre
+  // todo, no se vuelve a disparar el aviso de transporte (esa repetición
+  // era justo lo que causaba el loop al reabrir un modal ya cerrado/viejo).
+  if (!actual || actual.estado === 'archivado') return;
   tasks = tasks.map(t => t.id===id
-    ? {...t, estado:'archivado', motivoNoFactura: motivo || t.motivoNoFactura || null, updatedAt:new Date().toISOString()}
+    ? {...t, estado:'archivado', motivoNoFactura: motivo || t.motivoNoFactura || null,
+       tipoTarea: forzarTipoContrato ? 'contrato' : t.tipoTarea,
+       updatedAt:new Date().toISOString()}
     : t);
-  save(); render();
+  save(); closeModal(); render();
   syncEstado(id);
   // Verificar transporte (IT/IF en sitio al archivar)
   const tarch = tasks.find(x => x.id === id);
@@ -1137,12 +1148,68 @@ function confirmarMotivoNoFactura(motivo) {
   const id = _archivarPendienteId; // capturar ANTES de cerrar (cerrar pone null)
   cerrarMotivoNoFactura();
   if (!id) return;
+  const t = tasks.find(x => x.id === id);
+  // "Contrato" aquí es solo el MOTIVO de archivar sin facturar — un campo
+  // distinto de tipoTarea. Si la tarjeta no está realmente guardada como
+  // tipo Contrato, avisar antes de archivarla así (si no, quedaría una
+  // tarjeta operativa clasificada como si fuera de contrato sin que nadie
+  // lo note).
+  if (t && motivo === 'Contrato' && t.tipoTarea !== 'contrato') {
+    _mostrarConfirmArchivarComoContrato(id, motivo, t.tipoTarea);
+    return;
+  }
   _ejecutarArchivar(id, motivo);
 }
 
 function cerrarMotivoNoFactura() {
   document.getElementById('modal-motivo-no-factura').classList.remove('open');
   _archivarPendienteId = null;
+}
+
+// Popup: motivo de archivo = "Contrato" pero tipoTarea de la tarjeta no lo es.
+function _mostrarConfirmArchivarComoContrato(id, motivo, tipoActual) {
+  const labels = { evento: 'Evento', proyecto: 'Proyecto', contrato: 'Contrato' };
+  let popup = document.getElementById('archivar-contrato-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'archivar-contrato-popup';
+    popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)';
+    document.body.appendChild(popup);
+  }
+  popup.innerHTML = `
+    <div style="background:var(--card-bg,#fff);border-radius:16px;padding:28px 24px;max-width:360px;width:92%;
+                box-shadow:0 12px 40px rgba(0,0,0,0.22);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">⚠️</div>
+      <div style="font-weight:700;font-size:16px;color:var(--text);margin-bottom:6px">
+        Esta tarjeta no es tipo Contrato
+      </div>
+      <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:18px">
+        Está guardada como tipo <strong>${esc(labels[tipoActual] || tipoActual || 'Evento')}</strong>, pero elegiste "Contrato" como motivo para archivarla sin facturar.
+      </div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:22px">
+        ¿Cambiarla a tipo <strong>Contrato</strong> y archivarla así, o cancelar el archivado?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="_confirmarArchivarComoContrato('${id}', '${motivo}', true)"
+          style="padding:10px;border-radius:8px;border:none;cursor:pointer;
+                 background:#169BBC;color:#fff;font-weight:600;font-size:14px">
+          Cambiar a Contrato y archivar
+        </button>
+        <button onclick="_confirmarArchivarComoContrato('${id}', '${motivo}', false)"
+          style="padding:10px;border-radius:8px;border:1px solid var(--border,#e5e7eb);
+                 cursor:pointer;background:transparent;color:var(--text);font-weight:600;font-size:14px">
+          Cancelar archivado
+        </button>
+      </div>
+    </div>`;
+  popup.style.display = 'flex';
+}
+
+function _confirmarArchivarComoContrato(id, motivo, cambiarYArchivar) {
+  const popup = document.getElementById('archivar-contrato-popup');
+  if (popup) popup.style.display = 'none';
+  if (!cambiarYArchivar) return; // cancelar: la tarjeta queda como estaba, sin archivar
+  _ejecutarArchivar(id, motivo, true);
 }
 
 // ---- Drag & Drop ----
