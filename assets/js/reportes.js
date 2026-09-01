@@ -5,6 +5,23 @@
 // agregar plantillas nuevas en el futuro no requiere cambios de backend,
 // solo agregar una entrada aquí en PLANTILLAS_REPORTE.
 
+// "Ahora" en Bogotá, formato "YYYY-MM-DD HH:MM:SS" — para fabricar
+// localmente un check_in/check_out con la MISMA forma que guarda el
+// servidor (que siempre usa hora de Bogotá, sin sufijo de zona).
+// OJO: no usar `new Date().toISOString()` para esto — da hora UTC, y como
+// el resto del sistema trata esas cadenas "YYYY-MM-DD HH:MM:SS" como si ya
+// fueran hora local de Bogotá, quedaban 5 horas adelantadas (bug real: el
+// PDF de cierre de visita mostraba el checkout y la duración con +5h).
+function _ahoraBogotaSQL() {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota', hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date());
+  const get = tipo => partes.find(p => p.type === tipo)?.value;
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
 const PLANTILLAS_REPORTE = {
   evento: {
     id: 'evento',
@@ -506,7 +523,7 @@ async function iniciarVisita(tareaId, event) {
     if (!navigator.onLine && typeof offlineEnqueue === 'function') {
       // Sin conexión: encolar y actualizar estado local
       await offlineEnqueue(`${API_BASE}/reportes.php`, 'POST', body);
-      const ahora = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const ahora = _ahoraBogotaSQL();
       visitasActivas[tareaId] = {
         id: reporteId,
         tarea_id: tareaId,
@@ -634,7 +651,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
       // Sin conexión: encolar checkout y actualizar estado local
       const checkoutBody = { accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng };
       await offlineEnqueue(`${API_BASE}/reportes.php?id=${visita.id}`, 'PUT', checkoutBody);
-      const ahora = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const ahora = _ahoraBogotaSQL();
       const partOffline = (visita.participantes || []).find(p => p.id === participanteId);
       if (partOffline) partOffline.check_out = ahora;
       const todosTerminaron = (visita.participantes || []).every(p => p.check_out);
@@ -655,7 +672,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
     if (esUltimo) {
       // Último participante: diferir checkout hasta que el técnico envíe el reporte.
       // Mover visita a borradoresActivos localmente para que el UI refleje fin de visita.
-      _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt: new Date().toISOString().replace('T',' ').substring(0,19) };
+      _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt: _ahoraBogotaSQL() };
       sessionStorage.setItem('_pendingCheckout', JSON.stringify(_pendingCheckout));
       delete visitasActivas[tareaId];
       if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
@@ -668,7 +685,7 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
         estado: 'enviado',
         _checkoutLocalPendiente: true,
         participantes: (visita.participantes || []).map(p =>
-          p.id === participanteId ? Object.assign({}, p, { check_out: new Date().toISOString().replace('T',' ').substring(0,19) }) : p
+          p.id === participanteId ? Object.assign({}, p, { check_out: _ahoraBogotaSQL() }) : p
         )
       });
       borradoresActivos[tareaId].push(visitaLocal);
@@ -1250,7 +1267,7 @@ async function generarPDFReporte(btn) {
   // _pendingCheckout obsoleto.
   if (_pendingCheckout && _pendingCheckout.visita.id === reporteActual.id) {
     if (reporteActual._checkoutLocalPendiente) {
-      const _ahoraGeneracion = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const _ahoraGeneracion = _ahoraBogotaSQL();
       reporteActual.check_out = _ahoraGeneracion;
       reporteActual.participantes = (reporteActual.participantes || []).map(p =>
         p.id === _pendingCheckout.participanteId ? { ...p, check_out: _ahoraGeneracion } : p

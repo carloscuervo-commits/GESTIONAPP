@@ -42,6 +42,15 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-31 — fix: PDF de cierre de visita mostraba checkout +5h)
+
+Sin migraciones ni cron. `assets/js/reportes.js?v=20260831a`:
+
+- **Bug real confirmado con casos de hoy** (6 visitas de Sebastian Gamboa): el PDF de cierre de visita mostraba el check-out y la duración total con exactamente 5 horas de más frente al correo/base de datos (ej. duración real 1h47min salía como "6h47min" en el PDF). No era el técnico moviendo nada ni el celular mal configurado — era un bug determinístico de Ginno que pasaba en cualquier visita donde el técnico es el último/único participante en salir (el caso normal).
+- Causa: en el flujo de "checkout diferido" (`reportes.js`, dentro de `generarPDFReporte`), se fabricaba localmente una hora de cierre con `new Date().toISOString().replace('T',' ').substring(0,19)` — eso da la hora en **UTC**, pero el resto del sistema guarda y lee esas cadenas "YYYY-MM-DD HH:MM:SS" como si ya fueran hora de **Bogotá** (UTC-5). El PDF quedaba generado (como archivo estático) con esa hora mal calculada y nunca se corregía después, aunque el servidor sí guardara el checkout real correcto (por eso el correo, que lee la base de datos, siempre salía bien).
+- Corrección: nueva función `_ahoraBogotaSQL()` (usa `Intl.DateTimeFormat` con `timeZone: 'America/Bogota'`, mismo patrón que `_horaBogota()` de `alarma.js`) que sí calcula la hora real de Bogotá. Reemplaza las 4 ocurrencias del patrón viejo en `reportes.js` (la del PDF y otras 3 en estados temporales de checkout offline/diferido que tenían la misma falla de fondo, aunque normalmente se sobrescriben con el dato real del servidor).
+- No requiere reprocesar los PDFs ya generados con la hora mal calculada — solo aplica hacia adelante.
+
 ## Cambios pendientes de deploy (2026-08-27 — Escape cierra cualquier popup sin guardar)
 
 Sin migraciones ni cron. `assets/js/tareas.js?v=20260827e`:
