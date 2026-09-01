@@ -1257,9 +1257,14 @@ function updateFormForArea() {
 function _aplicarResultadoContrato(c, area, mostrarConfirm = false) {
   const elGrp  = document.getElementById('grp-tipo-tarea');
   const selTipo = document.getElementById('f-tipo-tarea');
+  const optContrato = document.getElementById('opt-tipo-contrato');
   if (!elGrp || !selTipo) return;
   const tieneContrato = c && !c.error && c.contrato_area === area && c.contrato_horas_mes > 0;
   elGrp.style.display = 'block'; // evento/proyecto siempre seleccionables en IT/IF, con o sin contrato
+  // La opción "Contrato" del selector solo se muestra si el cliente tiene
+  // contrato activo en su ficha — para el resto de clientes ni siquiera
+  // aparece en la lista (no solo queda deshabilitada).
+  if (optContrato) { optContrato.hidden = !tieneContrato; optContrato.disabled = !tieneContrato; }
   if (tieneContrato) {
     if (!['evento','proyecto','contrato'].includes(selTipo.value)) selTipo.value = 'evento';
     if (mostrarConfirm) {

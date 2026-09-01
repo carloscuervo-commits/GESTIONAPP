@@ -42,6 +42,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-08-31 — ocultar "Contrato" en tipo de tarea si el cliente no tiene contrato activo)
+
+Sin migraciones ni cron. `assets/js/tareas.js?v=20260831a`, `tareas-equipo.html`:
+
+- Antes, la opción "Contrato" del selector "Tipo de tarea" siempre aparecía en la lista para cualquier cliente en IT/IF; si no tenía contrato activo, solo se reseteaba el valor a "Evento" por JS en el momento, pero el usuario podía volver a abrir el selector y elegir "Contrato" igual, sin bloqueo.
+- Ahora, `_aplicarResultadoContrato()` (`tareas.js`) oculta y deshabilita la `<option id="opt-tipo-contrato">` por completo cuando el cliente no tiene contrato activo (`contrato_area`/`contrato_horas_mes` en su ficha) para el área actual — solo aparece en la lista cuando sí lo tiene. Aplica en los mismos momentos donde ya se verificaba el contrato: escribir/seleccionar cliente, cambiar de área, y abrir el modal para editar una tarjeta existente.
+
 ## Cambios pendientes de deploy (2026-08-31 — fix: PDF de cierre de visita mostraba checkout +5h)
 
 Sin migraciones ni cron. `assets/js/reportes.js?v=20260831a`:
