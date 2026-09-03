@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — fix: "Contrato" se revertía a "Evento" apenas se seleccionaba en el tipo de tarea)
+
+`assets/js/tareas.js?v=20260903g`:
+
+- **Bug reportado por Carlos**: tenía una tarjeta tipo Evento ya realizada/reportada, creó el contrato del cliente y recargó Ginno. Al abrir la tarjeta, "Contrato" ya aparecía en el selector de tipo — pero al seleccionarlo, la opción desaparecía y el valor volvía a "Evento".
+  - Causa: `onTipoTareaChange()` (se dispara en cada cambio del selector, incluida la propia selección de "Contrato") volvía a llamar `_verificarContratoClientePorNombre()` — la misma función que decide si ocultar la opción y resetear el valor. Esa validación ya se había hecho correctamente al abrir la tarjeta (y también se repite al cambiar de área o de cliente); repetirla en cada cambio del selector de tipo era redundante y, si esa segunda consulta no encontraba el match por cualquier motivo, revertía la selección que el usuario acababa de hacer.
+  - Corrección: `onTipoTareaChange()` ya no revalida ni oculta la opción "Contrato" — solo refresca el texto de horas consumidas/disponibles (`actualizarInfoContrato`) sin tocar la visibilidad ni el valor seleccionado.
+
 ## Cambios pendientes de deploy (2026-09-03 — fix urgente: reload de Ginno se demoraba minutos por el cálculo de horas de contrato en cada tarjeta)
 
 `assets/js/reportes.js?v=20260903a`:

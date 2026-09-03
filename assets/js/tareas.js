@@ -1549,7 +1549,20 @@ function onTipoTareaChange() {
   _actualizarLabelsProyecto();
   const area = document.getElementById('f-area')?.value;
   const cliente = document.getElementById('f-cliente')?.value.trim();
-  if (['it','if'].includes(area) && cliente) _verificarContratoClientePorNombre(cliente, area);
+  // OJO: aquí NO se debe volver a llamar _verificarContratoClientePorNombre()
+  // (esa función decide si ocultar la opción "Contrato" y resetea el valor a
+  // "evento" si no encuentra el match). Esa validación ya se hizo al abrir la
+  // tarjeta, al cambiar de área o al elegir el cliente — repetirla en cada
+  // cambio del propio selector de tipo (incluida la selección de "Contrato")
+  // podía revertir la elección del usuario si esa segunda consulta fallaba
+  // por cualquier motivo (bug reportado por Carlos). Aquí solo se refresca
+  // el texto de horas consumidas/disponibles, sin tocar la opción ni el valor.
+  if (['it','if'].includes(area) && cliente && API_BASE) {
+    fetch(`${API_BASE}/clientes.php?nombre=${encodeURIComponent(cliente)}`)
+      .then(res => res.json())
+      .then(c => { if (c && !c.error) actualizarInfoContrato(c); })
+      .catch(() => {});
+  }
 }
 
 function openModal(id, preArea, preEstado) {
