@@ -716,7 +716,9 @@ function renderDashboard() {
   html += '<div id="alertas-sin-reporte"></div>';
   html += '<div id="alertas-fuera-sitio"></div>';
   html += '</div>';
+  const _scrollY = window.scrollY;
   document.getElementById('dashboard-view').innerHTML = html;
+  window.scrollTo(0, _scrollY);
   renderAlertasRetraso();
   actualizarBadgeFueraSitio();
   cargarAlertasSinReporte();

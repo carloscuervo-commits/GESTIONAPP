@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — fix: el dashboard se movía solo en la zona de alertas)
+
+`assets/js/tareas.js?v=20260903a`:
+
+- **Bug reportado por Carlos**: en el dashboard, la zona de alertas (listado largo) hacía scroll solo, arriba y abajo, sin que el usuario lo controlara.
+  - Causa: `autoSync()` (`app.js`, cada 20 segundos) llama a `renderDashboard()`, que reconstruye TODO el contenido de `#dashboard-view` vía `innerHTML = html` (`tareas.js:719`) — incluida toda la zona de alertas — sin guardar ni restaurar el scroll. Si al reconstruir cambiaba el tamaño de la lista (alerta nueva, resuelta, reordenada), el navegador recalculaba el layout debajo del punto de scroll del usuario y lo hacía saltar.
+  - Corrección: `renderDashboard()` ahora guarda `window.scrollY` antes de reemplazar el `innerHTML` y lo restaura justo después con `window.scrollTo(0, _scrollY)`.
+
 ## Cambios pendientes de deploy (2026-09-03 — fix: cliente equivocado al procesar cotización para factura)
 
 `backend/api/alegra_factura_desde_cotizacion.php`, `assets/js/facturacion.js?v=20260903a`:
