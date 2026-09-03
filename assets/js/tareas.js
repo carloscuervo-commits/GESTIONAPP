@@ -726,6 +726,16 @@ function renderDashboard() {
   renderProyectosActivosCard();
 }
 
+// Evita que la página salte de scroll cuando alarma.js (cada 20-60s) o
+// autoSync reemplazan el contenido de una sub-sección de la zona de
+// alertas fuera de la vista del usuario.
+function _setHtmlConservandoScroll(el, html) {
+  if (!el) return;
+  const y = window.scrollY;
+  el.innerHTML = html;
+  if (window.scrollY !== y) window.scrollTo(0, y);
+}
+
 // Banner persistente de técnicos tardíos (actualizado también por alarma.js cada 60s)
 function renderAlertasRetraso() {
   const banner = document.getElementById('alertas-retraso-banner');
@@ -767,9 +777,9 @@ function renderAlertasRetraso() {
   });
 
   renderAlertasIncumplidas();
-  if (!tardios.length) { banner.innerHTML = ''; return; }
+  if (!tardios.length) { _setHtmlConservandoScroll(banner, ''); return; }
 
-  banner.innerHTML = `
+  _setHtmlConservandoScroll(banner, `
     <div style="background:#dc2626;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span style="font-size:15px;font-weight:700">🚨 Técnico${tardios.length>1?'s':''} tardío${tardios.length>1?'s':''} (${tardios.length})</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1">
@@ -781,7 +791,7 @@ function renderAlertasRetraso() {
           </span>`;
         }).join('')}
       </div>
-    </div>`;
+    </div>`);
 }
 
 // --------------------------------------------------------------
@@ -809,7 +819,7 @@ function renderAlertasIncumplidas() {
     return true;
   });
 
-  if (!incumplidas.length) { el.innerHTML = ''; return; }
+  if (!incumplidas.length) { _setHtmlConservandoScroll(el, ''); return; }
 
   const items = incumplidas.map(t => {
     const equipo = (t.team || []).map(id => getMember(id)?.name || id).join(', ') || 'Sin asignar';
@@ -822,14 +832,14 @@ function renderAlertasIncumplidas() {
     </div>`;
   }).join('');
 
-  el.innerHTML = `
+  _setHtmlConservandoScroll(el, `
     <div style="background:#F54927;color:#fff;padding:12px 20px;border-radius:var(--radius);margin-bottom:8px">
       <div style="font-size:15px;font-weight:700;margin-bottom:8px">
         ⛔ Tarea${incumplidas.length>1?'s':''} incumplida${incumplidas.length>1?'s':''} (${incumplidas.length})
         <span style="font-size:12px;font-weight:400;opacity:.85;margin-left:8px">Sin check-in el día programado</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${items}</div>
-    </div>`;
+    </div>`);
 }
 
 // --------------------------------------------------------------
@@ -851,16 +861,16 @@ async function actualizarBadgeFueraSitio() {
 function renderAlertasFueraSitio() {
   const el = document.getElementById('alertas-fuera-sitio');
   if (!el || !currentUser || currentUser.perfil !== 'admin') return;
-  if (!_fueraSitioPendientes) { el.innerHTML = ''; return; }
+  if (!_fueraSitioPendientes) { _setHtmlConservandoScroll(el, ''); return; }
   const n = _fueraSitioPendientes;
-  el.innerHTML = `
+  _setHtmlConservandoScroll(el, `
     <div style="background:#f59e0b;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:var(--radius)">
       <span style="font-size:14px;font-weight:700">📍 ${n} check${n>1?'s':''} fuera de sitio por gestionar</span>
       <button onclick="setArea('informes');seleccionarInforme('fuera_sitio')"
         style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:5px 14px;border-radius:99px;cursor:pointer;font-size:13px;font-weight:600">
         Ver en Informes →
       </button>
-    </div>`;
+    </div>`);
 }
 
 async function cargarAlertasSinReporte() {
@@ -871,7 +881,7 @@ async function cargarAlertasSinReporte() {
     const res = await fetch(`${API_BASE}/reportes.php?sin_reporte=1`);
     const data = await res.json();
     const items = Array.isArray(data) ? data : [];
-    if (!items.length) { el.innerHTML = ''; return; }
+    if (!items.length) { _setHtmlConservandoScroll(el, ''); return; }
     const filas = items.map(r => {
       const ts = r.sin_reporte_at ? r.sin_reporte_at.substring(0,16).replace('T',' ') : '';
       return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.3);cursor:pointer;font-size:13px"
@@ -883,11 +893,11 @@ async function cargarAlertasSinReporte() {
         ${ts ? `<span style="color:var(--text-muted);font-size:11px">🕐 ${ts}</span>` : ''}
       </div>`;
     }).join('');
-    el.innerHTML = `
+    _setHtmlConservandoScroll(el, `
       <div style="background:#dc2626;border:1px solid #dc2626;border-radius:var(--radius);padding:16px;margin-bottom:14px">
         <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚫 Visitas terminadas sin reporte (${items.length})</div>
         <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
-      </div>`;
+      </div>`);
   } catch(e) { /* silencioso */ }
 }
 
@@ -916,7 +926,7 @@ async function cargarContratosVigentes() {
 function renderContratosVigentesCard() {
   const el = document.getElementById('contratos-vigentes-section');
   if (!el) return;
-  if (!_contratosVigentesData.length) { el.innerHTML = ''; return; }
+  if (!_contratosVigentesData.length) { _setHtmlConservandoScroll(el, ''); return; }
 
   const fila = c => {
     const pct = c.horas_contratadas > 0 ? Math.min(100, Math.round((c.horas_consumidas / c.horas_contratadas) * 100)) : 0;
@@ -941,14 +951,14 @@ function renderContratosVigentesCard() {
   const itRows = _contratosVigentesData.filter(c => c.area === 'it').map(fila).join('');
   const ifRows = _contratosVigentesData.filter(c => c.area === 'if').map(fila).join('');
 
-  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
+  _setHtmlConservandoScroll(el, `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
     <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40);margin-bottom:4px">📋 Contratos vigentes</div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Consumo del ciclo actual de cada contrato — úsalo para saber qué falta programar antes del cierre.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px">
       ${itRows ? `<div>${itRows}</div>` : ''}
       ${ifRows ? `<div>${ifRows}</div>` : ''}
     </div>
-  </div>`;
+  </div>`);
 }
 
 // --------------------------------------------------------------
@@ -961,10 +971,10 @@ function renderContratosVigentesCard() {
 function renderProyectosActivosCard() {
   const el = document.getElementById('proyectos-activos-section');
   if (!el) return;
-  if (!currentUser || currentUser.perfil !== 'admin') { el.innerHTML = ''; return; }
+  if (!currentUser || currentUser.perfil !== 'admin') { _setHtmlConservandoScroll(el, ''); return; }
 
   const proyectos = tasks.filter(t => t.tipoTarea === 'proyecto' && t.estado === 'programado');
-  if (!proyectos.length) { el.innerHTML = ''; return; }
+  if (!proyectos.length) { _setHtmlConservandoScroll(el, ''); return; }
 
   const fila = t => {
     const diasProg   = t.diasProg || 1;
@@ -995,21 +1005,21 @@ function renderProyectosActivosCard() {
   const itRows = proyectos.filter(t => t.area === 'it').map(fila).join('');
   const ifRows = proyectos.filter(t => t.area === 'if').map(fila).join('');
 
-  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
+  _setHtmlConservandoScroll(el, `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:14px">
     <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40);margin-bottom:4px">🏗️ Proyectos activos</div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Días transcurridos vs. estimados y último % de avance reportado.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px">
       ${itRows ? `<div>${itRows}</div>` : ''}
       ${ifRows ? `<div>${ifRows}</div>` : ''}
     </div>
-  </div>`;
+  </div>`);
 }
 
 function renderContratosAlertaFinMes() {
   const el = document.getElementById('contratos-alerta-fin-mes');
   if (!el) return;
   const pendientes = _contratosVigentesData.filter(c => c.alerta_pendiente);
-  if (!pendientes.length) { el.innerHTML = ''; return; }
+  if (!pendientes.length) { _setHtmlConservandoScroll(el, ''); return; }
 
   const items = pendientes.map(c => `
     <div onclick="typeof abrirModalCliente==='function' && abrirModalCliente('${esc(c.cliente_id)}')"
@@ -1020,10 +1030,10 @@ function renderContratosAlertaFinMes() {
       <span style="color:#7c2d12;font-weight:700;font-size:12px">⏳ ${c.dias_restantes} día${c.dias_restantes===1?'':'s'} para cerrar ciclo</span>
     </div>`).join('');
 
-  el.innerHTML = `<div style="background:#f59e0b;border:1px solid #f59e0b;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+  _setHtmlConservandoScroll(el, `<div style="background:#f59e0b;border:1px solid #f59e0b;border-radius:var(--radius);padding:16px;margin-bottom:14px">
     <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📋 Contratos por consumir antes del cierre (${pendientes.length})</div>
     <div style="display:flex;flex-direction:column;gap:6px">${items}</div>
-  </div>`;
+  </div>`);
 }
 
 function setArea(a) {

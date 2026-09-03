@@ -44,11 +44,11 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 
 ## Cambios pendientes de deploy (2026-09-03 — fix: el dashboard se movía solo en la zona de alertas)
 
-`assets/js/tareas.js?v=20260903a`:
+`assets/js/tareas.js?v=20260903b`:
 
-- **Bug reportado por Carlos**: en el dashboard, la zona de alertas (listado largo) hacía scroll solo, arriba y abajo, sin que el usuario lo controlara.
-  - Causa: `autoSync()` (`app.js`, cada 20 segundos) llama a `renderDashboard()`, que reconstruye TODO el contenido de `#dashboard-view` vía `innerHTML = html` (`tareas.js:719`) — incluida toda la zona de alertas — sin guardar ni restaurar el scroll. Si al reconstruir cambiaba el tamaño de la lista (alerta nueva, resuelta, reordenada), el navegador recalculaba el layout debajo del punto de scroll del usuario y lo hacía saltar.
-  - Corrección: `renderDashboard()` ahora guarda `window.scrollY` antes de reemplazar el `innerHTML` y lo restaura justo después con `window.scrollTo(0, _scrollY)`.
+- **Bug reportado por Carlos**: en el dashboard, la zona de alertas (listado largo) hacía scroll solo, arriba y abajo, sin que el usuario lo controlara. El primer intento de fix (guardar/restaurar `window.scrollY` solo en `renderDashboard()`) no fue suficiente — el usuario confirmó que seguía moviéndose tras el deploy.
+  - Causa completa: además del rebuild grande de `renderDashboard()` (cada 20s vía `autoSync` de `app.js`), `alarma.js` corre sus propios `setInterval` independientes (cada 20s y cada 60s) que llaman a `actualizarBadgeFueraSitio()` y `_chequearRetrasoTecnicos()` → `renderAlertasRetraso()`. Estas y otras funciones de sub-secciones de la zona de alertas (`renderAlertasIncumplidas`, `renderAlertasFueraSitio`, `cargarAlertasSinReporte`, `renderContratosVigentesCard`, `renderProyectosActivosCard`, `renderContratosAlertaFinMes`) hacían `el.innerHTML = ...` directo sobre sus propios divs, sin ninguna preservación de scroll — cada una disparaba su propio salto de forma independiente al primer fix.
+  - Corrección: nuevo helper `_setHtmlConservandoScroll(el, html)` (guarda `window.scrollY`, asigna el `innerHTML`, restaura el scroll si cambió) aplicado en las 7 funciones anteriores más `renderDashboard()`, cubriendo todos los puntos donde se reescribe contenido de la zona de alertas, sin importar qué timer lo dispare.
 
 ## Cambios pendientes de deploy (2026-09-03 — fix: cliente equivocado al procesar cotización para factura)
 
