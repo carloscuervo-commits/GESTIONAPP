@@ -4,6 +4,80 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-03 — sesión larga: cotización→factura, dashboard lento, contrato por área, comentarios privados)
+
+### fix: cliente equivocado al procesar cotización para factura
+
+`backend/api/alegra_factura_desde_cotizacion.php`: el fallback de búsqueda de cliente por palabra suelta (cuando el nombre completo no matchea en Alegra) traía falsos positivos masivos (ej. "SAN" matcheaba "Sanchez", "Santimone", etc.), y el `<select>` del frontend no marcaba ningún candidato como `selected`, dejando el primero de la lista (irrelevante) elegido por defecto. Ahora cada candidato se anota con `match_exacto` (nombre normalizado igual o contenido como frase completa) y `score` de similitud, se ordenan exactos primero y se limitan a 8; el frontend marca `✓`/`≈` y advierte si no hay match exacto. Ver `assets/js/facturacion.js?v=20260903a`.
+
+### fix: dashboard con scroll saltando solo en la zona de alertas
+
+Causa real (no la primera hipótesis): `renderDashboard()` (`tareas.js`) reconstruye TODO `#dashboard-view` con `innerHTML=` cada ~10-20s (autoSync llama `render()` dos veces por ciclo), dejando momentáneamente vacíos los contenedores de alertas que se llenan por fetch async (contratos, sin-reporte, fuera de sitio) — colapsan y reaparecen escalonados, produciendo el salto. Fix real: guardar el `innerHTML` de esos 6 contenedores antes del rebuild y reponerlo de inmediato (síncrono) hasta que el fetch real los actualice. Además, todas las sub-funciones que reescriben piezas de la zona de alertas (`renderAlertasRetraso`, `renderAlertasIncumplidas`, `renderAlertasFueraSitio`, `cargarAlertasSinReporte`, `renderContratosVigentesCard`, `renderProyectosActivosCard`, `renderContratosAlertaFinMes`) usan un helper común `_setHtmlConservandoScroll(el, html)` que guarda/restaura `window.scrollY`. `tareas.js?v=20260903c`.
+
+### feat: orden por vencimiento en zonas de alerta del dashboard
+
+"Realizados sin facturar", "Pendientes por cotizar" y "Cotizado por seguimiento" ahora se ordenan por días de atraso descendente (antes no tenían orden explícito). `tareas.js?v=20260903d`/`e`.
+
+### feat: técnicos solo ven comentarios donde son autores o mencionados
+
+`backend/api/comentarios.php` GET acepta `usuarioId`+`perfil`; si `perfil=tecnico` filtra a comentarios propios o con `@suID` mencionado (regex, mismo formato que el aviso de menciones). Admin sigue viendo todos. **Nota de seguridad**: la app no tiene sesión de servidor — todo el backend confía en lo que manda el frontend, así que esto es una restricción de UI/uso normal, no a prueba de manipulación deliberada (un técnico con devtools podría forzar `perfil=admin` en la URL). `comentarios.js?v=20260903a`.
+
+### fix: horas de contrato mostraban el ciclo de HOY, no el de la visita
+
+`backend/api/reportes.php` (`?horasContrato=1`): `periodoContratoActual()` siempre usaba "hoy" como referencia — una tarjeta ejecutada en julio, abierta en septiembre, mostraba el consumo del ciclo de septiembre. Ahora usa el `MAX(check_out)` de la propia tarea como fecha de referencia (si no tiene check_out aún, sigue usando hoy). El frontend muestra el rango del ciclo junto a Consumidas/Disponibles.
+
+### fix urgente: reload de Ginno se demoraba minutos (regresión del fix anterior)
+
+El query nuevo del punto anterior se disparaba por cada tarjeta tipo Contrato renderizada en el kanban (`_cargarHorasContratoCard`, `reportes.js`), no solo al abrir el modal — multiplicado por el auto-refresh cada 20s. Se eliminó ese cálculo de la renderización de tarjetas por completo (función y sus 2 call-sites); ahora solo se calcula al abrir el modal de una tarjeta específica. `reportes.js?v=20260903a`.
+
+### fix real de fondo: dashboard lento — N+1 y subconsultas de proyecto en cada tarea de `GET tareas.php`
+
+El fix anterior no era la causa real de fondo (Carlos confirmó que seguía lento). `backend/api/tareas.php` (llamado sin filtro en cada arranque y cada 20s): 1) `rowConTeam()` hacía una consulta a `tarea_equipo` POR CADA tarea devuelta (N+1) — ahora se trae el equipo de todas las tareas en una sola consulta y se agrupa en PHP. 2) Las 3 subconsultas de avance/horas/días de Proyecto se evaluaban para TODAS las tareas aunque solo aplican a tipo Proyecto — ahora envueltas en `CASE WHEN t.tipo_tarea = 'proyecto' THEN (...) ELSE NULL END`. Sin cambios de frontend/output. **No se pudo confirmar con `EXPLAIN`/`COUNT(*)` desde el sandbox** — si sigue lento, ese es el siguiente paso (correrlo en phpMyAdmin).
+
+### fix: "Contrato" se revertía a "Evento" al seleccionarlo en el tipo de tarea
+
+`onTipoTareaChange()` (`tareas.js`) volvía a llamar `_verificarContratoClientePorNombre()` en cada cambio del selector — incluida la propia selección de "Contrato" — pudiendo revertir la elección si esa segunda consulta fallaba. Ahora solo refresca el texto de horas, sin re-ocultar la opción ni resetear el valor. `tareas.js?v=20260903g`.
+
+### hallazgo importante (no es bug): un cliente solo puede tener UN contrato (una sola `contrato_area`)
+
+La ficha de cliente (`clientes.contrato_area`/`contrato_horas_mes`) solo admite un área de contrato por cliente. Si una tarjeta está en área IT pero el contrato del cliente es IF (o viceversa), "Contrato" correctamente NO aparece como tipo de tarea válido para esa tarjeta (tras la verificación async, que tarda unos ~3s contra producción — durante esa ventana la opción se ve pero luego se oculta si no coincide, lo cual puede parecer un bug pero es el comportamiento correcto dado el desajuste de área). Si Grupo Innovate necesita que un cliente tenga contrato en ambas áreas simultáneamente, hay que ampliar el modelo de datos (hoy es 1 columna `contrato_area`, no soporta múltiples).
+
+### fix: horas ya reportadas no se descontaban al reclasificar una tarjeta a Contrato después de ejecutada
+
+`horas_contrato` (en `visita_participantes`) solo se calculaba en el momento del checkout, y solo si en ESE momento la tarjeta ya era `tipo_tarea='contrato'`. Si una visita se ejecutaba con otro tipo (ej. Evento/IT) y la tarjeta se reclasificaba a Contrato DESPUÉS (como pasó con la tarjeta de cámaras que se movió a IF), ese campo quedaba en NULL para siempre — tanto el modal de la tarjeta como la tarjeta "Contratos vigentes" del dashboard excluyen explícitamente `horas_contrato IS NULL` de la suma de consumo. Fix: el cálculo (duración neta menos pausas, redondeo a bloques de 30 min, mínimo 0.5h) se extrajo a `calcularHorasContratoVisita()` en `backend/lib/contrato.php`, reutilizada por el checkout de `reportes.php`. Nueva función `backfillHorasContratoTarea()` en el mismo archivo: al guardar una tarjeta (`PUT tareas.php`) que queda en `tipo_tarea='contrato'`, rellena `horas_contrato` de cualquier participante ya finalizado (check_in+check_out) que aún no la tenga calculada, sin tocar valores ya existentes (incluidas ediciones manuales del admin). Solo backend, sin cambios de frontend/`?v=`. **Para que la tarjeta de cámaras (ya reclasificada a IF/Contrato) quede con sus 2.7h contadas, basta con abrirla y guardarla una vez desplegado este fix** — el backfill se dispara solo al guardar.
+
+Ver detalle completo de cada fix en `DEPLOY.md` (sección "Cambios pendientes de deploy").
+
+---
+
+## Estado actual (última actualización: 2026-08-31 — visitas puntuales de proyecto, Escape cierra popups, fix PDF checkout, contrato oculto sin activo, aviso facturación Alegra, fix loop archivar)
+
+### feat: visitas puntuales de proyecto (programación + alarma de tardío)
+
+Nueva tabla `proyecto_visitas_programadas` + `backend/api/proyecto_visitas.php`. Al copiar la programación del día siguiente, si hay una tarjeta de Proyecto activa, un popup pide asignar técnico(s) + hora específica por proyecto (en vez de "Sin asignar" + hora de alarma). Esas mismas visitas se reutilizan para la alarma de "técnico tardío" (dedup diario vía `avisos_enviados`, tipo `proyecto_retraso`). `core.js?v=20260827c`, `alarma.js?v=20260827a`, `backend/api/alertas.php`.
+
+### feat: Escape cierra cualquier popup/modal sin guardar
+
+`_ESC_MODALES` en `tareas.js` — 16 de 17 modales cubiertos (excluidos intencionalmente `login-overlay` y `popup-tarea-terminada`), respetando orden de anidación.
+
+### fix: PDF de cierre de visita mostraba checkout +5h
+
+`reportes.js` usaba `new Date().toISOString()` (UTC) mal etiquetado como hora local Bogotá en 4 sitios de `generarPDFReporte()`. Nuevo helper `_ahoraBogotaSQL()` (Intl.DateTimeFormat timeZone America/Bogota) reemplaza los 4 usos. `reportes.js?v=20260831a`.
+
+### fix: ocultar "Contrato" en tipo de tarea si el cliente no tiene contrato activo
+
+La opción ya no solo queda deshabilitada — se oculta del todo (`hidden`+`disabled`) si el cliente no tiene contrato para esa área. `tareas.js?v=20260831a` (superado por el fix de área del 2026-09-03 arriba).
+
+### feat: aviso claro + limpiar formulario al crear factura en Alegra
+
+Antes no pasaba nada visible tras crear la factura. Ahora `alert()` con el resultado + limpieza del formulario. `facturacion.js?v=20260831a`.
+
+### fix: loop al archivar con transporte pendiente + aviso motivo "Contrato" sin tipoTarea contrato
+
+`_ejecutarArchivar()` no cerraba el modal ni era idempotente — repetía el aviso de transporte en cada intento. Ahora cierra modal y no hace nada si ya está archivada. Además, si se elige motivo "Contrato" al archivar sin ser tipoTarea=contrato, aparece confirmación para cambiar el tipo o cancelar. `tareas.js?v=20260831b`.
+
+---
+
 ## Estado actual (última actualización: 2026-08-05 — integración Telegram Bot)
 
 ### feat: Notificaciones Telegram a técnicos (`backend/lib/telegram.php` + `tareas.php`)

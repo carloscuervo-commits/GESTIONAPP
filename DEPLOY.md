@@ -42,6 +42,25 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — fix: horas ya reportadas no se descontaban al reclasificar una tarjeta a Contrato después de ejecutada)
+
+`backend/lib/contrato.php`, `backend/api/reportes.php`, `backend/api/tareas.php` (sin cambios de frontend, no requiere bump de `?v=`):
+
+- **Pedido de Carlos**: si una tarjeta es tipo Contrato y la visita ya se ejecutó y finalizó, el cálculo de horas consumidas/disponibles debería descontarla.
+  - Causa: `horas_contrato` (columna de `visita_participantes`) solo se calculaba una vez, en el checkout, y solo si en ese momento la tarjeta ya era `tipo_tarea='contrato'`. Al reclasificar una tarjeta ya finalizada a Contrato (caso real: tarjeta de cámaras movida de área IT a IF), el checkout ya no vuelve a dispararse, así que ese campo quedaba en NULL para siempre. Tanto el modal de la tarjeta (`reportes.php?horasContrato=1`) como la tarjeta "Contratos vigentes" del dashboard (`contratosVigentesConsumo()`) excluyen explícitamente `horas_contrato IS NULL` de la suma — esas visitas nunca se contaban.
+  - Corrección: se extrajo el cálculo (duración neta descontando pausas, redondeo a bloques de 30 min con mínimo 0.5h) a `calcularHorasContratoVisita()` en `backend/lib/contrato.php`, reutilizado ahora por el checkout de `reportes.php` (antes estaba duplicado inline). Nueva función `backfillHorasContratoTarea()` en el mismo archivo: se llama desde el `PUT` de `tareas.php` cuando `tipo_tarea` queda en `contrato`, y rellena `horas_contrato` de cualquier participante ya finalizado (con check_in y check_out) que aún esté en NULL — sin tocar participantes que ya tengan un valor (incluidas ediciones manuales del admin), así que es seguro correrlo en cada guardado.
+  - **Pendiente manual (no es deploy) una vez desplegado**: abrir y guardar (sin necesidad de cambiar nada más) la tarjeta de cámaras del cliente Condominio Sol de la Arboleda, ya movida a área IF/Contrato — eso dispara el backfill y sus 2.7h quedan contadas en el consumo del ciclo.
+
+## Cambios pendientes de deploy (2026-09-03 — fix real de fondo: dashboard lento por N+1 y subconsultas de proyecto en cada tarea)
+
+`backend/api/tareas.php` (sin cambios de frontend, no requiere bump de `?v=`):
+
+- **El fix anterior (quitar `_cargarHorasContratoCard` de las tarjetas) no era la causa real** — confirmado por Carlos, seguía lento tras ese deploy. Investigación de fondo: `GET tareas.php` (llamado sin filtro en cada arranque y cada 20s vía autoSync, sobre TODA la tabla `tareas`) tenía dos problemas de escala que no tienen relación con los cambios de hoy — venían de antes, y probablemente el volumen de datos ya cruzó el punto donde se volvieron notorios:
+  1. **N+1**: `rowConTeam()` hacía una consulta aparte a `tarea_equipo` por cada tarea devuelta (línea 85, `array_map`). Con miles de tareas, miles de consultas separadas.
+  2. Las 3 subconsultas de "avance/horas/días trabajados de proyecto" (con JOINs `visita_participantes`⋈`reportes`⋈`visita_pausas`, `COLLATE` en el ON) se calculaban para **todas** las tareas, no solo las de tipo Proyecto — el comentario original decía "no hace daño calcularlo siempre", pero acumulado sobre muchas filas sí es costoso.
+  - Corrección: equipo de todas las tareas en una sola consulta (agrupado en PHP, no una por tarea); las 3 subconsultas de proyecto ahora van envueltas en `CASE WHEN t.tipo_tarea = 'proyecto' THEN (...) ELSE NULL END`, así MySQL solo las ejecuta en las tarjetas que de verdad son Proyecto. Mismo formato de respuesta para el frontend, sin cambios de JS.
+  - No se pudo medir el volumen real de las tablas (`tareas`, `reportes`, `visita_participantes`) desde el sandbox — si después de este deploy sigue lento, el siguiente paso sería correr un `EXPLAIN` de la query y `SELECT COUNT(*)` de esas tablas en phpMyAdmin para confirmar dónde está el cuello de botella real.
+
 ## Cambios pendientes de deploy (2026-09-03 — fix: "Contrato" se revertía a "Evento" apenas se seleccionaba en el tipo de tarea)
 
 `assets/js/tareas.js?v=20260903g`:

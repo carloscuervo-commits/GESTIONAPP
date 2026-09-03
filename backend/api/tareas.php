@@ -40,29 +40,38 @@ function registrarHistorial($pdo, $tareaId, $estadoAnt, $estadoNuevo, $usuarioId
 // GET /tareas.php          -> lista todas (con filtros opcionales ?area=&estado=)
 // GET /tareas.php?id=UUID  -> una tarea
 // --------------------------------------------------------------
-// Subconsulta: último % de avance registrado en un reporte de la tarea
-// (solo aplica a tarjetas tipo Proyecto, pero no hace daño calcularlo siempre).
-$AVANCE_PROYECTO_SUBQUERY = "(SELECT r.avance_proyecto_pct FROM reportes r
-    WHERE r.tarea_id = t.id AND r.avance_proyecto_pct IS NOT NULL
-    ORDER BY r.creado_en DESC LIMIT 1) AS avance_proyecto_pct";
+// Subconsulta: último % de avance registrado en un reporte de la tarea.
+// Envuelta en CASE WHEN tipo_tarea='proyecto' para que MySQL solo la
+// ejecute en las tarjetas que de verdad son tipo Proyecto — evaluarla
+// para TODAS las tareas (aunque "no haga daño" al resultado) es costoso
+// cuando la tabla `tareas` crece, porque se repite en cada fila de cada
+// llamada a este endpoint (sin filtro, cada 20s vía autoSync).
+$AVANCE_PROYECTO_SUBQUERY = "(CASE WHEN t.tipo_tarea = 'proyecto' THEN
+    (SELECT r.avance_proyecto_pct FROM reportes r
+     WHERE r.tarea_id = t.id AND r.avance_proyecto_pct IS NOT NULL
+     ORDER BY r.creado_en DESC LIMIT 1)
+    ELSE NULL END) AS avance_proyecto_pct";
 
 // Subconsultas: total de horas trabajadas (suma de todos los técnicos, todas
 // las visitas cerradas, restando pausas) y cantidad de días distintos con al
-// menos un check-in — solo tiene sentido para tarjetas tipo Proyecto, pero no
-// hace daño calcularlo siempre.
-$HORAS_PROYECTO_SUBQUERY = "(SELECT ROUND(SUM(
-      GREATEST(0, TIMESTAMPDIFF(MINUTE, vp.check_in, vp.check_out)
-        - COALESCE((SELECT SUM(TIMESTAMPDIFF(MINUTE, vpz.pausa_inicio, vpz.pausa_fin))
-                    FROM visita_pausas vpz
-                    WHERE vpz.participante_id = vp.id AND vpz.pausa_fin IS NOT NULL), 0))
-    ) / 60, 1)
-    FROM visita_participantes vp
-    JOIN reportes r4 ON r4.id = vp.reporte_id COLLATE utf8mb4_general_ci
-    WHERE r4.tarea_id = t.id AND vp.check_out IS NOT NULL) AS horas_trabajadas_proyecto";
-$DIAS_TRABAJADOS_PROYECTO_SUBQUERY = "(SELECT COUNT(DISTINCT DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')))
-    FROM visita_participantes vp
-    JOIN reportes r5 ON r5.id = vp.reporte_id COLLATE utf8mb4_general_ci
-    WHERE r5.tarea_id = t.id AND vp.check_in IS NOT NULL) AS dias_trabajados_proyecto";
+// menos un check-in — igual, solo se calculan para tipo Proyecto.
+$HORAS_PROYECTO_SUBQUERY = "(CASE WHEN t.tipo_tarea = 'proyecto' THEN
+    (SELECT ROUND(SUM(
+        GREATEST(0, TIMESTAMPDIFF(MINUTE, vp.check_in, vp.check_out)
+          - COALESCE((SELECT SUM(TIMESTAMPDIFF(MINUTE, vpz.pausa_inicio, vpz.pausa_fin))
+                      FROM visita_pausas vpz
+                      WHERE vpz.participante_id = vp.id AND vpz.pausa_fin IS NOT NULL), 0))
+      ) / 60, 1)
+      FROM visita_participantes vp
+      JOIN reportes r4 ON r4.id = vp.reporte_id COLLATE utf8mb4_general_ci
+      WHERE r4.tarea_id = t.id AND vp.check_out IS NOT NULL)
+    ELSE NULL END) AS horas_trabajadas_proyecto";
+$DIAS_TRABAJADOS_PROYECTO_SUBQUERY = "(CASE WHEN t.tipo_tarea = 'proyecto' THEN
+    (SELECT COUNT(DISTINCT DATE(CONVERT_TZ(vp.check_in, '+00:00', '-05:00')))
+     FROM visita_participantes vp
+     JOIN reportes r5 ON r5.id = vp.reporte_id COLLATE utf8mb4_general_ci
+     WHERE r5.tarea_id = t.id AND vp.check_in IS NOT NULL)
+    ELSE NULL END) AS dias_trabajados_proyecto";
 $PROYECTO_SUBQUERIES = "$AVANCE_PROYECTO_SUBQUERY, $HORAS_PROYECTO_SUBQUERY, $DIAS_TRABAJADOS_PROYECTO_SUBQUERY";
 
 if ($method === 'GET') {
@@ -82,7 +91,21 @@ if ($method === 'GET') {
 
   $stmt = $pdo->prepare($sql);
   $stmt->execute($params);
-  $rows = array_map(fn($r) => rowConTeam($pdo, $r), $stmt->fetchAll());
+  $rows = $stmt->fetchAll();
+
+  // Traer el equipo de TODAS las tareas en una sola consulta en vez de una
+  // consulta por tarea (N+1) — con la tabla `tareas` creciendo, esto era
+  // una de las causas de que cargar el dashboard se volviera lento.
+  $teamsByTarea = [];
+  $stmtTeam = $pdo->query("SELECT tarea_id, usuario_id FROM tarea_equipo");
+  foreach ($stmtTeam->fetchAll() as $te) {
+    $teamsByTarea[$te['tarea_id']][] = $te['usuario_id'];
+  }
+  foreach ($rows as &$row) {
+    $row['team'] = $teamsByTarea[$row['id']] ?? [];
+  }
+  unset($row);
+
   jsonOut($rows);
 }
 
@@ -264,6 +287,16 @@ if ($method === 'PUT') {
     $avisarClienteUp, $reporteInternoUp,
     $alertaRetraso, $id,
   ]);
+
+  // Si la tarjeta queda en tipo Contrato, rellenar horas_contrato de
+  // visitas ya finalizadas que aún no la tengan calculada — típicamente
+  // tarjetas reclasificadas a Contrato DESPUÉS de que la visita ya hizo
+  // checkout (en ese momento no era Contrato, así que el checkout no
+  // calculó nada y ese consumo nunca se restaba de las horas del cliente).
+  if ($tipoTareaUp === 'contrato') {
+    require_once __DIR__ . '/../lib/contrato.php';
+    try { backfillHorasContratoTarea($pdo, $id); } catch (Throwable $e) { /* silencioso */ }
+  }
 
   // Reasignar equipo
   $pdo->prepare("DELETE FROM tarea_equipo WHERE tarea_id = ?")->execute([$id]);

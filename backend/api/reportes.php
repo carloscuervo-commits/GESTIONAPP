@@ -700,19 +700,12 @@ if ($method === 'PUT') {
         $partData = $stmtPart2->fetch();
 
         if ($partData && $partData['check_in'] && $partData['check_out']) {
-          // Duración neta en minutos (descontando pausas)
-          $durMinutos = max(0, (int)((strtotime($partData['check_out']) - strtotime($partData['check_in'])) / 60));
+          // Cálculo (duración neta descontando pausas + redondeo a bloques
+          // de 30 min, mínimo 0.5h) centralizado en lib/contrato.php para
+          // reutilizarlo también en el backfill de tareas reclasificadas.
           $stmtPausas = $pdo->prepare("SELECT pausa_inicio, pausa_fin FROM visita_pausas WHERE participante_id = ? AND pausa_fin IS NOT NULL");
           $stmtPausas->execute([$partId]);
-          foreach ($stmtPausas->fetchAll() as $pz) {
-            $durMinutos -= max(0, (int)((strtotime($pz['pausa_fin']) - strtotime($pz['pausa_inicio'])) / 60));
-          }
-          $durMinutos = max(0, $durMinutos);
-
-          // Redondeo: mínimo 30 min; residuo > 10 min sube al siguiente bloque
-          $medias = (int)floor($durMinutos / 30);
-          if (($durMinutos % 30) > 10) $medias++;
-          $horasContrato = max(0.5, $medias * 0.5);
+          $horasContrato = calcularHorasContratoVisita($partData['check_in'], $partData['check_out'], $stmtPausas->fetchAll());
 
           $pdo->prepare("UPDATE visita_participantes SET horas_contrato = ? WHERE id = ?")
             ->execute([$horasContrato, $partId]);

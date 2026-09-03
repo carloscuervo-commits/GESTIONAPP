@@ -53,6 +53,62 @@ function periodoContratoAnterior(?int $corteDia, ?string $refDate = null): array
   return periodoContratoActual($corteDia, $refAnterior);
 }
 
+// Calcula las horas de contrato (redondeadas a bloques de 30 min, mínimo
+// 0.5h; residuo > 10 min sube al siguiente bloque) de una visita a partir
+// de su check_in/check_out y sus pausas cerradas. $pausas es un array de
+// filas con 'pausa_inicio'/'pausa_fin'. Devuelve null si falta check_in o
+// check_out (visita sin finalizar). Misma lógica que usaba antes inline el
+// checkout de reportes.php — extraída aquí para reutilizarla también en el
+// backfill de tareas.php.
+function calcularHorasContratoVisita(?string $checkIn, ?string $checkOut, array $pausas): ?float {
+  if (!$checkIn || !$checkOut) return null;
+
+  $durMinutos = max(0, (int)((strtotime($checkOut) - strtotime($checkIn)) / 60));
+  foreach ($pausas as $pz) {
+    if (empty($pz['pausa_inicio']) || empty($pz['pausa_fin'])) continue;
+    $durMinutos -= max(0, (int)((strtotime($pz['pausa_fin']) - strtotime($pz['pausa_inicio'])) / 60));
+  }
+  $durMinutos = max(0, $durMinutos);
+
+  $medias = (int)floor($durMinutos / 30);
+  if (($durMinutos % 30) > 10) $medias++;
+  return max(0.5, $medias * 0.5);
+}
+
+// Rellena horas_contrato para los participantes ya finalizados (con
+// check_in y check_out) de una tarea que todavía no lo tienen calculado —
+// típicamente porque la tarjeta se reclasificó a tipo Contrato DESPUÉS de
+// que la visita ya había hecho checkout (en ese momento no era Contrato,
+// así que el checkout no calculó nada y el campo quedó NULL para siempre).
+// Se llama al guardar la tarjeta (PUT tareas.php) cuando tipo_tarea queda
+// en 'contrato'. No toca participantes que ya tengan un valor (incluidas
+// ediciones manuales del admin).
+function backfillHorasContratoTarea(PDO $pdo, string $tareaId): void {
+  $stmt = $pdo->prepare("
+    SELECT vp.id, vp.check_in, vp.check_out
+    FROM visita_participantes vp
+    JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
+    WHERE r.tarea_id = ?
+      AND vp.horas_contrato IS NULL
+      AND vp.check_in IS NOT NULL
+      AND vp.check_out IS NOT NULL
+  ");
+  $stmt->execute([$tareaId]);
+  $participantes = $stmt->fetchAll();
+  if (!$participantes) return;
+
+  $stmtPausas = $pdo->prepare("SELECT pausa_inicio, pausa_fin FROM visita_pausas WHERE participante_id = ? AND pausa_fin IS NOT NULL");
+  $stmtUpdate = $pdo->prepare("UPDATE visita_participantes SET horas_contrato = ? WHERE id = ?");
+
+  foreach ($participantes as $p) {
+    $stmtPausas->execute([$p['id']]);
+    $horas = calcularHorasContratoVisita($p['check_in'], $p['check_out'], $stmtPausas->fetchAll());
+    if ($horas !== null) {
+      $stmtUpdate->execute([$horas, $p['id']]);
+    }
+  }
+}
+
 /**
  * Consumo de horas de contrato de TODOS los clientes con contrato activo
  * (IT o IF), en el ciclo vigente de cada uno. Fuente única de verdad
