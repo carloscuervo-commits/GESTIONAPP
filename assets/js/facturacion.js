@@ -82,8 +82,12 @@ function renderFacturaForm() {
   const resEl = document.getElementById('fact-resultado');
   resEl.style.display = 'block';
 
-  const opcionesCliente = (f.clientes_candidatos||[]).map(c =>
-    `<option value="${c.id}">${esc(c.name)} (id ${c.id})</option>`).join('');
+  const opcionesCliente = (f.clientes_candidatos||[]).map((c, idx) =>
+    `<option value="${c.id}"${idx === 0 ? ' selected' : ''}>${c.match_exacto ? '✓' : '≈'} ${esc(c.name)} (id ${c.id})${c.match_exacto ? '' : ` — sugerencia, ${c.score}% similar`}</option>`).join('');
+
+  const sinMatchExactoHtml = (!f.modoManual && opcionesCliente && !f.hay_match_exacto)
+    ? `<div style="background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;border-radius:8px;padding:10px;font-size:12px;margin-bottom:6px">⚠️ Ginno no encontró una coincidencia exacta para "${esc(f.cliente_nombre_cotizacion||'')}" — revisa y confirma el cliente antes de facturar.</div>`
+    : '';
 
   const avisoHtml = f.aviso_cliente
     ? `<div style="background:#fff5f5;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">⚠️ ${esc(f.aviso_cliente)}</div>`
@@ -97,6 +101,7 @@ function renderFacturaForm() {
        <input type="hidden" id="fact-cliente-id" value="${f.clienteManualId||''}">
        <div style="font-size:11px;margin-top:2px;color:${f.clienteManualId ? '#059669' : 'var(--text-muted)'}">${f.clienteManualId ? `✓ Cliente seleccionado (id ${f.clienteManualId})` : 'Escribe al menos 2 letras y elige un cliente de la lista.'}</div>`
     : `<label style="font-size:11px;color:var(--text-muted)">Cliente</label>
+       ${sinMatchExactoHtml}
        ${opcionesCliente
           ? `<select id="fact-cliente-id" style="width:100%">${opcionesCliente}</select>`
           : `<input type="text" id="fact-cliente-id" placeholder="ID de cliente en Alegra" style="width:100%">`}

@@ -42,6 +42,15 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — fix: cliente equivocado al procesar cotización para factura)
+
+`backend/api/alegra_factura_desde_cotizacion.php`, `assets/js/facturacion.js?v=20260903a`:
+
+- **Bug reportado por Carlos**: al procesar la cotización CTINN-2018 (cliente real "San Cayetano"), el selector de cliente en el módulo de Facturación mostró una lista larga de decenas de clientes de Alegra sin relación aparente ("Alberto Bernal Sanchez" preseleccionado en vez de "Conjunto Residencial San Cayetano").
+  - Causa: cuando la búsqueda por el nombre completo de la cotización no encuentra nada en Alegra, el código cae a un fallback que busca cada palabra suelta del nombre (≥3 letras). Con "SAN CAYETANO", la palabra "SAN" hace match parcial contra cualquier contacto que la contenga en cualquier posición (Ber**san**chez, **San**timone, **San**abria, Casa **San**ta Mónica, etc.). Ninguno de esos resultados se ordenaba por relevancia real, y el `<select>` no marcaba ningún `selected` explícito — el navegador simplemente dejaba seleccionada la primera opción de la lista, sin relación con el cliente correcto.
+  - Corrección backend: cada candidato ahora se anota con `match_exacto` (nombre normalizado —sin tildes/mayúsculas/sufijos como S.A.S/LTDA— igual o contenido como frase completa dentro del otro) y un `score` de similitud (`similar_text`). Los candidatos se ordenan exactos primero y por score descendente, limitando la lista a 8 para no saturar el select.
+  - Corrección frontend: la opción de mayor relevancia queda `selected` por defecto; cada opción se marca visualmente como `✓` (coincidencia exacta) o `≈ ... — sugerencia, N% similar` (coincidencia débil). Si ningún candidato es exacto, aparece un aviso naranja arriba del select pidiendo revisar/confirmar el cliente antes de facturar.
+
 ## Cambios pendientes de deploy (2026-08-31 — fix: loop al archivar con transporte pendiente + aviso motivo "Contrato" sin tipoTarea contrato)
 
 ⚠️ **Verificación de sintaxis pendiente**: el sandbox de Claude quedó sin conexión (VM caída) justo después de este cambio y no se pudo correr `node -c` sobre `tareas.js`. Se revisó el diff a mano (llaves/paréntesis balanceados, mismo patrón que `_mostrarConfirmContrato` ya existente) pero conviene correr una verificación automática antes de dar por bueno el deploy, o probarlo bien en caliente después de desplegar.

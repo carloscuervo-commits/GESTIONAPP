@@ -58,6 +58,10 @@ if (!empty($datos['cliente_nombre'])) {
   // una búsqueda más corta (las últimas 1-2 palabras), porque el nombre
   // en la cotización puede ser más corto que el registrado en Alegra
   // (ej. "VERDE HORIZONTE" vs "CONDOMINIO CAMPESTRE VERDEHORIZONTE").
+  // OJO: esta búsqueda por palabra suelta puede traer falsos positivos
+  // (ej. "SAN" matchea "Sanchez", "Santimone", etc.) — por eso todo
+  // resultado se anota con match_exacto/score y se ordena por relevancia
+  // más abajo, en vez de confiar en el orden que devuelve Alegra.
   if (empty($clientesCandidatos)) {
     $palabras = preg_split('/\s+/', trim(preg_replace('/^[A-Z]\.[A-Z]\.\s*/i', '', $datos['cliente_nombre'])));
     $palabras = array_values(array_filter($palabras, fn($p) => mb_strlen($p) >= 3));
@@ -75,6 +79,28 @@ if (!empty($datos['cliente_nombre'])) {
     }
   }
 
+  if (!empty($clientesCandidatos)) {
+    // Anotar coincidencia exacta (nombre normalizado igual o contenido
+    // completo en uno u otro sentido) y un score de similitud, luego
+    // ordenar: exactos primero, después por score descendente. Así el
+    // candidato correcto queda de primero aunque el fallback por palabra
+    // suelta haya traído resultados irrelevantes.
+    foreach ($clientesCandidatos as &$c) {
+      $m = _matchClienteInfo($datos['cliente_nombre'], $c['name']);
+      $c['match_exacto'] = $m['exacto'];
+      $c['score'] = $m['score'];
+    }
+    unset($c);
+    usort($clientesCandidatos, function ($a, $b) {
+      if ($a['match_exacto'] !== $b['match_exacto']) {
+        return $a['match_exacto'] ? -1 : 1;
+      }
+      return $b['score'] <=> $a['score'];
+    });
+    // limitar para no saturar el select con coincidencias irrelevantes
+    $clientesCandidatos = array_slice($clientesCandidatos, 0, 8);
+  }
+
   if (empty($clientesCandidatos)) {
     $avisoCliente = 'No se encontró ningún cliente en Alegra que coincida con "' . $datos['cliente_nombre'] . '". '
       . 'Verifica el nombre o crea el contacto directamente en Alegra y vuelve a intentarlo.';
@@ -83,12 +109,15 @@ if (!empty($datos['cliente_nombre'])) {
   $avisoCliente = 'No se pudo identificar el nombre del cliente en la cotización.';
 }
 
+$hayMatchExacto = !empty($clientesCandidatos) && !empty($clientesCandidatos[0]['match_exacto']);
+
 // --- Armar respuesta ---
 jsonOut([
   'tareaId'            => $tareaId,
   'ctinn'              => $datos['ctinn'],
   'cliente_nombre_cotizacion' => $datos['cliente_nombre'],
   'clientes_candidatos' => $clientesCandidatos,
+  'hay_match_exacto'   => $hayMatchExacto,
   'aviso_cliente'      => $avisoCliente,
   'fecha_cotizacion'   => $datos['fecha_cotizacion'],
   'date'               => date('Y-m-d'), // fecha de la factura = hoy
@@ -100,6 +129,43 @@ jsonOut([
     'total'    => $datos['total'],
   ],
 ]);
+
+/**
+ * Normaliza un nombre de cliente para comparación: mayúsculas, sin tildes,
+ * sin sufijos jurídicos comunes (S.A.S, LTDA, E.U.) ni puntuación, espacios
+ * colapsados.
+ */
+function _normalizarNombreCliente(string $s): string {
+  $s = trim($s);
+  if ($s === '') return '';
+  $s = mb_strtoupper($s, 'UTF-8');
+  $s = strtr($s, [
+    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ñ' => 'N', 'Ü' => 'U',
+  ]);
+  $s = preg_replace('/\b(S\.?\s?A\.?\s?S\.?|S\.?\s?A\.?|LTDA|E\.?\s?U\.?)\b\.?/u', ' ', $s);
+  $s = preg_replace('/[.,]/', ' ', $s);
+  $s = preg_replace('/\s+/', ' ', $s);
+  return trim($s);
+}
+
+/**
+ * Compara el nombre de cliente de la cotización contra un candidato de
+ * Alegra. "Exacto" = nombres normalizados iguales, o uno contenido
+ * completo dentro del otro (frase completa, no palabra suelta) — esto es
+ * lo que evita que un match parcial por palabra común (ej. "SAN") se
+ * marque como si fuera confiable. "score" = % de similitud (similar_text),
+ * usado solo para ordenar cuando no hay match exacto.
+ */
+function _matchClienteInfo(string $nombreCotizacion, string $nombreCandidato): array {
+  $a = _normalizarNombreCliente($nombreCotizacion);
+  $b = _normalizarNombreCliente($nombreCandidato);
+  if ($a === '' || $b === '') return ['exacto' => false, 'score' => 0];
+
+  $exacto = ($a === $b) || (mb_strpos($b, $a) !== false) || (mb_strpos($a, $b) !== false);
+
+  similar_text($a, $b, $pct);
+  return ['exacto' => $exacto, 'score' => (int) round($pct)];
+}
 
 /**
  * Busca contactos en Alegra por nombre (parcial) y devuelve
