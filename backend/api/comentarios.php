@@ -2,7 +2,11 @@
 /**
  * comentarios.php — Comentarios por tarjeta con @menciones.
  *
- * GET    ?tareaId=UUID          -> lista de comentarios de esa tarea (asc)
+ * GET    ?tareaId=UUID&usuarioId=ID&perfil=admin|tecnico
+ *   -> lista de comentarios de esa tarea (asc). Si perfil=admin (o no se
+ *      envía perfil, por compatibilidad), devuelve todos. Si perfil=tecnico,
+ *      solo devuelve los comentarios donde usuarioId es el autor o está
+ *      mencionado (@usuarioId en el texto).
  * POST   { tareaId, usuarioId, texto }
  *   -> crea el comentario; detecta @ID en el texto y notifica (correo y/o
  *      Telegram) a cada usuario mencionado, según su preferencia individual
@@ -57,6 +61,8 @@ function comentarioConAutor($pdo, $id) {
 if ($method === 'GET') {
   $tareaId = $_GET['tareaId'] ?? null;
   if (!$tareaId) jsonOut(['error' => 'tareaId requerido'], 400);
+  $perfil    = $_GET['perfil'] ?? null;
+  $usuarioId = $_GET['usuarioId'] ?? null;
 
   $stmt = $pdo->prepare("
     SELECT c.id, c.tarea_id, c.usuario_id, c.texto, c.creado_en,
@@ -67,7 +73,19 @@ if ($method === 'GET') {
     ORDER BY c.creado_en ASC
   ");
   $stmt->execute([$tareaId]);
-  jsonOut($stmt->fetchAll());
+  $comentarios = $stmt->fetchAll();
+
+  // Técnicos solo ven los comentarios donde son autores o están mencionados
+  // (@ID, mismo formato que la detección de menciones al crear el comentario
+  // más abajo). Sin perfil o perfil=admin -> ve todos (compatibilidad).
+  if ($perfil === 'tecnico' && $usuarioId) {
+    $comentarios = array_values(array_filter($comentarios, function ($c) use ($usuarioId) {
+      if ($c['usuario_id'] === $usuarioId) return true;
+      return preg_match('/@' . preg_quote($usuarioId, '/') . '\b/i', $c['texto']) === 1;
+    }));
+  }
+
+  jsonOut($comentarios);
 }
 
 if ($method === 'POST') {

@@ -42,6 +42,15 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — técnicos solo ven comentarios donde son autores o mencionados)
+
+`backend/api/comentarios.php`, `assets/js/comentarios.js?v=20260903a`:
+
+- **Pedido de Carlos**: antes cualquier usuario con acceso a una tarjeta veía TODOS sus comentarios (la @mención solo controlaba el aviso por correo/Telegram, no la visibilidad — confirmado en la conversación anterior). Ahora los técnicos solo ven los comentarios donde son autores o están mencionados (`@suID`); los admin siguen viendo todos.
+  - Backend: `GET comentarios.php` acepta `usuarioId` y `perfil`. Si `perfil=tecnico`, filtra la lista trayendo solo comentarios de `usuario_id = usuarioId` o con `@usuarioId` en el texto (misma detección `@ID` que usa el aviso de menciones). Sin `perfil` o `perfil=admin`, se comporta igual que antes (todos).
+  - Frontend: `renderComentariosTarea()` ahora manda `usuarioId` y `perfil` del `currentUser` al pedir la lista.
+  - ⚠️ **Nota de seguridad**: esta app no usa sesión de servidor — todo el API confía en lo que manda el frontend (igual que el resto de endpoints existentes). Un técnico con herramientas de desarrollador podría forzar `perfil=admin` en la URL y ver todos los comentarios igual. Es una restricción de UI/uso normal, no un control de acceso a prueba de manipulación deliberada. Si se necesita blindarlo de verdad, habría que agregar autenticación real (sesión/token) a todo el backend — cambio mucho más grande, fuera de este alcance.
+
 ## Cambios pendientes de deploy (2026-09-03 — mismo orden por vencimiento en "Pendientes por cotizar" y "Cotizado por seguimiento")
 
 `assets/js/tareas.js?v=20260903e`:

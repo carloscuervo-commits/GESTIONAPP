@@ -34,7 +34,11 @@ async function renderComentariosTarea(tareaId) {
 
   listaDiv.innerHTML = '<div style="padding:10px 0;color:var(--text-muted);font-size:12px">⏳ Cargando comentarios...</div>';
   try {
-    const res = await fetch(`${API_BASE}/comentarios.php?tareaId=${tareaId}`);
+    // Los técnicos solo deben ver comentarios donde son autores o están
+    // mencionados; el filtro real ocurre en el backend (comentarios.php).
+    const _perfil = currentUser?.perfil || '';
+    const _uid = encodeURIComponent(currentUser?.id || '');
+    const res = await fetch(`${API_BASE}/comentarios.php?tareaId=${tareaId}&usuarioId=${_uid}&perfil=${_perfil}`);
     const data = await res.json();
     _renderListaComentarios(Array.isArray(data) ? data : []);
   } catch (e) {
