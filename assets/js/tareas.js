@@ -555,7 +555,8 @@ function renderDashboard() {
   const itAlerts    = tasks.filter(t=>t.area==='it'&&alertaFacturacion(t)!==null);
   const ifAlerts    = tasks.filter(t=>t.area==='if'&&alertaFacturacion(t)!==null);
   const adminAlerts = tasks.filter(t=>t.area==='admin'&&alertaFacturacion(t)!==null);
-  const allAlerts   = [...itAlerts, ...ifAlerts, ...adminAlerts];
+  const allAlerts   = [...itAlerts, ...ifAlerts, ...adminAlerts]
+    .sort((a, b) => alertaFacturacion(b).dias - alertaFacturacion(a).dias); // más vencidas primero
   const sinProgAlerts = tasks.filter(t=>act(t) && alertaProgramacion(t)!==null);
   const sinCotizarAlerts = tasks.filter(t=>act(t) && alertaPorCotizar(t)!==null);
 
