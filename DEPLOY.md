@@ -42,6 +42,13 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — mismo orden por vencimiento en "Pendientes por cotizar" y "Cotizado por seguimiento")
+
+`assets/js/tareas.js?v=20260903e`:
+
+- **Pedido de Carlos**: extender el orden por días de atraso (más vencidas primero) que se aplicó a "Realizados sin facturar" también a "⏳ Pendientes por cotizar" (`alertaPorCotizar(t).dias`) y "📞 Cotizado por seguimiento".
+  - "Cotizado por seguimiento" mezcla dos tipos de alerta con medidas distintas: `sin-seguimiento` (ya trae `dias`) y `pendiente` (fecha de recordatorio vencida, sin `dias`). Se agregó `_diasAtrasoSeguimiento(t)` que normaliza ambos a "días hábiles de atraso" (para `pendiente`, días desde `seguimientoFecha` hasta hoy vía `diasHabilesDesde`), y se ordena por ese valor descendente.
+
 ## Cambios pendientes de deploy (2026-09-03 — ordenar "Realizados sin facturar" por días vencidos)
 
 `assets/js/tareas.js?v=20260903d`:

@@ -558,7 +558,8 @@ function renderDashboard() {
   const allAlerts   = [...itAlerts, ...ifAlerts, ...adminAlerts]
     .sort((a, b) => alertaFacturacion(b).dias - alertaFacturacion(a).dias); // más vencidas primero
   const sinProgAlerts = tasks.filter(t=>act(t) && alertaProgramacion(t)!==null);
-  const sinCotizarAlerts = tasks.filter(t=>act(t) && alertaPorCotizar(t)!==null);
+  const sinCotizarAlerts = tasks.filter(t=>act(t) && alertaPorCotizar(t)!==null)
+    .sort((a, b) => alertaPorCotizar(b).dias - alertaPorCotizar(a).dias); // más vencidas primero
 
   const comPorCotizar   = comT.filter(t=>t.estado==='por-cotizar').length;
   const comEnviada      = comT.filter(t=>t.estado==='enviada').length;
@@ -671,7 +672,15 @@ function renderDashboard() {
   }
 
   // 4. Cotizado por seguimiento
-  const comSeguimiento = comT.filter(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); });
+  // Días de atraso comparables entre los dos tipos de alerta de seguimiento:
+  // 'sin-seguimiento' ya trae los días; 'pendiente' se mide desde la fecha
+  // de recordatorio (seguimientoFecha) hasta hoy.
+  const _diasAtrasoSeguimiento = t => {
+    const a = alertaSeguimiento(t);
+    return a.tipo === 'pendiente' ? diasHabilesDesde(a.fecha) : a.dias;
+  };
+  const comSeguimiento = comT.filter(t=>{ const a=alertaSeguimiento(t); return a && (a.tipo==='sin-seguimiento'||a.tipo==='pendiente'); })
+    .sort((a, b) => _diasAtrasoSeguimiento(b) - _diasAtrasoSeguimiento(a)); // más vencidas primero
   if (comSeguimiento.length) {
     html += `<div style="background:#14a8bd;border:1px solid #14a8bd;border-radius:var(--radius);padding:16px;margin-bottom:14px">
       <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📞 Cotizado por seguimiento</div>
