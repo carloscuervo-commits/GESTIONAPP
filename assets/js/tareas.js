@@ -716,8 +716,32 @@ function renderDashboard() {
   html += '<div id="alertas-sin-reporte"></div>';
   html += '<div id="alertas-fuera-sitio"></div>';
   html += '</div>';
+
+  // Estas sub-secciones se llenan con datos que vienen de un fetch aparte
+  // (contratos, sin-reporte, fuera de sitio). Si el rebuild de abajo las deja
+  // vacías mientras ese fetch está en curso, el contenido colapsa y vuelve a
+  // aparecer momentos después → eso es lo que se ve como el dashboard
+  // "saltando" cada vez que autoSync corre (cada ~20s). Para evitarlo,
+  // guardamos su contenido actual y lo reponemos de inmediato (sin esperar
+  // al fetch) antes de que el usuario vea el hueco vacío.
+  const _idsConDatosAsincronos = [
+    'contratos-vigentes-section', 'proyectos-activos-section',
+    'alertas-incumplidas', 'contratos-alerta-fin-mes',
+    'alertas-sin-reporte', 'alertas-fuera-sitio',
+  ];
+  const _htmlPrevio = {};
+  _idsConDatosAsincronos.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.innerHTML) _htmlPrevio[id] = el.innerHTML;
+  });
+
   const _scrollY = window.scrollY;
   document.getElementById('dashboard-view').innerHTML = html;
+  _idsConDatosAsincronos.forEach(id => {
+    if (!(id in _htmlPrevio)) return;
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = _htmlPrevio[id];
+  });
   window.scrollTo(0, _scrollY);
   renderAlertasRetraso();
   actualizarBadgeFueraSitio();

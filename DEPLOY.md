@@ -42,7 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
-## Cambios pendientes de deploy (2026-09-03 — fix: el dashboard se movía solo en la zona de alertas)
+## Cambios pendientes de deploy (2026-09-03 — fix: el dashboard se movía solo en la zona de alertas — causa real)
+
+`assets/js/tareas.js?v=20260903c`:
+
+- **Los dos intentos anteriores (20260903a y 20260903b) no resolvieron el bug** — confirmado por Carlos en producción con deploy real ambas veces. La causa raíz era otra: `renderDashboard()` reconstruye TODO `#dashboard-view` con `innerHTML=` (incluidos los contenedores `contratos-vigentes-section`, `proyectos-activos-section`, `alertas-incumplidas`, `contratos-alerta-fin-mes`, `alertas-sin-reporte`, `alertas-fuera-sitio`), dejándolos **vacíos**. Varias funciones que los llenan hacen `fetch` (`contratos.php`, `reportes.php`, `fuera_sitio.php`) y repueblan cada contenedor en un momento distinto, escalonado, después del rebuild. Resultado: cada ~10-20s (autoSync corre cada 20s pero además llama `render()` dos veces por ciclo) el contenido de la zona de alertas colapsaba a altura cero y volvía a aparecer pieza por pieza — eso es el "arriba y abajo" que seguía viendo el usuario, y ningún guardar/restaurar de `window.scrollY` lo podía corregir porque el contenido cambiaba de tamaño repetidamente DESPUÉS de restaurar el scroll, no en el mismo instante.
+  - Corrección real: `renderDashboard()` ahora guarda el `innerHTML` actual de esos 6 contenedores antes del rebuild y lo repone de inmediato (síncrono, sin esperar el fetch) apenas se reemplaza `dashboard-view.innerHTML`. Así el usuario nunca ve el hueco vacío — sigue viendo el contenido anterior hasta que el fetch trae datos nuevos y lo reemplaza en su lugar (ya protegido con `_setHtmlConservandoScroll` del fix anterior).
+
+## Cambios pendientes de deploy (2026-09-03 — fix: el dashboard se movía solo en la zona de alertas — intento 1 y 2, insuficientes)
 
 `assets/js/tareas.js?v=20260903b`:
 
