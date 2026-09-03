@@ -240,7 +240,12 @@ if ($method === 'GET') {
   }
 
   // GET ?horasContrato=1&tareaId=X
-  // Devuelve horas_contratadas, horas_consumidas y horas_disponibles este mes para la tarea.
+  // Devuelve horas_contratadas, horas_consumidas y horas_disponibles del
+  // ciclo al que pertenece la visita de ESTA tarea (según su propio
+  // check_out), no del ciclo vigente hoy — así una tarjeta de julio sigue
+  // mostrando el consumo de julio aunque se abra en septiembre. Si la
+  // tarjeta todavía no tiene check_out registrado (visita en curso o sin
+  // ejecutar), se usa el ciclo vigente hoy como antes.
   if (!empty($_GET['horasContrato']) && !empty($_GET['tareaId'])) {
     $tareaId2 = $_GET['tareaId'];
     $stmtT = $pdo->prepare("SELECT cliente, area, tipo_tarea FROM tareas WHERE id = ?");
@@ -260,7 +265,16 @@ if ($method === 'GET') {
     $cRow = $stmtC->fetch();
     $horasContratadas = $cRow ? (float)$cRow['contrato_horas_mes'] : 0;
     $corteDia = ($cRow && $cRow['fecha_corte_contrato'] !== null) ? (int)$cRow['fecha_corte_contrato'] : null;
-    [$periodoInicio, $periodoFin] = periodoContratoActual($corteDia);
+
+    $stmtFechaVisita = $pdo->prepare("
+      SELECT MAX(vp.check_out)
+      FROM visita_participantes vp
+      JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
+      WHERE r.tarea_id = ?
+    ");
+    $stmtFechaVisita->execute([$tareaId2]);
+    $fechaVisita = $stmtFechaVisita->fetchColumn();
+    [$periodoInicio, $periodoFin] = periodoContratoActual($corteDia, $fechaVisita ?: null);
 
     $stmtCons = $pdo->prepare("
       SELECT COALESCE(SUM(vp.horas_contrato), 0)

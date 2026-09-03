@@ -1497,7 +1497,12 @@ async function actualizarInfoContrato(clienteRow) {
         const d = await res.json();
         if (d && d.horasContratadas > 0) {
           const color = d.horasDisponibles > 0 ? '' : 'color:#ef4444';
-          infoEl.innerHTML = `<span style="${color}">📋 ${contratadas}h/mes · Consumidas: ${d.horasConsumidas}h · Disponibles: ${d.horasDisponibles}h</span>`;
+          // Ciclo al que pertenece esta visita (según su check_out), no
+          // necesariamente el mes en curso — se muestra explícito para
+          // que quede claro a qué período corresponde el consumo.
+          const fmt = iso => iso ? iso.split('-').reverse().slice(0,2).join('/') : '';
+          const periodoTxt = (d.periodoInicio && d.periodoFin) ? ` (ciclo ${fmt(d.periodoInicio)}–${fmt(d.periodoFin)})` : '';
+          infoEl.innerHTML = `<span style="${color}">📋 ${contratadas}h/mes · Consumidas: ${d.horasConsumidas}h · Disponibles: ${d.horasDisponibles}h${periodoTxt}</span>`;
           infoEl.style.display = 'block'; return;
         }
       } catch {}

@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — horas de contrato: mostrar el ciclo real de la visita, no siempre el mes en curso)
+
+`backend/api/reportes.php`, `assets/js/tareas.js?v=20260903f`:
+
+- **Pregunta de Carlos**: al abrir una tarjeta tipo Contrato ejecutada en julio (estando ya en septiembre), ¿el consumo de horas mostrado es de julio? Respuesta: no — `?horasContrato=1` siempre llamaba a `periodoContratoActual($corteDia)` sin fecha de referencia, que internamente usa "hoy", así que mostraba el ciclo vigente en el momento de abrir la tarjeta (septiembre), sin importar cuándo se ejecutó.
+  - Corrección: el endpoint ahora busca el `MAX(check_out)` de los participantes de esa tarea específica y lo pasa como fecha de referencia a `periodoContratoActual()` — así una tarjeta de julio sigue mostrando el consumo del ciclo de julio, incluso abierta meses después. Si la tarjeta aún no tiene check_out (visita en curso o sin ejecutar todavía), sigue usando el ciclo vigente hoy como antes.
+  - Frontend: el bloque de horas en el formulario ahora muestra también el rango del ciclo (`(ciclo dd/mm–dd/mm)`) junto a Consumidas/Disponibles, para que quede explícito a qué período corresponde el dato.
+
 ## Cambios pendientes de deploy (2026-09-03 — técnicos solo ven comentarios donde son autores o mencionados)
 
 `backend/api/comentarios.php`, `assets/js/comentarios.js?v=20260903a`:
