@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-03 — fix urgente: reload de Ginno se demoraba minutos por el cálculo de horas de contrato en cada tarjeta)
+
+`assets/js/reportes.js?v=20260903a`:
+
+- **Bug reportado por Carlos, regresión del deploy anterior** (el de "ciclo de horas visita contrato"): después de ese deploy, recargar Ginno se demoraba varios minutos en cargar el dashboard, sin error visible.
+  - Causa: `renderVisitaBoton()` llamaba `_cargarHorasContratoCard()` por CADA tarjeta tipo Contrato que se renderizaba (con o sin visita activa), y eso se repite en cada refresh del kanban/dashboard (incluido el auto-refresh cada 20s). Cada una de esas llamadas pega a `reportes.php?horasContrato=1`, que desde el deploy anterior incluye un JOIN adicional para calcular el ciclo real de la visita — sumando muchas más consultas por refresh de las que había antes.
+  - Corrección (pedido explícito de Carlos): se eliminó el cálculo de horas de contrato de la renderización de tarjetas por completo (los dos call-sites en `renderVisitaBoton`/`renderVisitaBoton` y la función `_cargarHorasContratoCard` en sí, ya sin uso). Ese cálculo ahora solo ocurre al abrir el modal de una tarjeta (`actualizarInfoContrato`, sin cambios), que es de baja frecuencia y donde sí tiene sentido mostrarlo.
+
 ## Cambios pendientes de deploy (2026-09-03 — horas de contrato: mostrar el ciclo real de la visita, no siempre el mes en curso)
 
 `backend/api/reportes.php`, `assets/js/tareas.js?v=20260903f`:

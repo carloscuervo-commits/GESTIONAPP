@@ -165,34 +165,17 @@ function irATarjetaVisitaPendiente(tareaId, area) {
   if (area) setArea(area);
 }
 
-// ----------------- Info horas de contrato (async) -----------------
-async function _cargarHorasContratoCard(tareaId, elId) {
-  if (!API_BASE) return;
-  try {
-    const res = await fetch(`${API_BASE}/reportes.php?horasContrato=1&tareaId=${tareaId}`);
-    const d = await res.json();
-    const el = document.getElementById(elId);
-    if (!el) return;
-    if (d && d.horasContratadas > 0) {
-      const disponibles = d.horasDisponibles;
-      const color = disponibles > 0 ? '#16a34a' : '#ef4444';
-      el.innerHTML = `<span style="color:${color};font-weight:600">📋 Contrato: ${d.horasContratadas}h/mes · Disponibles: ${disponibles}h</span>`;
-    }
-  } catch {}
-}
-
 // ----------------- Botón en la tarjeta (multi-técnico) -----------------
 function renderVisitaBoton(t) {
   const visita = visitasActivas[t.id];
   if (visita) {
     const partes = visita.participantes || [];
     let html = '';
-    // Horas de contrato disponibles (si aplica)
-    if (t.tipoTarea === 'contrato') {
-      const infoId = `contrato-info-activa-${t.id}`;
-      setTimeout(() => _cargarHorasContratoCard(t.id, infoId), 0);
-      html += `<div id="${infoId}" style="font-size:12px;color:var(--text-muted);margin-bottom:4px"></div>`;
-    }
+    // Nota: las horas de contrato NO se calculan al renderizar la tarjeta
+    // (se hacía antes vía _cargarHorasContratoCard, pero al dispararse por
+    // cada tarjeta contrato en cada refresh del kanban/dashboard, sumaba
+    // demasiadas consultas y volvía lento el reload). Ese cálculo ahora
+    // solo ocurre al abrir el modal de la tarjeta (actualizarInfoContrato).
 
     // Mostrar estado de cada participante (con indicador de pausa activa)
     partes.forEach(p => {
@@ -299,13 +282,8 @@ function renderVisitaBoton(t) {
   if ((t.diasProg || 1) <= 1 && reportesTodosEnviados.has(t.id)) {
     return `<div class="task-date" style="color:#16a34a;font-weight:600;font-size:12px">✅ Visita completada</div>`;
   }
-  // Si es tarea de contrato, mostrar horas disponibles antes del botón
-  if (t.tipoTarea === 'contrato') {
-    const infoId = `contrato-info-card-${t.id}`;
-    setTimeout(() => _cargarHorasContratoCard(t.id, infoId), 0);
-    return `<div id="${infoId}" style="font-size:12px;color:var(--text-muted);margin-bottom:4px"></div>`
-         + `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita</button>`;
-  }
+  // Nota: ya no se calculan horas de contrato al renderizar esta tarjeta
+  // (ver comentario en renderVisitaBoton más arriba) — solo al abrir el modal.
   return `<button class="btn-archivar" style="background:#16a34a;color:#fff" onclick="iniciarVisita('${t.id}',event)">🚀 Iniciar visita</button>`;
 }
 
