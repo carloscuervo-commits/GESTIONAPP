@@ -4,6 +4,12 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-08 — reenviar correo con destinatario editable)
+
+### feat: "Reenviar correo" del historial de visitas ahora permite elegir/editar el destinatario
+
+Antes, el botón "✉️ Reenviar correo" del historial de visitas (tarjeta ya con reporte enviado) solo mostraba un `confirm()` genérico y enviaba automáticamente al correo del cliente registrado, sin mostrarlo ni permitir cambiarlo. Ahora abre un popup (mismo estilo que "Registrar factura rápida") con un campo precargado con el correo del cliente pero editable — se puede dejar, cambiar o escribir uno nuevo, admite varios correos separados por coma igual que el envío inicial — y un botón "Reenviar" para confirmar. `assets/js/reportes.js?v=20260908a`: se eliminó `reenviarCorreoHistorial()` y se agregaron `_abrirReenviarCorreoPopup()` / `_confirmarReenviarCorreo()` / `_cerrarReenviarCorreoPopup()`. Sin cambios de backend.
+
 ## Estado actual (última actualización: 2026-09-03 — sesión larga: cotización→factura, dashboard lento, contrato por área, comentarios privados)
 
 ### fix: cliente equivocado al procesar cotización para factura

@@ -51,6 +51,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
   - Corrección: se extrajo el cálculo (duración neta descontando pausas, redondeo a bloques de 30 min con mínimo 0.5h) a `calcularHorasContratoVisita()` en `backend/lib/contrato.php`, reutilizado ahora por el checkout de `reportes.php` (antes estaba duplicado inline). Nueva función `backfillHorasContratoTarea()` en el mismo archivo: se llama desde el `PUT` de `tareas.php` cuando `tipo_tarea` queda en `contrato`, y rellena `horas_contrato` de cualquier participante ya finalizado (con check_in y check_out) que aún esté en NULL — sin tocar participantes que ya tengan un valor (incluidas ediciones manuales del admin), así que es seguro correrlo en cada guardado.
   - **Pendiente manual (no es deploy) una vez desplegado**: abrir y guardar (sin necesidad de cambiar nada más) la tarjeta de cámaras del cliente Condominio Sol de la Arboleda, ya movida a área IF/Contrato — eso dispara el backfill y sus 2.7h quedan contadas en el consumo del ciclo.
 
+## Cambios pendientes de deploy (2026-09-08 — "Reenviar correo" del historial con destinatario editable)
+
+`assets/js/reportes.js?v=20260908a` (requiere subir el `?v=` del script en `tareas-equipo.html`, ya hecho):
+
+- **Pregunta de Carlos**: al reenviar el correo de una tarjeta con reporte ya enviado, el botón solo decía "¿Archivar esta tarea? Ya no aparecerá" (en realidad el mensaje era de reenvío: "¿Reenviar este reporte por correo al cliente?") y enviaba directo al correo del cliente sin mostrarlo ni dejar elegir/escribir otro, a diferencia del envío inicial del reporte que sí tiene un campo editable.
+  - Corrección: el botón "✉️ Reenviar correo" del historial de visitas ahora abre un popup (mismo patrón visual que "Registrar factura rápida" de las tarjetas) con un `<input>` precargado de forma asíncrona con el correo del cliente (`GET reporte_enviar_correo.php?reporteId=`), editable antes de enviar — se puede dejar igual, cambiarlo o escribir uno nuevo, y admite varios correos separados por coma (mismo formato que ya soporta el backend). Se eliminó `reenviarCorreoHistorial()`; nuevas funciones `_abrirReenviarCorreoPopup()`, `_confirmarReenviarCorreo()`, `_cerrarReenviarCorreoPopup()`.
+  - Sin cambios de backend — sigue usando el mismo endpoint `reporte_enviar_correo.php` (GET para precargar, POST con `correos:[...]` para enviar) que ya usaba el flujo anterior y el envío inicial.
+
 ## Cambios pendientes de deploy (2026-09-03 — fix real de fondo: dashboard lento por N+1 y subconsultas de proyecto en cada tarea)
 
 `backend/api/tareas.php` (sin cambios de frontend, no requiere bump de `?v=`):

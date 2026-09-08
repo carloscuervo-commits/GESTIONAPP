@@ -1604,7 +1604,7 @@ async function renderHistorialVisitasModal(tareaId) {
           // siempre, incluso si algún participante quedó con el checkout sin
           // registrar (eso no invalida el reporte que ya salió al cliente).
           botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
-          botones.push(`<button onclick="event.stopPropagation();reenviarCorreoHistorial('${r.id}',this)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✉️ Reenviar correo</button>`);
+          botones.push(`<button onclick="_abrirReenviarCorreoPopup('${r.id}',event)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✉️ Reenviar correo</button>`);
           botones.push(`<button onclick="event.stopPropagation();compartirPDFWhatsAppHistorial('${r.id}',this)" style="background:#25D366;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📲 WhatsApp</button>`);
           if (esAdmin) {
             botones.push(`<button onclick="continuarReporte('${r.id}',event,true)" style="background:#6366f1;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✏️ Editar reporte</button>`);
@@ -1911,31 +1911,82 @@ _Grupo Innovate · 📞 317 645 2811 · info@innovate.com.co_`;
 
 // Reenviar el reporte ya enviado por correo, directo desde el historial de
 // visitas — sin pasar por "Editar reporte". No toca checkout/estado (ya está
-// cerrado); busca el correo del cliente registrado igual que el formulario.
-async function reenviarCorreoHistorial(reporteId, btn) {
-  if (!confirm('¿Reenviar este reporte por correo al cliente?')) return;
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '⏳';
+// cerrado). A diferencia del confirm() genérico de antes, muestra un popup
+// con el destinatario precargado (correo del cliente registrado) pero
+// editable — igual que el campo del envío inicial — para poder dejarlo,
+// cambiarlo o escribir uno nuevo antes de reenviar (admite varios correos
+// separados por coma).
+function _cerrarReenviarCorreoPopup() {
+  const p = document.getElementById('reenviar-correo-popup');
+  if (p) p.remove();
+}
+
+async function _abrirReenviarCorreoPopup(reporteId, event) {
+  event.stopPropagation();
+  _cerrarReenviarCorreoPopup();
+  const btn = event.currentTarget;
+  const popup = document.createElement('div');
+  popup.id = 'reenviar-correo-popup';
+  popup.style.cssText = 'position:fixed;z-index:600;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:260px;max-width:320px';
+  const rect = btn.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 336)) + 'px';
+  popup.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">✉️ Reenviar correo</div>
+    <label style="font-size:11px;color:var(--text-muted)">Destinatario(s) — puedes escribir varios separados por coma</label>
+    <input id="reenviar-correo-input" type="email" multiple placeholder="cargando correo del cliente..."
+      style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;
+             padding:7px 10px;font-size:13px;color:var(--text);background:var(--bg);outline:none;margin:6px 0 8px"
+      onkeydown="if(event.key==='Enter')_confirmarReenviarCorreo('${reporteId}')"
+      onclick="event.stopPropagation()">
+    <div style="display:flex;gap:6px">
+      <button onclick="_confirmarReenviarCorreo('${reporteId}')"
+        style="flex:1;padding:7px;border-radius:6px;border:none;cursor:pointer;
+               background:#169BBC;color:#fff;font-weight:600;font-size:13px">
+        ✉️ Reenviar
+      </button>
+      <button onclick="_cerrarReenviarCorreoPopup()"
+        style="padding:7px 10px;border-radius:6px;border:1px solid var(--border);cursor:pointer;
+               background:transparent;color:var(--text-muted);font-size:13px">✕</button>
+    </div>
+    <div id="reenviar-correo-status" style="font-size:11px;color:var(--text-muted);margin-top:8px"></div>`;
+  document.body.appendChild(popup);
+  setTimeout(() => document.addEventListener('click', _cerrarReenviarCorreoPopup, { once: true }), 0);
+
+  const input = document.getElementById('reenviar-correo-input');
+  input?.focus();
   try {
-    let correoCliente = '';
-    try {
-      const resGet = await fetch(`${API_BASE}/reporte_enviar_correo.php?reporteId=${reporteId}`);
-      const dataGet = await resGet.json();
-      correoCliente = dataGet.cliente_email_alegra || '';
-    } catch (e) { /* si falla, se envía solo al admin */ }
+    const resGet = await fetch(`${API_BASE}/reporte_enviar_correo.php?reporteId=${reporteId}`);
+    const dataGet = await resGet.json();
+    if (input) { input.value = dataGet.cliente_email_alegra || ''; input.placeholder = 'cliente@correo.com'; }
+  } catch (e) {
+    if (input) input.placeholder = 'cliente@correo.com (no se pudo precargar)';
+  }
+}
+
+async function _confirmarReenviarCorreo(reporteId) {
+  const input = document.getElementById('reenviar-correo-input');
+  const statusEl = document.getElementById('reenviar-correo-status');
+  const correoCliente = (input?.value || '').trim();
+  const botonesPopup = document.querySelectorAll('#reenviar-correo-popup button');
+  botonesPopup.forEach(b => b.disabled = true);
+  if (statusEl) statusEl.innerHTML = '⏳ Enviando...';
+  try {
     const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reporteId, correos: correoCliente ? [correoCliente] : [] }),
     });
     const data = await res.json();
-    if (data.error) { alert(`⚠️ ${data.error}`); return; }
+    if (data.error) {
+      if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      botonesPopup.forEach(b => b.disabled = false);
+      return;
+    }
+    _cerrarReenviarCorreoPopup();
     alert(`✅ Reenviado a: ${data.enviado_a.join(', ')}`);
   } catch (e) {
-    alert('⚠️ No se pudo enviar el correo. Verifica la conexión e intenta de nuevo.');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = orig;
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo enviar el correo. Verifica la conexión.</span>';
+    botonesPopup.forEach(b => b.disabled = false);
   }
 }
 // ===================== FIN REPORTES DE VISITA =====================
