@@ -4,7 +4,11 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
-## Estado actual (última actualización: 2026-09-08 — reenviar correo con destinatario editable)
+## Estado actual (última actualización: 2026-09-08 — notificar cliente + reenviar correo con destinatario editable)
+
+### feat: botón "Notificar cliente" — resumen del estado actual de la tarjeta por correo o WhatsApp
+
+Nuevo botón "📣 Notificar cliente" en el modal de la tarjeta (solo admin, solo IT/IF con cliente identificado). A diferencia del correo de reporte, no depende de que haya una visita finalizada ni de un PDF: arma un resumen del estado actual (cliente, título/servicio, estado en lenguaje amigable para el cliente — no la jerga interna del kanban —, fecha/hora programada si aplica, técnico(s) asignado(s)) y lo puede enviar por correo (destinatario precargado con el correo del cliente pero editable, mismo patrón que "Reenviar correo") o compartir por WhatsApp con el selector nativo del celular (no guardamos el número de WhatsApp del cliente, solo el correo — igual limitación que ya existía para compartir el PDF del reporte). Nuevo endpoint `backend/api/notificar_cliente.php` (GET para previsualizar/precargar, POST para enviar el correo). `assets/js/tareas.js?v=20260908a`.
 
 ### feat: "Reenviar correo" del historial de visitas ahora permite elegir/editar el destinatario
 

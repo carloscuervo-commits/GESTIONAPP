@@ -1650,6 +1650,12 @@ function openModal(id, preArea, preEstado) {
       const showArchivarM = (['it','if'].includes(t.area) && ['realizado','facturado'].includes(t.estado))
                          || (t.area==='comercial' && ['aprobada','rechazada'].includes(t.estado));
       let aHtml = '';
+      // Notificar cliente: resumen del estado actual (no depende de que
+      // haya reporte/visita finalizada) — solo admin, solo tarjetas IT/IF
+      // con cliente identificado.
+      if (currentUser?.perfil === 'admin' && ['it','if'].includes(t.area) && t.cliente) {
+        aHtml += `<button class="btn-archivar" style="background:#0D3B40;color:#fff" onclick="_abrirNotificarClientePopup('${t.id}',event)">📣 Notificar cliente</button>`;
+      }
       if (['it','if'].includes(t.area) && t.estado==='realizado' && t.cotizacionDocx) {
         aHtml += `<button class="btn-archivar" style="background:#3b82f6;color:#fff" onclick="generarFacturaDesdeTarea('${t.id}',event)">🧾 Generar factura desde cotización</button>`;
       }
@@ -2268,6 +2274,132 @@ async function _confirmarFacturaRapida(tareaId) {
 }
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+
+// ===================== Notificar cliente (estado actual) =====================
+// Popup para enviarle al cliente, por correo o WhatsApp, un resumen del
+// estado ACTUAL de la tarjeta — a diferencia del correo de reporte, no
+// depende de que haya una visita finalizada ni de un PDF. Solo lo puede
+// abrir un admin (el botón que lo llama ya se filtra por perfil). El envío
+// por WhatsApp usa el selector nativo de compartir del dispositivo (no
+// guardamos el número de WhatsApp del cliente, solo el correo).
+let _notificarClienteData = null;
+
+function _cerrarNotificarClientePopup() {
+  const p = document.getElementById('notificar-cliente-popup');
+  if (p) p.remove();
+  _notificarClienteData = null;
+}
+
+async function _abrirNotificarClientePopup(tareaId, event) {
+  event.stopPropagation();
+  _cerrarNotificarClientePopup();
+  const btn = event.currentTarget;
+  const popup = document.createElement('div');
+  popup.id = 'notificar-cliente-popup';
+  popup.style.cssText = 'position:fixed;z-index:600;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:280px;max-width:340px';
+  const rect = btn.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 356)) + 'px';
+  popup.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">📣 Notificar cliente</div>
+    <div id="notificar-cliente-resumen" style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:10px">Cargando resumen...</div>
+    <label style="font-size:11px;color:var(--text-muted)">Correo del cliente</label>
+    <input id="notificar-cliente-correo" type="email" multiple placeholder="cargando correo del cliente..."
+      style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;
+             padding:7px 10px;font-size:13px;color:var(--text);background:var(--bg);outline:none;margin:6px 0 8px"
+      onclick="event.stopPropagation()">
+    <button onclick="_confirmarNotificarClienteCorreo('${tareaId}')"
+      style="width:100%;padding:7px;border-radius:6px;border:none;cursor:pointer;
+             background:#169BBC;color:#fff;font-weight:600;font-size:13px;margin-bottom:6px">
+      📧 Enviar por correo
+    </button>
+    <button onclick="_confirmarNotificarClienteWhatsApp('${tareaId}')"
+      style="width:100%;padding:7px;border-radius:6px;border:none;cursor:pointer;
+             background:#25D366;color:#fff;font-weight:600;font-size:13px;margin-bottom:6px">
+      📲 Compartir por WhatsApp
+    </button>
+    <button onclick="_cerrarNotificarClientePopup()"
+      style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--border);cursor:pointer;
+             background:transparent;color:var(--text-muted);font-size:12px">Cancelar</button>
+    <div id="notificar-cliente-status" style="font-size:11px;color:var(--text-muted);margin-top:8px"></div>`;
+  document.body.appendChild(popup);
+  setTimeout(() => document.addEventListener('click', _cerrarNotificarClientePopup, { once: true }), 0);
+
+  const correoInput = document.getElementById('notificar-cliente-correo');
+  const resumenEl = document.getElementById('notificar-cliente-resumen');
+  correoInput?.focus();
+  try {
+    const res = await fetch(`${API_BASE}/notificar_cliente.php?tareaId=${tareaId}`);
+    const data = await res.json();
+    if (data.error) {
+      if (resumenEl) resumenEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      return;
+    }
+    _notificarClienteData = data;
+    if (correoInput) { correoInput.value = data.cliente_email || ''; correoInput.placeholder = 'cliente@correo.com'; }
+    if (resumenEl) {
+      const r = data.resumen;
+      resumenEl.innerHTML = `
+        <div><strong>${esc(r.cliente || '')}</strong></div>
+        <div>${esc(r.titulo || '')}</div>
+        <div>📌 ${esc(r.estado_label)}</div>
+        ${r.fecha_hora ? `<div>📅 ${esc(r.fecha_hora)}</div>` : ''}
+        ${r.tecnicos && r.tecnicos.length ? `<div>👷 ${esc(r.tecnicos.join(', '))}</div>` : ''}`;
+    }
+  } catch (e) {
+    if (resumenEl) resumenEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo cargar la información de la tarjeta.</span>';
+  }
+}
+
+async function _confirmarNotificarClienteCorreo(tareaId) {
+  const input = document.getElementById('notificar-cliente-correo');
+  const statusEl = document.getElementById('notificar-cliente-status');
+  const correoCliente = (input?.value || '').trim();
+  const botonesPopup = document.querySelectorAll('#notificar-cliente-popup button');
+  botonesPopup.forEach(b => b.disabled = true);
+  if (statusEl) statusEl.innerHTML = '⏳ Enviando...';
+  try {
+    const res = await fetch(`${API_BASE}/notificar_cliente.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tareaId, correos: correoCliente ? [correoCliente] : [] }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`;
+      botonesPopup.forEach(b => b.disabled = false);
+      return;
+    }
+    _cerrarNotificarClientePopup();
+    alert(`✅ Notificación enviada a: ${data.enviado_a.join(', ')}`);
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo enviar el correo. Verifica la conexión.</span>';
+    botonesPopup.forEach(b => b.disabled = false);
+  }
+}
+
+async function _confirmarNotificarClienteWhatsApp(tareaId) {
+  const statusEl = document.getElementById('notificar-cliente-status');
+  const texto = _notificarClienteData?.texto_whatsapp;
+  if (!texto) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">⚠️ Aún no se cargó la información de la tarjeta.</span>';
+    return;
+  }
+  try {
+    if (navigator.share) {
+      await navigator.share({ text: texto });
+      _cerrarNotificarClientePopup();
+    } else if (navigator.clipboard) {
+      // Escritorio sin Web Share API: se copia el mensaje para pegarlo en WhatsApp Web.
+      await navigator.clipboard.writeText(texto);
+      if (statusEl) statusEl.innerHTML = '📋 Tu navegador no soporta compartir directo — el mensaje se copió al portapapeles, pégalo en WhatsApp.';
+    } else {
+      alert('Tu dispositivo no soporta compartir. Copia el mensaje manualmente:\n\n' + texto);
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError' && statusEl) statusEl.innerHTML = '<span style="color:#ef4444">⚠️ No se pudo compartir. Intenta de nuevo.</span>';
+  }
+}
+
 document.getElementById('cartera-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cartera-modal'))closeCarteraModal();});
 
 // Escape cierra cualquier popup/modal abierto de Ginno sin guardar cambios
