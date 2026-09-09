@@ -1,9 +1,39 @@
 <?php
 require_once __DIR__ . '/../lib/db.php';
+require_once __DIR__ . '/../lib/mailer.php';
+require_once __DIR__ . '/../lib/telegram.php';
 applyCors();
 
 $pdo = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Protección contra fuerza bruta del PIN (5 intentos fallidos seguidos =
+// bloqueo de 15 minutos, ver db/039_pin_bloqueo_intentos.sql). Avisa a los
+// administradores por correo y Telegram cuando un usuario queda bloqueado.
+function _avisarBloqueoUsuario(PDO $pdo, string $nombreUsuario): void {
+  $nombreEsc = htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8');
+  $asunto = "🔒 Cuenta bloqueada por PIN incorrecto — {$nombreUsuario}";
+  $cuerpo = "
+  <div style='font-family:Arial,sans-serif;max-width:520px;color:#1e293b'>
+    <div style='background:#dc2626;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0'>
+      <h2 style='margin:0;font-size:18px'>🔒 Bloqueo de seguridad en Ginno</h2>
+    </div>
+    <div style='background:#fef2f2;border:1px solid #fecaca;padding:16px 20px;border-radius:0 0 8px 8px'>
+      <p style='margin:0 0 8px'>El usuario <strong>{$nombreEsc}</strong> quedó bloqueado temporalmente (15 minutos) después de 5 intentos seguidos de PIN incorrecto.</p>
+      <p style='margin:0;color:#64748b;font-size:13px'>Si el usuario no fue quien intentó entrar, alguien más está probando adivinar su PIN.</p>
+    </div>
+  </div>";
+  try { enviarCorreoConAdjunto([CORREO_ADMIN_FIJO], $asunto, $cuerpo); } catch (Throwable $e) { /* silencioso */ }
+
+  try {
+    $msg = "🔒 <b>Cuenta bloqueada en Ginno</b>\n\n"
+         . "👤 Usuario: {$nombreEsc}\n"
+         . "⏱ Bloqueado 15 minutos tras 5 intentos de PIN incorrecto.";
+    foreach (adminsConTelegram($pdo) as $adm) {
+      sendTelegramMsg($adm['telegram_chat_id'], $msg);
+    }
+  } catch (Throwable $e) { /* silencioso */ }
+}
 
 // --------------------------------------------------------------
 // GET /auth.php?action=usuarios
@@ -48,16 +78,36 @@ if ($method === 'POST') {
   $pin = $d['pin'] ?? null;
   if (!$usuarioId || !$pin) jsonOut(['error' => 'usuarioId y pin son requeridos'], 400);
 
-  $stmt = $pdo->prepare("SELECT id, nombre, iniciales, color, perfil, pin_hash FROM usuarios WHERE id = ? AND activo = 1");
+  $stmt = $pdo->prepare("SELECT id, nombre, iniciales, color, perfil, pin_hash, pin_intentos_fallidos, pin_bloqueado_hasta FROM usuarios WHERE id = ? AND activo = 1");
   $stmt->execute([$usuarioId]);
   $u = $stmt->fetch();
   if (!$u || !$u['pin_hash']) {
     jsonOut(['error' => 'Este usuario no tiene PIN configurado. Pide al administrador que lo active.'], 401);
   }
 
+  // Bloqueo temporal por demasiados intentos fallidos seguidos
+  if (!empty($u['pin_bloqueado_hasta']) && strtotime($u['pin_bloqueado_hasta']) > time()) {
+    $minutosRestantes = max(1, (int)ceil((strtotime($u['pin_bloqueado_hasta']) - time()) / 60));
+    $plural = $minutosRestantes === 1 ? '' : 's';
+    jsonOut(['error' => "Cuenta bloqueada temporalmente por varios PIN incorrectos. Intenta de nuevo en {$minutosRestantes} minuto{$plural}."], 429);
+  }
+
   $hashIngresado = hash('sha256', $usuarioId . ':' . $pin);
   if (!hash_equals($u['pin_hash'], $hashIngresado)) {
+    $intentos = (int)$u['pin_intentos_fallidos'] + 1;
+    if ($intentos >= 5) {
+      $pdo->prepare("UPDATE usuarios SET pin_intentos_fallidos = 0, pin_bloqueado_hasta = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE id = ?")
+        ->execute([$usuarioId]);
+      _avisarBloqueoUsuario($pdo, $u['nombre']);
+      jsonOut(['error' => 'Demasiados intentos fallidos. Cuenta bloqueada 15 minutos por seguridad.'], 429);
+    }
+    $pdo->prepare("UPDATE usuarios SET pin_intentos_fallidos = ? WHERE id = ?")->execute([$intentos, $usuarioId]);
     jsonOut(['error' => 'PIN incorrecto'], 401);
+  }
+
+  // PIN correcto: limpiar contador/bloqueo si tenía intentos fallidos previos
+  if ((int)$u['pin_intentos_fallidos'] > 0 || $u['pin_bloqueado_hasta'] !== null) {
+    $pdo->prepare("UPDATE usuarios SET pin_intentos_fallidos = 0, pin_bloqueado_hasta = NULL WHERE id = ?")->execute([$usuarioId]);
   }
 
   $token = bin2hex(random_bytes(24));

@@ -16,9 +16,11 @@ Se agregó `requireSesion($pdo)` a los ~29 endpoints que no tenían ningún cont
 
 En el frontend se interceptó `window.fetch` una sola vez en `assets/js/core.js` para que TODAS las llamadas a la API le agreguen automáticamente el header `Authorization: Bearer <token>` — así no hubo que tocar cada `fetch()` del código uno por uno. Para los pocos casos que no usan `fetch()` (enlaces de descarga `<a href>`, imágenes `<img src>`, `window.open`) se agregó el helper `_tokenQS()` y se usó en `imagenes.js`, `informes.js`, `reportes.js` (incluye el helper `fotoUrl()`) y `tareas.js` — 9 sitios en total.
 
-**Pendiente de decidir:** el PIN de 4 dígitos en sí no tiene protección contra fuerza bruta (10.000 combinaciones posibles, intentos ilimitados). Corregirlo requeriría una migración de base de datos (columnas nuevas en `usuarios` para contar intentos fallidos y bloquear temporalmente) — quedó fuera de este fix porque implica un cambio de esquema que Carlos debe ejecutar manualmente en phpMyAdmin. Se le preguntó si lo quiere como siguiente paso.
-
 `?v=` actualizado: `core.js`, `tareas.js`, `reportes.js`, `informes.js`, `imagenes.js` → `20260909a`.
+
+### fix: PIN de login sin protección contra fuerza bruta
+
+El PIN de 4 dígitos no tenía límite de intentos (10.000 combinaciones posibles, intentos ilimitados). Ahora `backend/api/auth.php` cuenta los intentos fallidos seguidos por usuario (`usuarios.pin_intentos_fallidos`) y al llegar a 5 bloquea esa cuenta 15 minutos (`usuarios.pin_bloqueado_hasta`) — el contador se resetea a 0 apenas se acierta el PIN. El bloqueo es por usuario, no por IP (quedó así a propósito, más simple). Cuando un usuario queda bloqueado se avisa a los administradores por correo (`administrativo@innovate.com.co`) y por Telegram (a los admin que tengan Telegram configurado) — función `_avisarBloqueoUsuario()` en el mismo `auth.php`. Requiere la migración `db/039_pin_bloqueo_intentos.sql` (columnas nuevas en `usuarios`, ver DEPLOY.md).
 
 ## Estado actual (última actualización: 2026-09-08 — notificar cliente + reenviar correo con destinatario editable)
 

@@ -56,6 +56,12 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - `imagenes.js`, `informes.js`, `reportes.js`, `tareas.js` — agregado `&${_tokenQS()}` en los enlaces/imágenes que no pasan por `fetch()`.
 - `tareas-equipo.html` — `?v=` de los 5 archivos anteriores subido a `20260909a`.
 
+**⚠️ Requiere migración de base de datos ANTES del deploy** — correr en phpMyAdmin:
+`db/039_pin_bloqueo_intentos.sql` (agrega `usuarios.pin_intentos_fallidos` y `usuarios.pin_bloqueado_hasta`). Si se hace el deploy del código sin correr esta migración primero, el login (`auth.php`) fallará con error de columna desconocida.
+
+**Además — protección de fuerza bruta en el PIN de login:**
+- `backend/api/auth.php` — 5 intentos de PIN incorrecto seguidos bloquean esa cuenta 15 minutos; se resetea al acertar. Al bloquear, avisa a los administradores por correo y Telegram.
+
 **Checklist de prueba manual después del deploy** (no hay forma de probarlo automáticamente desde este entorno — sin PHP CLI ni acceso directo a la base de datos):
 1. Abrir `https://grupoinnovate.com/ginno/` en una ventana de incógnito (sesión limpia) → debe pedir el PIN, no debe mostrar el tablero.
 2. Entrar directo a una URL de la API sin login, ej. `https://grupoinnovate.com/ginno/backend/api/tareas.php` en el navegador → debe devolver un error 401 ("No autorizado — se requiere sesión"), no el tablero.
@@ -66,6 +72,7 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 7. Probar "Reenviar correo" y "Notificar cliente" en una tarjeta → deben funcionar igual que antes.
 8. Cerrar sesión, volver a abrir la app → debe volver a pedir login (el token viejo no debe seguir sirviendo).
 9. Confirmar que el correo automático de recordatorio de visita sigue mostrando la foto del técnico correctamente — esa ruta (`foto_tecnico.php` GET) se dejó abierta a propósito para eso.
+10. Escribir el PIN incorrecto 5 veces seguidas con un usuario de prueba → al quinto intento debe decir que la cuenta quedó bloqueada 15 minutos, y debe llegar el correo/Telegram de aviso a los administradores. Con el PIN correcto (aunque sea antes de que pasen los 15 min) debe seguir rechazando hasta que se cumpla el tiempo.
 
 Si algo de esto falla, es más seguro revertir el deploy que dejarlo a medias.
 
