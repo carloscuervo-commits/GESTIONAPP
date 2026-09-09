@@ -42,6 +42,17 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-09 — aviso de cartera vencida en Alegra al elegir cliente)
+
+**Archivos modificados:**
+- `backend/api/alegra_cartera_cliente.php` (NUEVO) — consulta Alegra (`GET /invoices?client_id=&status=open&dueDate_before=hoy`) y devuelve si el cliente tiene facturas vencidas, cuántas y el total.
+- `assets/js/tareas.js` — nueva función `_verificarCarteraVencidaCliente()`, llamada al elegir cliente (nueva tarjeta) y al abrir para editar una tarjeta con cliente. `?v=20260909b`.
+- `tareas-equipo.html` — nuevo `<div id="cartera-vencida-aviso">` junto al campo Cliente del modal; `?v=` de `tareas.js` subido a `20260909b`.
+
+Sin migración. `backend/api/.` se copia completo por `.cpanel.yml`, no hace falta tocar ese archivo para el endpoint nuevo.
+
+**Prueba manual sugerida:** abrir "Nueva tarea", escribir el nombre de un cliente con facturas vencidas en Alegra y elegirlo del listado → debe aparecer el aviso rojo con el total y la cantidad de facturas. Con un cliente al día no debe aparecer nada. Abrir para editar una tarjeta existente que tenga cliente con cartera vencida → debe aparecer el mismo aviso automáticamente.
+
 ## Cambios pendientes de deploy (2026-09-09 — menú de áreas fijo al hacer scroll)
 
 **Archivos modificados:**

@@ -26,6 +26,10 @@ El header sí estaba fijo arriba (`position: sticky`), pero la fila de pestañas
 
 El PIN de 4 dígitos no tenía límite de intentos (10.000 combinaciones posibles, intentos ilimitados). Ahora `backend/api/auth.php` cuenta los intentos fallidos seguidos por usuario (`usuarios.pin_intentos_fallidos`) y al llegar a 5 bloquea esa cuenta 15 minutos (`usuarios.pin_bloqueado_hasta`) — el contador se resetea a 0 apenas se acierta el PIN. El bloqueo es por usuario, no por IP (quedó así a propósito, más simple). Cuando un usuario queda bloqueado se avisa a los administradores por correo (`administrativo@innovate.com.co`) y por Telegram (a los admin que tengan Telegram configurado) — función `_avisarBloqueoUsuario()` en el mismo `auth.php`. Requiere la migración `db/039_pin_bloqueo_intentos.sql` (columnas nuevas en `usuarios`, ver DEPLOY.md).
 
+### feat: aviso de cartera vencida (Alegra) al elegir el cliente de una tarjeta
+
+Al elegir el cliente del listado de Alegra (o al abrir para editar una tarjeta que ya tiene cliente), Ginno consulta Alegra y, si el cliente tiene facturas vencidas (`status=open` + `dueDate` ya pasada), muestra un aviso rojo junto al campo Cliente con el total vencido y la cantidad de facturas — sin bloquear, se puede seguir creando/guardando la tarjeta igual. Aplica a cualquier área con cliente, no solo IT/IF. Nuevo endpoint `backend/api/alegra_cartera_cliente.php` (recibe `alegra_id` si ya se tiene, o `cliente` por nombre como fallback al editar). Nueva función `_verificarCarteraVencidaCliente()` en `assets/js/tareas.js`, llamada desde `seleccionarClienteAlegraIdx()` (nueva tarjeta) y desde `openModal()` (editar). `assets/js/tareas.js` → `?v=20260909b`.
+
 ## Estado actual (última actualización: 2026-09-08 — notificar cliente + reenviar correo con destinatario editable)
 
 ### feat: botón "Notificar cliente" — resumen del estado actual de la tarjeta por correo o WhatsApp

@@ -1583,6 +1583,13 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('cliente-suggestions').style.display='none';
   clienteUltimaBusqueda = [];
   clienteValidadoAlegra = t?.cliente ? true : null;
+  const elCarteraAviso = document.getElementById('cartera-vencida-aviso');
+  if (elCarteraAviso) { elCarteraAviso.style.display = 'none'; elCarteraAviso.textContent = ''; }
+  if (t?.cliente) {
+    // Edición de una tarjeta existente: no tenemos el alegra_id a mano, se
+    // busca el contacto por nombre (mismo fallback que la verificación de contrato).
+    setTimeout(() => _verificarCarteraVencidaCliente(null, t.cliente), 0);
+  }
   document.getElementById('f-fechaprog').value=t?.fechaProg||'';
   const elDiasProg = document.getElementById('f-dias-prog');
   if (elDiasProg) elDiasProg.value = t?.diasProg || 1;
@@ -1728,6 +1735,8 @@ let clienteValidadoAlegra = null; // true = coincide con un contacto de Alegra, 
 
 function onClienteInput() {
   clienteValidadoAlegra = null;
+  const carteraEl = document.getElementById('cartera-vencida-aviso');
+  if (carteraEl) { carteraEl.style.display = 'none'; carteraEl.textContent = ''; }
   const q = document.getElementById('f-cliente').value.trim();
   const box = document.getElementById('cliente-suggestions');
   clearTimeout(clienteSuggestTimer);
@@ -1778,6 +1787,8 @@ function seleccionarClienteAlegraIdx(i) {
   // Verificar contrato para mostrar/ocultar tipo_tarea
   const area = document.getElementById('f-area')?.value;
   if (['it','if'].includes(area)) _verificarContratoCliente(c.id, area, c.name);
+  // Verificar cartera vencida en Alegra (aplica a cualquier área con cliente)
+  _verificarCarteraVencidaCliente(c.id, c.name);
 }
 
 function hideClienteSuggestions() {
@@ -1787,6 +1798,30 @@ function hideClienteSuggestions() {
   }, 150);
 }
 // ===================== FIN AUTOCOMPLETAR CLIENTE =====================
+
+// ===================== CARTERA VENCIDA (ALEGRA) =====================
+// Al elegir (o editar) el cliente de una tarjeta, avisa sin bloquear si el
+// cliente tiene facturas vencidas en Alegra — para que quien crea la
+// tarjeta lo sepa antes de seguir atendiéndolo. No depende del área.
+async function _verificarCarteraVencidaCliente(alegraId, nombre) {
+  const el = document.getElementById('cartera-vencida-aviso');
+  if (!el) return;
+  el.style.display = 'none';
+  el.textContent = '';
+  if (!API_BASE || (!alegraId && !nombre)) return;
+  try {
+    const qs = alegraId ? `alegra_id=${encodeURIComponent(alegraId)}` : `cliente=${encodeURIComponent(nombre)}`;
+    const res = await fetch(`${API_BASE}/alegra_cartera_cliente.php?${qs}`);
+    const d = await res.json();
+    if (d && d.tiene_vencida) {
+      const valor = Number(d.total_vencido || 0).toLocaleString('es-CO', {minimumFractionDigits:0});
+      const n = (d.facturas || []).length;
+      el.textContent = `⚠️ Cliente con cartera vencida: $${valor} en ${n} factura${n===1?'':'s'}`;
+      el.style.display = 'block';
+    }
+  } catch (e) { /* silencioso — no bloquea la creación/edición de la tarjeta */ }
+}
+// ===================== FIN CARTERA VENCIDA (ALEGRA) =====================
 
 // ===================== BUSCAR FACTURAS EN ALEGRA (por cliente) =====================
 async function buscarFacturasAlegraCliente() {
