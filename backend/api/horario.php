@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/db.php';
 applyCors();
 
 $pdo    = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // GET /horario.php?usuario_id=X  →  devuelve horario del usuario

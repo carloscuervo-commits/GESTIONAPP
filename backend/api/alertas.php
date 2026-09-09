@@ -10,6 +10,7 @@ require_once __DIR__ . '/../lib/telegram.php';
 applyCors();
 
 $pdo = getDB();
+requireSesion($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonOut(['error' => 'Método no soportado'], 405);
 

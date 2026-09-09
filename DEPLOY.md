@@ -42,6 +42,33 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-09 — fix de seguridad: toda la API ahora exige sesión)
+
+**Contexto:** ver CONTEXTO.md. La API de Ginno no validaba sesión en casi ningún endpoint — se podía consultar el tablero completo (y más) sin login, con solo conocer la URL. Este cambio cierra eso.
+
+**Archivos backend modificados** (todos dentro de `backend/api/.` y `backend/lib/.`, que ya se copian completos por `.cpanel.yml` — no hace falta tocar ese archivo):
+- `backend/lib/db.php` — nueva función `requireSesion($pdo, $rolRequerido=null)`.
+- `backend/api/`: alegra_contactos.php, alegra_crear_factura.php, alegra_factura_desde_cotizacion.php, alegra_facturas_cliente.php, alegra_items.php, alertas.php, bitacora.php, clientes.php, comentarios.php, configuracion.php, contratos.php, cotizacion_docx.php, facturas_generadas.php, facturas_pendientes.php, foto_tecnico.php (solo POST/DELETE), fuera_sitio.php, horario.php, imagenes.php, informe_cliente.php, notificar_cliente.php, proyecto_visitas.php, push_subscribe.php, reporte_archivo.php, reporte_enviar_correo.php, reporte_foto.php, reporte_pdf.php, reportes.php, tareas.php, transportes.php, usuarios.php.
+- Sin cambios (a propósito): auth.php (login), telegram_webhook.php, test_recordatorio.php, telegram_test.php.
+
+**Archivos frontend modificados** (`assets/js/.` también se copia completo):
+- `core.js` — intercepta `window.fetch` para agregar `Authorization: Bearer` automáticamente + helper `_tokenQS()`.
+- `imagenes.js`, `informes.js`, `reportes.js`, `tareas.js` — agregado `&${_tokenQS()}` en los enlaces/imágenes que no pasan por `fetch()`.
+- `tareas-equipo.html` — `?v=` de los 5 archivos anteriores subido a `20260909a`.
+
+**Checklist de prueba manual después del deploy** (no hay forma de probarlo automáticamente desde este entorno — sin PHP CLI ni acceso directo a la base de datos):
+1. Abrir `https://grupoinnovate.com/ginno/` en una ventana de incógnito (sesión limpia) → debe pedir el PIN, no debe mostrar el tablero.
+2. Entrar directo a una URL de la API sin login, ej. `https://grupoinnovate.com/ginno/backend/api/tareas.php` en el navegador → debe devolver un error 401 ("No autorizado — se requiere sesión"), no el tablero.
+3. Iniciar sesión con el PIN normal (como técnico y como admin) → el tablero debe cargar igual que siempre.
+4. Ver una tarjeta con fotos adjuntas (miniaturas y lightbox) → deben cargar bien.
+5. Ver la foto de perfil de un técnico en Usuarios → debe cargar (ese endpoint sigue abierto a propósito).
+6. Descargar un PDF de reporte, un archivo de cotización (.docx) y un reporte adjunto desde una tarjeta → los tres enlaces deben abrir/descargar bien.
+7. Probar "Reenviar correo" y "Notificar cliente" en una tarjeta → deben funcionar igual que antes.
+8. Cerrar sesión, volver a abrir la app → debe volver a pedir login (el token viejo no debe seguir sirviendo).
+9. Confirmar que el correo automático de recordatorio de visita sigue mostrando la foto del técnico correctamente — esa ruta (`foto_tecnico.php` GET) se dejó abierta a propósito para eso.
+
+Si algo de esto falla, es más seguro revertir el deploy que dejarlo a medias.
+
 ## Cambios pendientes de deploy (2026-09-03 — fix: horas ya reportadas no se descontaban al reclasificar una tarjeta a Contrato después de ejecutada)
 
 `backend/lib/contrato.php`, `backend/api/reportes.php`, `backend/api/tareas.php` (sin cambios de frontend, no requiere bump de `?v=`):

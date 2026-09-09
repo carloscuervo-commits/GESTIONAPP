@@ -8,6 +8,7 @@ set_exception_handler(function($e) {
 });
 
 $pdo    = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 $dir = __DIR__ . '/../uploads/imagenes';

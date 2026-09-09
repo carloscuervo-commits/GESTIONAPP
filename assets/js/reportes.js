@@ -870,7 +870,7 @@ async function resolverTareaTerminada(terminada) {
   cargarVisitasActivas();
 }
 
-function fotoUrl(archivo) { return `${API_BASE}/reporte_foto.php?archivo=${encodeURIComponent(archivo)}`; }
+function fotoUrl(archivo) { return `${API_BASE}/reporte_foto.php?archivo=${encodeURIComponent(archivo)}&${_tokenQS()}`; }
 
 function fotoThumbHtml(f) {
   return `<div style="position:relative;width:84px;height:84px;overflow:visible">
@@ -1013,7 +1013,7 @@ function renderFormularioReporte() {
     ${seccionesHtml}
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
       <button class="btn-save" id="btn-generar-pdf" onclick="generarPDFReporte(this)">📄 ${yaGenerado ? 'Regenerar PDF' : 'Generar PDF'}</button>
-      <div id="reporte-pdf-status" style="font-size:13px">${yaGenerado ? `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank">Ver PDF</a>` : ''}</div>
+      <div id="reporte-pdf-status" style="font-size:13px">${yaGenerado ? `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}&${_tokenQS()}" target="_blank">Ver PDF</a>` : ''}</div>
       <div id="reporte-envio" style="${yaGenerado ? '' : 'display:none;'}border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
         <label style="font-size:12px;color:var(--text-muted)">Correo adicional del cliente (siempre se envía copia a administrativo@innovate.com.co)</label>
         <input type="email" id="reporte-correo-cliente" placeholder="cliente@correo.com" style="width:100%;margin:6px 0 10px">
@@ -1443,7 +1443,7 @@ async function generarPDFReporte(btn) {
     }
 
     reporteActual.pdf_archivo = data.archivo;
-    statusEl.innerHTML = `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank">Ver PDF</a>`;
+    statusEl.innerHTML = `✅ PDF generado. <a href="${API_BASE}/reporte_pdf.php?id=${r.id}&${_tokenQS()}" target="_blank">Ver PDF</a>`;
     document.getElementById('reporte-envio').style.display = 'block';
     if (botonEl) botonEl.innerHTML = '📄 Regenerar PDF';
   } catch (e) {
@@ -1603,7 +1603,7 @@ async function renderHistorialVisitasModal(tareaId) {
           // El reporte ya se generó y se envió — debe poder verse/reenviarse
           // siempre, incluso si algún participante quedó con el checkout sin
           // registrar (eso no invalida el reporte que ya salió al cliente).
-          botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
+          botones.push(`<button onclick="event.stopPropagation();window.open('${API_BASE}/reporte_pdf.php?id=${r.id}&${_tokenQS()}','_blank')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📄 Ver PDF</button>`);
           botones.push(`<button onclick="_abrirReenviarCorreoPopup('${r.id}',event)" style="background:#169BBC;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">✉️ Reenviar correo</button>`);
           botones.push(`<button onclick="event.stopPropagation();compartirPDFWhatsAppHistorial('${r.id}',this)" style="background:#25D366;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer">📲 WhatsApp</button>`);
           if (esAdmin) {

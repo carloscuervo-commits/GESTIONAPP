@@ -241,7 +241,7 @@ function renderReportesBusquedaHTML(filtros) {
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${ETIQUETAS_ESTADO_REPORTE[r.estado] || esc(r.estado)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">
         <button class="btn-cancel" style="padding:4px 8px;font-size:12px" onclick="continuarReporte('${r.id}', null, true)">✏️ Editar</button>
-        ${r.pdf_archivo ? `<a href="${API_BASE}/reporte_pdf.php?id=${r.id}" target="_blank" class="btn-save" style="padding:4px 8px;font-size:12px;text-decoration:none;display:inline-block;margin-left:6px">⬇️ PDF</a>` : ''}
+        ${r.pdf_archivo ? `<a href="${API_BASE}/reporte_pdf.php?id=${r.id}&${_tokenQS()}" target="_blank" class="btn-save" style="padding:4px 8px;font-size:12px;text-decoration:none;display:inline-block;margin-left:6px">⬇️ PDF</a>` : ''}
       </td>
     </tr>`).join('')}</tbody>
   </table>`;

@@ -6,6 +6,36 @@ const STORAGE_KEY = 'cowork_tareas_v4';
 //   const API_BASE = 'https://tudominio.com/backend/api';
 const API_BASE = 'https://grupoinnovate.com/ginno/backend/api';
 
+// ===================== AUTENTICACIÓN AUTOMÁTICA EN CADA LLAMADA =====================
+// Todas las peticiones a la API ahora requieren sesión (ver requireSesion() en el
+// backend). Para no tener que tocar cada fetch() del código, se intercepta
+// window.fetch una sola vez aquí (core.js carga antes que todo lo demás) y se le
+// agrega el header Authorization: Bearer <token> a cualquier llamada a API_BASE.
+(function() {
+  const _fetchOriginal = window.fetch;
+  window.fetch = function(input, init) {
+    const url = typeof input === 'string' ? input : ((input && input.url) || '');
+    if (API_BASE && url.startsWith(API_BASE)) {
+      const token = localStorage.getItem('sesion_token');
+      if (token) {
+        init = init ? Object.assign({}, init) : {};
+        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
+        headers.set('Authorization', 'Bearer ' + token);
+        init.headers = headers;
+      }
+    }
+    return _fetchOriginal.call(window, input, init);
+  };
+})();
+
+// Helper para los pocos casos que NO usan fetch() (<a href>, <img src>,
+// window.open) y por eso no pueden llevar el header Authorization — se les
+// agrega el token como parámetro de la URL en su lugar.
+function _tokenQS() {
+  const token = localStorage.getItem('sesion_token');
+  return token ? 'token=' + encodeURIComponent(token) : '';
+}
+
 function taskToApi(t) {
   return {
     id: t.id, titulo: t.titulo, desc: t.desc, area: t.area, estado: t.estado,

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
+requireSesion(getDB());
 
 require_once __DIR__ . '/../config/config_alegra.php';
 require_once __DIR__ . '/../lib/alegra_facturas.php';

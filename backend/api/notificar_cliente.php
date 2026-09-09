@@ -4,6 +4,7 @@ applyCors();
 require_once __DIR__ . '/../lib/mailer.php';
 
 $pdo = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Etiqueta amigable para el cliente del estado actual de la tarjeta (IT/IF).

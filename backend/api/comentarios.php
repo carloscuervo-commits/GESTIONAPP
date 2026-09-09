@@ -17,6 +17,7 @@ require_once __DIR__ . '/../lib/db.php';
 applyCors();
 
 $pdo    = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Etiquetas en español de los estados de tarjeta (todas las áreas).

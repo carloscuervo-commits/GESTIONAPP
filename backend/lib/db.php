@@ -38,9 +38,30 @@ function jsonOut($data, $code = 200) {
 function applyCors() {
   header('Access-Control-Allow-Origin: *');
   header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-  header('Access-Control-Allow-Headers: Content-Type');
+  header('Access-Control-Allow-Headers: Content-Type, Authorization');
   if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
   }
+}
+
+// Verifica que la petición traiga un token de sesión válido (usuarios.token_sesion).
+// Busca primero en el header Authorization: Bearer <token> (llamadas fetch), y si
+// no viene, en ?token= (fallback para <a href>, <img src>, window.open, que no
+// pueden mandar headers personalizados). Si $rolRequerido se indica, además exige
+// que el usuario tenga ese perfil. Corta la ejecución con 401/403 si no es válido.
+// Devuelve los datos básicos del usuario autenticado si todo OK.
+function requireSesion($pdo, $rolRequerido = null) {
+  $auth  = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+  $token = '';
+  if (preg_match('/Bearer\s+(.+)/i', $auth, $m)) $token = trim($m[1]);
+  if (!$token && !empty($_GET['token'])) $token = trim($_GET['token']);
+  if (!$token) jsonOut(['error' => 'No autorizado — se requiere sesión'], 401);
+
+  $stmt = $pdo->prepare("SELECT id, nombre, perfil FROM usuarios WHERE token_sesion = ? AND activo = 1");
+  $stmt->execute([$token]);
+  $u = $stmt->fetch();
+  if (!$u) jsonOut(['error' => 'Sesión inválida o expirada'], 401);
+  if ($rolRequerido && $u['perfil'] !== $rolRequerido) jsonOut(['error' => 'Se requiere perfil ' . $rolRequerido], 403);
+  return $u;
 }

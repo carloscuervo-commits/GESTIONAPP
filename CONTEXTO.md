@@ -4,6 +4,22 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-09 — fix de seguridad: toda la API ahora exige sesión)
+
+### fix crítico de seguridad: la API completa quedaba abierta sin login
+
+Se detectó que casi todos los endpoints de `backend/api/*.php` no validaban sesión — la pantalla de login solo controlaba qué se veía en el navegador, pero cualquiera que conociera (o adivinara) una URL de la API (ej. `tareas.php`, que devuelve el tablero completo) podía consultarla directo, sin PIN ni token. Así fue como alguien vio el tablero desde el enlace de la web de Innovate sin iniciar sesión.
+
+Se agregó `requireSesion($pdo, $rolRequerido=null)` en `backend/lib/db.php`: valida el token de sesión (`usuarios.token_sesion`) que ya se generaba al hacer login con el PIN, primero por header `Authorization: Bearer`, y si no viene (casos donde el navegador no permite mandar headers — enlaces de descarga, imágenes), por `?token=` en la URL. Si no hay token válido, corta con 401.
+
+Se agregó `requireSesion($pdo)` a los ~29 endpoints que no tenían ningún control (tareas, reportes, imágenes, comentarios, alertas, clientes, Alegra, facturación, informes, transportes, configuración, contratos, usuarios, etc.). `foto_tecnico.php` quedó con el GET abierto a propósito (el correo de recordatorio de visita incrusta esa foto para el cliente, que no tiene sesión), pero el POST/DELETE (subir o borrar la foto) sí exige sesión. `auth.php` (login) sigue abierto, obviamente. `telegram_webhook.php` y `test_recordatorio.php` quedaron sin tocar — tienen su propio mecanismo de protección (secreto de Telegram / token fijo de diagnóstico), no la sesión de usuario.
+
+En el frontend se interceptó `window.fetch` una sola vez en `assets/js/core.js` para que TODAS las llamadas a la API le agreguen automáticamente el header `Authorization: Bearer <token>` — así no hubo que tocar cada `fetch()` del código uno por uno. Para los pocos casos que no usan `fetch()` (enlaces de descarga `<a href>`, imágenes `<img src>`, `window.open`) se agregó el helper `_tokenQS()` y se usó en `imagenes.js`, `informes.js`, `reportes.js` (incluye el helper `fotoUrl()`) y `tareas.js` — 9 sitios en total.
+
+**Pendiente de decidir:** el PIN de 4 dígitos en sí no tiene protección contra fuerza bruta (10.000 combinaciones posibles, intentos ilimitados). Corregirlo requeriría una migración de base de datos (columnas nuevas en `usuarios` para contar intentos fallidos y bloquear temporalmente) — quedó fuera de este fix porque implica un cambio de esquema que Carlos debe ejecutar manualmente en phpMyAdmin. Se le preguntó si lo quiere como siguiente paso.
+
+`?v=` actualizado: `core.js`, `tareas.js`, `reportes.js`, `informes.js`, `imagenes.js` → `20260909a`.
+
 ## Estado actual (última actualización: 2026-09-08 — notificar cliente + reenviar correo con destinatario editable)
 
 ### feat: botón "Notificar cliente" — resumen del estado actual de la tarjeta por correo o WhatsApp

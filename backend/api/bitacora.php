@@ -7,6 +7,7 @@ set_exception_handler(function($e) {
 });
 
 $pdo    = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // GET ?dashboard=1

@@ -17,6 +17,7 @@ applyCors();
 require_once __DIR__ . '/../lib/alegra_facturas.php';
 
 $pdo = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Usuario autenticado (opcional, solo para trazabilidad — no bloquea si falta)

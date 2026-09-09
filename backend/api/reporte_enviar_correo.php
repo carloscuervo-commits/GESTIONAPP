@@ -5,6 +5,7 @@ require_once __DIR__ . '/../lib/mailer.php';
 require_once __DIR__ . '/../lib/transportes.php';
 
 $pdo = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // --------------------------------------------------------------

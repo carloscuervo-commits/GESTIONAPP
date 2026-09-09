@@ -34,7 +34,7 @@ function _imagenesRenderizar() {
 
   const thumbsHtml = _imgData.map((img, i) => `
     <div style="position:relative;display:inline-block;flex-shrink:0">
-      <img src="${API_BASE}/imagenes.php?id=${img.id}&src=1"
+      <img src="${API_BASE}/imagenes.php?id=${img.id}&src=1&${_tokenQS()}"
            alt="${esc(img.nombre_original)}"
            onclick="_imagenesLightbox(${i})"
            style="width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;
@@ -214,7 +214,7 @@ function _imagenesLightbox(idx) {
 
   box.innerHTML = `
     <div style="position:relative;max-width:94vw;max-height:92vh;display:flex;flex-direction:column;align-items:center">
-      <img src="${API_BASE}/imagenes.php?id=${img.id}&src=1"
+      <img src="${API_BASE}/imagenes.php?id=${img.id}&src=1&${_tokenQS()}"
            alt="${esc(img.nombre_original)}"
            style="max-width:90vw;max-height:84vh;object-fit:contain;border-radius:8px;display:block;
                   box-shadow:0 8px 40px rgba(0,0,0,.5)">

@@ -1630,7 +1630,7 @@ function openModal(id, preArea, preEstado) {
   const cdInfo = document.getElementById('cotizacion-docx-info');
   if (cdInfo) {
     cdInfo.innerHTML = t?.cotizacionDocx
-      ? `📄 Adjunto: ${esc(t.cotizacionDocx)}${API_BASE?` · <a href="${API_BASE}/cotizacion_docx.php?id=${t.id}" target="_blank">Descargar</a>`:''}`
+      ? `📄 Adjunto: ${esc(t.cotizacionDocx)}${API_BASE?` · <a href="${API_BASE}/cotizacion_docx.php?id=${t.id}&${_tokenQS()}" target="_blank">Descargar</a>`:''}`
       : 'Sin cotización adjunta';
   }
   const fRepFile = document.getElementById('f-reporte-file');
@@ -1638,7 +1638,7 @@ function openModal(id, preArea, preEstado) {
   const raInfo = document.getElementById('reporte-archivo-info');
   if (raInfo) {
     raInfo.innerHTML = t?.reporteArchivo
-      ? `📄 Adjunto: ${esc(t.reporteArchivo)}${API_BASE?` · <a href="${API_BASE}/reporte_archivo.php?id=${t.id}" target="_blank">Descargar</a>`:''}`
+      ? `📄 Adjunto: ${esc(t.reporteArchivo)}${API_BASE?` · <a href="${API_BASE}/reporte_archivo.php?id=${t.id}&${_tokenQS()}" target="_blank">Descargar</a>`:''}`
       : 'Sin archivo adjunto';
   }
   buildTeamPicker(t?.team||[]);

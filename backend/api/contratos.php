@@ -13,6 +13,7 @@ applyCors();
 require_once __DIR__ . '/../lib/contrato.php';
 
 $pdo    = getDB();
+requireSesion($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {

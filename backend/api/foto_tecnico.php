@@ -32,8 +32,9 @@ if ($method === 'GET') {
   exit;
 }
 
-// POST multipart → sube foto del técnico
+// POST multipart → sube foto del técnico (requiere sesión)
 if ($method === 'POST') {
+  requireSesion($pdo);
   $uid = $_POST['usuario_id'] ?? null;
   if (!$uid) jsonOut(['error' => 'usuario_id requerido'], 400);
   if (empty($_FILES['foto'])) jsonOut(['error' => 'Archivo requerido'], 400);
@@ -85,8 +86,9 @@ if ($method === 'POST') {
   jsonOut(['ok' => true, 'foto' => $filename]);
 }
 
-// DELETE ?usuario_id=X → elimina foto
+// DELETE ?usuario_id=X → elimina foto (requiere sesión)
 if ($method === 'DELETE') {
+  requireSesion($pdo);
   $uid = $_GET['usuario_id'] ?? null;
   if (!$uid) jsonOut(['error' => 'usuario_id requerido'], 400);
 

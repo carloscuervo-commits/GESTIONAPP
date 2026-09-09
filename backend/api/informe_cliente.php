@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $pdo = getDB();
+requireSesion($pdo);
 
 $clienteNombre = trim($_GET['cliente'] ?? '');
 $fechaInicio   = $_GET['fecha_inicio'] ?? '';
