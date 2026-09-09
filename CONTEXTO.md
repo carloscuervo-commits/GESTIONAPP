@@ -18,6 +18,10 @@ En el frontend se interceptó `window.fetch` una sola vez en `assets/js/core.js`
 
 `?v=` actualizado: `core.js`, `tareas.js`, `reportes.js`, `informes.js`, `imagenes.js` → `20260909a`.
 
+### fix: menú de áreas (IT/IF/Admin/...) no quedaba fijo al hacer scroll
+
+El header sí estaba fijo arriba (`position: sticky`), pero la fila de pestañas de área (IT/IF/Administrativo/Comercial/Cartera/Facturación/Informes/...) se iba con el scroll. Se le agregó `position: sticky` también, pegada justo debajo del header. Como el header no tiene alto fijo (en pantallas angostas hace wrap a 2 líneas), se agregó `ajustarOffsetMenu()` en `assets/js/app.js` que mide el alto real del header y lo guarda en la variable CSS `--header-h`, recalculándolo en cada resize — así el menú de áreas siempre queda justo debajo, sin taparlo ni dejar espacio. `assets/css/app.css` y `assets/js/app.js` → `?v=20260909a`.
+
 ### fix: PIN de login sin protección contra fuerza bruta
 
 El PIN de 4 dígitos no tenía límite de intentos (10.000 combinaciones posibles, intentos ilimitados). Ahora `backend/api/auth.php` cuenta los intentos fallidos seguidos por usuario (`usuarios.pin_intentos_fallidos`) y al llegar a 5 bloquea esa cuenta 15 minutos (`usuarios.pin_bloqueado_hasta`) — el contador se resetea a 0 apenas se acierta el PIN. El bloqueo es por usuario, no por IP (quedó así a propósito, más simple). Cuando un usuario queda bloqueado se avisa a los administradores por correo (`administrativo@innovate.com.co`) y por Telegram (a los admin que tengan Telegram configurado) — función `_avisarBloqueoUsuario()` en el mismo `auth.php`. Requiere la migración `db/039_pin_bloqueo_intentos.sql` (columnas nuevas en `usuarios`, ver DEPLOY.md).

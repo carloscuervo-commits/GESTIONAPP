@@ -42,6 +42,15 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-09 — menú de áreas fijo al hacer scroll)
+
+**Archivos modificados:**
+- `assets/css/app.css` — `.area-tabs` con `position: sticky` (pegada debajo del header).
+- `assets/js/app.js` — nueva función `ajustarOffsetMenu()` que mide el alto real del header y lo guarda en `--header-h`.
+- `tareas-equipo.html` — `?v=` de `app.css` y `app.js` subido a `20260909a`.
+
+Sin cambios de backend, sin migración.
+
 ## Cambios pendientes de deploy (2026-09-09 — fix de seguridad: toda la API ahora exige sesión)
 
 **Contexto:** ver CONTEXTO.md. La API de Ginno no validaba sesión en casi ningún endpoint — se podía consultar el tablero completo (y más) sin login, con solo conocer la URL. Este cambio cierra eso.

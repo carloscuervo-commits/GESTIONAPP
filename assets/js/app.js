@@ -56,7 +56,20 @@ function migrarSeedLocal(){
   }
 }
 
+// El menú de áreas (IT/IF/Admin/...) queda pegado justo debajo del header al
+// hacer scroll. El header no tiene alto fijo (en pantallas angostas hace
+// wrap a 2 líneas), así que se mide su alto real y se guarda en la
+// variable CSS --header-h para que .area-tabs (position:sticky) se pegue
+// justo debajo, sin taparlo. Se recalcula en cada resize por si cambia el wrap.
+function ajustarOffsetMenu(){
+  const header = document.querySelector('.header');
+  if (!header) return;
+  document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
+}
+window.addEventListener('resize', ajustarOffsetMenu);
+
 async function iniciarApp(){
+  ajustarOffsetMenu();
   // Limpiar filtros que el navegador pudo haber restaurado (bfcache / session restore)
   const searchEl = document.getElementById('search');
   if (searchEl) searchEl.value = '';

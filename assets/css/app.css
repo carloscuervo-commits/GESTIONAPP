@@ -25,7 +25,7 @@
   .btn-add { padding: 7px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn-add:hover { opacity: .85; }
 
-  .area-tabs { display: flex; gap: 4px; padding: 10px 20px 0; overflow-x: auto; background: var(--card); border-bottom: 1px solid var(--border); }
+  .area-tabs { display: flex; gap: 4px; padding: 10px 20px 0; overflow-x: auto; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: var(--header-h, 58px); z-index: 99; }
   .area-tab { padding: 8px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); white-space: nowrap; border-bottom: 3px solid transparent; transition: all .15s; }
   .area-tab:hover { color: var(--text); background: var(--bg); }
   .area-tab.active { color: white; }
