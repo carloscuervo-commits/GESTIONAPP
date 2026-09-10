@@ -207,7 +207,11 @@ if ($method === 'GET') {
   // GET ?sin_reporte=1 → lista de reportes marcados sin reporte (dashboard + informe)
   if (!empty($_GET['sin_reporte'])) {
     try {
-      $donde  = ["r.estado = 'sin_reporte'"];
+      // Las tarjetas tipo Proyecto no deben aparecer en esta alerta: duran
+      // semanas con visitas puntuales y son siempre de reporte interno, así
+      // que "visita terminada sin reporte" no aplica igual que en una
+      // tarjeta normal (pedido de Carlos, 2026-09-10).
+      $donde  = ["r.estado = 'sin_reporte'", "(t.tipo_tarea IS NULL OR t.tipo_tarea != 'proyecto')"];
       $params = [];
       if (!empty($_GET['desde'])) { $donde[] = 'DATE(r.check_out) >= ?'; $params[] = $_GET['desde']; }
       if (!empty($_GET['hasta'])) { $donde[] = 'DATE(r.check_out) <= ?'; $params[] = $_GET['hasta']; }

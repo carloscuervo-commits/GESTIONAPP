@@ -4,6 +4,12 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-10 — fix: tarjetas Proyecto fuera de la alerta "visitas sin reporte")
+
+### fix: tarjetas tipo Proyecto ya no aparecen en la alerta "🚫 Visitas terminadas sin reporte"
+
+El dashboard (solo admin) muestra una zona de alerta roja con las visitas que se cerraron sin que el técnico enviara el reporte (`cargarAlertasSinReporte()` en `assets/js/tareas.js`, alimentada por `GET reportes.php?sin_reporte=1`). Las tarjetas tipo Proyecto no deberían aparecer ahí (duran semanas con visitas puntuales y son siempre de reporte interno, así que esa alerta no aplica igual que en una tarjeta normal). Se agregó el filtro `t.tipo_tarea != 'proyecto'` a la consulta en `backend/api/reportes.php`. Un solo endpoint alimenta esta alerta (no hay otro lugar que use `sin_reporte=1`), así que el filtro no afecta nada más. Sin cambios de frontend, sin bump de `?v=`.
+
 ## Estado actual (última actualización: 2026-09-09 — fix de seguridad: toda la API ahora exige sesión)
 
 ### fix crítico de seguridad: la API completa quedaba abierta sin login
