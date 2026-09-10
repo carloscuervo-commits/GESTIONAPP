@@ -4,6 +4,12 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-10 — botón "Responder" en comentarios)
+
+### feat: botón "↩️ Responder" en los comentarios de una tarjeta
+
+Cada comentario (menos los propios) ahora tiene un "↩️ Responder" debajo del texto. Al hacer clic, precarga el cuadro de escribir comentario con la `@mención` de esa persona (mismo formato que el autocompletado @) y le da foco — así, si alguien te mencionó, respondes directo sin tener que buscarlo manualmente en el desplegable de menciones. No crea un hilo/hijo real: sigue siendo un comentario normal de la lista, solo que ya viene con la mención lista, y esa mención dispara la notificación por correo/Telegram como cualquier otra. Función `_responderComentario()` en `assets/js/comentarios.js` → `?v=20260910a`.
+
 ## Estado actual (última actualización: 2026-09-10 — fix: tarjetas Proyecto fuera de la alerta "visitas sin reporte")
 
 ### fix: tarjetas tipo Proyecto ya no aparecen en la alerta "🚫 Visitas terminadas sin reporte"

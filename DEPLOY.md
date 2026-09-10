@@ -42,6 +42,16 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-10 — botón "Responder" en comentarios)
+
+**Archivos modificados:**
+- `assets/js/comentarios.js` — nueva función `_responderComentario()` + botón "↩️ Responder" en cada comentario ajeno.
+- `tareas-equipo.html` — `?v=` de `comentarios.js` subido a `20260910a`.
+
+Sin cambios de backend, sin migración.
+
+**Prueba manual sugerida:** abrir una tarjeta con comentarios de otra persona, hacer clic en "↩️ Responder" → el cuadro de comentario debe quedar con `@SUID ` al inicio y el foco puesto ahí. Enviarlo y confirmar que la persona mencionada recibe el aviso normal (correo/Telegram) igual que cualquier mención.
+
 ## Cambios pendientes de deploy (2026-09-10 — tarjetas Proyecto fuera de la alerta "visitas sin reporte")
 
 **Archivo modificado:**

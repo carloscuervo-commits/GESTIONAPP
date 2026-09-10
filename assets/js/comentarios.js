@@ -71,6 +71,7 @@ function _renderListaComentarios(comentarios) {
           </div>
         </div>
         <div style="font-size:13px;color:var(--text);margin-top:2px;white-space:pre-wrap;word-break:break-word">${textoHtml}</div>
+        ${!propio ? `<span onclick="_responderComentario('${c.usuario_id}')" style="display:inline-block;margin-top:4px;cursor:pointer;color:var(--text-muted);font-size:11px;font-weight:600" title="Responder a ${esc(c.nombre || c.usuario_id)}">↩️ Responder</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -122,6 +123,21 @@ async function eliminarComentario(id) {
   } catch (e) {
     alert('No se pudo eliminar el comentario.');
   }
+}
+
+// "↩️ Responder" en un comentario: precarga el cuadro de texto con la
+// @mención de esa persona (mismo formato que el autocompletado @) y le da
+// foco, para responder rápido sin tener que buscarla manualmente en el
+// dropdown. No crea un hilo/hijo real — sigue siendo un comentario normal
+// de la lista, solo que ya viene con la mención lista.
+function _responderComentario(usuarioId) {
+  const el = document.getElementById('comentario-texto');
+  if (!el) return;
+  const mencion = `@${usuarioId} `;
+  if (!el.value.startsWith(mencion)) el.value = mencion + el.value;
+  el.focus();
+  el.setSelectionRange(el.value.length, el.value.length);
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ----------------- Autocompletado @mención -----------------
