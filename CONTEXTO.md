@@ -4,6 +4,12 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-10 — fecha de creación en el modal de la tarjeta)
+
+### feat: fecha de creación visible (solo informativa) en el modal de la tarjeta
+
+Junto al ID corto (#XXXXXX) en el encabezado del modal, al editar una tarjeta existente ahora aparece "🕐 Creada el [fecha]" — usa el dato que ya traía la tarea (`tareas.creado_en`, ya mapeado a `t.createdAt` en `assets/js/core.js`, no fue necesario tocar el backend). Es puramente informativo, no hay ningún input — no se puede editar. No aparece en "Nueva tarea" (todavía no tiene fecha de creación). `assets/js/tareas.js` y `tareas-equipo.html` → `?v=20260910a`.
+
 ## Estado actual (última actualización: 2026-09-10 — botón "Responder" en comentarios)
 
 ### feat: botón "↩️ Responder" en los comentarios de una tarjeta

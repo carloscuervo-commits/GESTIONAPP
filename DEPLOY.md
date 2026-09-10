@@ -42,6 +42,16 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-10 — fecha de creación en el modal de la tarjeta)
+
+**Archivos modificados:**
+- `assets/js/tareas.js` — en `openModal()`, muestra `t.createdAt` (ya venía en el objeto de la tarea) en `#modal-fecha-creacion`.
+- `tareas-equipo.html` — nuevo `<span id="modal-fecha-creacion">` junto al ID corto en el encabezado del modal; `?v=` de `tareas.js` subido a `20260910a`.
+
+Sin cambios de backend, sin migración.
+
+**Prueba manual sugerida:** abrir para editar cualquier tarjeta existente → debe verse "🕐 Creada el [fecha]" junto al #ID, sin ningún campo editable. Abrir "Nueva tarea" → no debe aparecer nada ahí.
+
 ## Cambios pendientes de deploy (2026-09-10 — botón "Responder" en comentarios)
 
 **Archivos modificados:**

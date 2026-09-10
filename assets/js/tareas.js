@@ -1571,6 +1571,17 @@ function openModal(id, preArea, preEstado) {
   document.getElementById('modal-title-text').textContent=t?'Editar Tarea':'Nueva Tarea';
   const shortIdEl = document.getElementById('modal-short-id');
   if (shortIdEl) { shortIdEl.textContent = t ? `#${t.id.slice(0,6).toUpperCase()}` : ''; shortIdEl.style.display = t ? 'inline' : 'none'; }
+  // Fecha de creación — solo informativa, no editable (pedido de Carlos, 2026-09-10)
+  const fechaCreacionEl = document.getElementById('modal-fecha-creacion');
+  if (fechaCreacionEl) {
+    const fc = t?.createdAt ? new Date(t.createdAt.replace(' ', 'T')) : null;
+    if (fc && !isNaN(fc)) {
+      fechaCreacionEl.textContent = '🕐 Creada el ' + fc.toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      fechaCreacionEl.style.display = 'inline';
+    } else {
+      fechaCreacionEl.style.display = 'none';
+    }
+  }
   document.getElementById('btn-delete').style.display=(t && currentUser?.perfil==='admin')?'inline-block':'none';
   document.getElementById('f-titulo').value=t?.titulo||'';
   document.getElementById('f-desc').value=t?.desc||'';
