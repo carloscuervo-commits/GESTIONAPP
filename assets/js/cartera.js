@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260912b
+// v20260912e
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -34,8 +34,9 @@ let carteraArchivadosAbierto = false;
 
 const CARTERA_COLS = [
   {id:'por-contactar', label:'Por contactar 📋'},
-  {id:'llamado',       label:'Llamado 📞'},
-  {id:'correo',        label:'Correo/WhatsApp enviado 📨'},
+  {id:'etapa1',        label:'Etapa 1 enviada 📧'},
+  {id:'etapa2',        label:'Etapa 2 enviada 💬'},
+  {id:'etapa3',        label:'Etapa 3 enviada ⚠️'},
   {id:'acuerdo',       label:'Acuerdo de pago 🤝'},
   {id:'pagado',        label:'Pagado ✅'},
 ];
@@ -423,12 +424,11 @@ function carteraEnviarWhatsApp() {
 
   const nivel = document.getElementById('cm-nivel').value;
   const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
-  const estadoActual = carteraGestionMap[editingCarteraId]?.estado;
   fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
     method:'PUT', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
-      estado: (estadoActual && estadoActual !== 'por-contactar') ? estadoActual : 'correo',
+      nivelEnviado: nivel, // el backend avanza el estado a la etapa de este nivel, sin retroceder
       plantillaNivel: nivel,
       fechaUltimoContacto: _carteraHoyISO(),
       fechaProximoSeguimiento,

@@ -6,13 +6,22 @@
  *
  * GET  /cartera_gestion.php                     -> lista todas las filas
  * PUT  /cartera_gestion.php?cliente_alegra_id=X  -> crea o actualiza la gestión de ese cliente
- *      body: { clienteNombre, estado?, responsableId?, notas?, fechaAcuerdo?,
+ *      body: { clienteNombre, estado?, nivelEnviado?, responsableId?, notas?, fechaAcuerdo?,
  *              montoAcuerdo?, plantillaNivel?, fechaUltimoContacto?, fechaProximoSeguimiento? }
  *      (todos los campos opcionales excepto clienteNombre en el primer PUT;
  *       lo que no se envía conserva su valor anterior)
+ *
+ *      nivelEnviado: cuando viene (p. ej. al enviar un WhatsApp desde el
+ *      modal), el estado se calcula avanzando automáticamente según la
+ *      etapa de ese nivel (ver cartera_estados.php) y el "estado" literal
+ *      del body se ignora. Sin nivelEnviado, "estado" manda tal cual (así
+ *      el selector manual del modal puede fijar cualquier valor, incluso
+ *      hacia atrás).
  */
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
+
+require_once __DIR__ . '/../lib/cartera_estados.php';
 
 $pdo = getDB();
 $usuario = requireSesion($pdo, 'admin');
@@ -45,7 +54,12 @@ if ($method === 'PUT') {
   }
 
   $clienteNombre           = $d['clienteNombre']           ?? $prev['cliente_nombre'];
-  $estado                  = $d['estado']                  ?? ($prev['estado'] ?? 'por-contactar');
+  $estadoActualPrevio      = $prev['estado'] ?? 'por-contactar';
+  if (!empty($d['nivelEnviado'])) {
+    $estado = carteraEstadoTrasEnvio($estadoActualPrevio, $d['nivelEnviado']);
+  } else {
+    $estado = $d['estado'] ?? $estadoActualPrevio;
+  }
   $responsableId           = array_key_exists('responsableId', $d)           ? $d['responsableId']           : ($prev['responsable_id'] ?? null);
   $notas                   = array_key_exists('notas', $d)                   ? $d['notas']                   : ($prev['notas'] ?? null);
   $fechaAcuerdo             = array_key_exists('fechaAcuerdo', $d)             ? ($d['fechaAcuerdo'] ?: null)   : ($prev['fecha_acuerdo'] ?? null);

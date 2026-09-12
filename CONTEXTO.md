@@ -4,6 +4,22 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — Cartera: tablero rediseñado con una columna por etapa, avance automático)
+
+### feat: el tablero de Cartera pasa a tener una columna por etapa de cobro, que avanza sola al enviar el mensaje de esa etapa
+
+Carlos preguntó cómo pasa una factura vencida de un estado a otro en el tablero (manual o automático), con la idea de que enviar un mensaje de cobro debería mover la tarjeta a ese paso automáticamente. Se le presentaron 3 opciones y eligió rediseñar el tablero para que cada etapa de mensaje tenga su propia columna: **por-contactar → Etapa 1 enviada → Etapa 2 enviada → Etapa 3 enviada → Acuerdo de pago → Pagado**. Las columnas viejas "Llamado" y "Correo/WhatsApp enviado" desaparecen — Etapa 2 (que ya es por WhatsApp/llamada) absorbe el concepto de "Llamado".
+
+**Avance automático, siempre hacia adelante**: nuevo `backend/lib/cartera_estados.php` con la función `carteraEstadoTrasEnvio($estadoActual, $nivel)` — mapea el nivel de la plantilla usada (cordial→etapa1, firme→etapa2, prejuridico→etapa3) a la columna correspondiente, y solo avanza la tarjeta si esa etapa está más adelante que el estado actual (nunca la regresa). Por ejemplo, si un cliente ya tiene "Acuerdo de pago" y por error se le reenvía un correo de Etapa 1, la tarjeta no retrocede.
+
+Esto se conecta en dos puntos, los dos únicos lugares donde hoy se envía un mensaje de cobro:
+- `backend/api/cartera_enviar_correo.php` (envío por correo, Etapas 1 y 3): ya no hace el cálculo simple de "si estaba en por-contactar pasa a correo, si no se queda igual" — ahora usa `carteraEstadoTrasEnvio()`.
+- `backend/api/cartera_gestion.php` (PUT, usado también al "enviar" el WhatsApp de Etapa 2 — que en realidad solo abre el enlace `wa.me` y registra la gestión): ahora acepta un campo nuevo `nivelEnviado` en el body; cuando viene, calcula el estado con `carteraEstadoTrasEnvio()` e ignora cualquier `estado` literal que también venga. **El selector manual "Estado" del modal (botón "Guardar") sigue mandando `estado` directo, sin `nivelEnviado`** — así Carlos puede seguir moviendo una tarjeta a mano a cualquier columna, incluso hacia atrás, si alguna vez lo necesita.
+
+**Migración de datos existentes**: `db/042_cartera_etapas.sql` remapea lo que ya esté en `correo`/`llamado` según el `plantilla_nivel` guardado (correo+firme→etapa2, correo+prejuridico→etapa3, correo sin nivel reconocido→etapa1, llamado→etapa2) — debe correr antes de este deploy.
+
+**Archivos**: `backend/lib/cartera_estados.php` (nuevo) · `backend/api/cartera_gestion.php` (PUT acepta `nivelEnviado`) · `backend/api/cartera_enviar_correo.php` (usa `carteraEstadoTrasEnvio()`) · `assets/js/cartera.js` (`CARTERA_COLS` con `etapa1/etapa2/etapa3`, `carteraEnviarWhatsApp()` manda `nivelEnviado` en vez de calcular el estado en el navegador, `?v=20260912e`) · `assets/css/app.css` (colores de columna: etapa1 `#0891b2`, etapa2 `#f7941e`, etapa3 `#e63946`, acuerdo `#7c3aed` para no repetir el color de etapa2, `?v=20260912b`) · `tareas-equipo.html` (opciones del selector "Estado" del modal actualizadas, `?v=` de `cartera.js`/`app.css` subidos) · `db/042_cartera_etapas.sql` (nueva migración).
+
 ## Estado actual (última actualización: 2026-09-12 — Cartera: las 3 plantillas de cobro reescritas con el texto real de Carlos)
 
 ### feat: plantillas de cobro (Etapas 1/2/3) reescritas en código con el texto exacto que Carlos ya tiene afinado

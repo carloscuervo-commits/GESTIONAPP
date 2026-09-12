@@ -42,6 +42,27 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — Cartera: tablero rediseñado con una columna por etapa)
+
+**⚠️ Requiere migración ANTES del deploy de código**: ejecutar `db/042_cartera_etapas.sql` en phpMyAdmin (remapea `estado='correo'`/`'llamado'` existentes a `etapa1`/`etapa2`/`etapa3` según el nivel de plantilla guardado). Requiere que `040_cartera_gestion.sql` y `041_cartera_archivado.sql` ya estén corridas.
+
+El tablero ahora tiene una columna por etapa de cobro (Por contactar → Etapa 1 enviada → Etapa 2 enviada → Etapa 3 enviada → Acuerdo de pago → Pagado), y la tarjeta avanza sola a la columna de la etapa correspondiente cuando se envía ese mensaje (correo o WhatsApp) — nunca retrocede sola. El selector manual "Estado" del modal sigue permitiendo mover una tarjeta a cualquier columna a mano, incluso hacia atrás.
+
+**Archivos modificados:**
+- `backend/lib/cartera_estados.php` (nuevo) — `carteraEstadoTrasEnvio()`, la lógica de avance forward-only.
+- `backend/api/cartera_enviar_correo.php` — usa la función nueva en vez del cálculo simple de antes.
+- `backend/api/cartera_gestion.php` — el PUT acepta `nivelEnviado`; si viene, calcula el estado con la función nueva e ignora el `estado` literal del body (el botón "Guardar" del modal sigue mandando `estado` directo, sin `nivelEnviado`, así que el cambio manual no se ve afectado).
+- `assets/js/cartera.js` — `CARTERA_COLS` con las nuevas etapas; `carteraEnviarWhatsApp()` manda `nivelEnviado` en vez de calcular el estado en el navegador. `?v=20260912e`.
+- `assets/css/app.css` — colores de columna nuevos para etapa1/etapa2/etapa3 y acuerdo. `?v=20260912b`.
+- `tareas-equipo.html` — opciones del selector "Estado" actualizadas; `?v=` de `cartera.js` y `app.css` subidos.
+
+**Prueba manual sugerida:**
+1. Cliente en "Por contactar" → enviar correo de Etapa 1 → la tarjeta debe aparecer en "Etapa 1 enviada".
+2. Mismo cliente → enviar WhatsApp de Etapa 2 → debe pasar a "Etapa 2 enviada".
+3. Al mismo cliente (ya en Etapa 2), reenviarle un correo de Etapa 1 → la tarjeta NO debe retroceder, debe quedarse en "Etapa 2 enviada".
+4. Abrir el modal de cualquier cliente y cambiar el "Estado" a mano con el selector (ej. de una etapa avanzada a "Por contactar") y Guardar → sí debe permitir el cambio manual, incluso hacia atrás.
+5. Revisar que ya no queden tarjetas en columnas viejas ("Llamado"/"Correo enviado" no deberían existir) — si algún cliente quedó con un estado raro después de correr la migración, revisar `cartera_gestion.plantilla_nivel` para ese cliente en phpMyAdmin.
+
 ## Cambios pendientes de deploy (2026-09-12 — Cartera: las 3 plantillas de cobro reescritas)
 
 Carlos mandó el texto exacto de las 3 etapas de cobro (afinado en gestiones anteriores) y pidió dejarlo fijo en código por ahora (no editable desde la UI). Se reescribió `backend/lib/cartera_plantillas.php` completo. Importante: la Etapa 2 dejó de ser un correo — ahora es un mensaje corto para WhatsApp o llamada, así que se ocultó el botón "Enviar por correo" cuando el nivel es 'firme'.

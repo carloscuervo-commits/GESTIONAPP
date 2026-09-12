@@ -15,12 +15,16 @@
  * de seguimiento (la que el usuario haya dejado en el campo del modal, ya
  * sea el valor estándar sugerido o uno que haya cambiado para este caso).
  *
- * El estado del tablero solo avanza automáticamente de "por-contactar" a
- * "correo" — si ya estaba en un estado más avanzado (llamado, acuerdo,
- * pagado) no se toca, para no perder el trabajo manual del tablero.
+ * El estado del tablero avanza automáticamente a la columna de la etapa
+ * correspondiente al nivel de la plantilla enviada (cordial->etapa1,
+ * firme->etapa2, prejuridico->etapa3) — nunca retrocede: si ya estaba en
+ * una etapa más adelantada (o en acuerdo/pagado) no se toca, para no
+ * perder el trabajo manual del tablero. Ver cartera_estados.php.
  */
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
+
+require_once __DIR__ . '/../lib/cartera_estados.php';
 
 $pdo = getDB();
 $usuario = requireSesion($pdo, 'admin');
@@ -66,7 +70,7 @@ if ($fechaProximoSeguimiento === '') {
 $stmt = $pdo->prepare("SELECT estado FROM cartera_gestion WHERE cliente_alegra_id = ?");
 $stmt->execute([$clienteAlegraId]);
 $prev = $stmt->fetch();
-$estadoNuevo = (!$prev || $prev['estado'] === 'por-contactar') ? 'correo' : $prev['estado'];
+$estadoNuevo = carteraEstadoTrasEnvio($prev['estado'] ?? 'por-contactar', $nivel);
 
 $pdo->prepare("INSERT INTO cartera_gestion
     (cliente_alegra_id, cliente_nombre, estado, plantilla_nivel, fecha_ultimo_contacto, fecha_proximo_seguimiento, actualizado_por)

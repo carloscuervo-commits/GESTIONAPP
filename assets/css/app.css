@@ -179,9 +179,10 @@
   .cartera-toolbar { display: flex; gap: 8px; padding: 12px 20px 8px; align-items: center; flex-wrap: wrap; }
   .cartera-kanban { display: flex; gap: 12px; overflow-x: auto; min-height: calc(100vh - 260px); }
   .col-por-contactar .col-header { background: #a3a6ab; }
-  .col-llamado .col-header       { background: #14a8bd; }
-  .col-correo .col-header        { background: #0891b2; }
-  .col-acuerdo .col-header       { background: #f7941e; }
+  .col-etapa1 .col-header        { background: #0891b2; }
+  .col-etapa2 .col-header        { background: #f7941e; }
+  .col-etapa3 .col-header        { background: #e63946; }
+  .col-acuerdo .col-header       { background: #7c3aed; }
   .col-pagado .col-header        { background: #8dc63f; }
   .cartera-card { background: var(--card); border-radius: 8px; padding: 11px 12px; box-shadow: var(--shadow); border: 1px solid var(--border); cursor: pointer; transition: transform .1s, box-shadow .1s; border-left: 3px solid #0e7a8a; }
   .cartera-card:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
