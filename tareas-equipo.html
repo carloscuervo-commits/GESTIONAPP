@@ -230,10 +230,14 @@
       <div class="form-group full">
         <label>Nivel del mensaje</label>
         <select id="cm-nivel">
-          <option value="cordial">🙂 Cordial — primer aviso</option>
-          <option value="firme">😐 Firme — segundo aviso</option>
-          <option value="prejuridico">⚠️ Prejurídico — última instancia</option>
+          <option value="cordial">🙂 Etapa 1 — Cordial (correo)</option>
+          <option value="firme">😐 Etapa 2 — WhatsApp o llamada (no correo)</option>
+          <option value="prejuridico">⚠️ Etapa 3 — Última instancia (correo)</option>
         </select>
+      </div>
+      <div class="form-group full" id="cm-g-nombre-contacto" style="display:none">
+        <label>Nombre del contacto (para el saludo del WhatsApp/llamada)</label>
+        <input type="text" id="cm-nombre-contacto" placeholder="ej: María" autocomplete="off">
       </div>
     </div>
     <button class="btn-cancel" id="cm-btn-previsualizar" style="margin-top:4px" onclick="carteraPrevisualizarMensaje()">✍️ Generar mensaje</button>
@@ -888,7 +892,7 @@
 <script src="assets/js/core.js?v=20260909a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
 <script src="assets/js/tareas.js?v=20260912a"></script>
-<script src="assets/js/cartera.js?v=20260912c"></script>
+<script src="assets/js/cartera.js?v=20260912d"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
 <script src="assets/js/reportes.js?v=20260909a"></script>
 <script src="assets/js/comentarios.js?v=20260910a"></script>

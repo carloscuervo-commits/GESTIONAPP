@@ -237,6 +237,7 @@ async function openCarteraModal(clienteId) {
   document.getElementById('cm-celular').value = c.celular || '';
   document.getElementById('cm-email').value = c.email || '';
   document.getElementById('cm-nivel').value = g.plantilla_nivel || 'cordial';
+  document.getElementById('cm-nombre-contacto').value = '';
 
   // Próxima fecha de seguimiento: la guardada, o si no hay ninguna, hoy + el
   // estándar configurado (editable para este caso puntual antes de guardar).
@@ -258,6 +259,8 @@ async function openCarteraModal(clienteId) {
 
   toggleCarteraAcuerdo(g.estado || 'por-contactar');
   document.getElementById('cm-estado').onchange = e => toggleCarteraAcuerdo(e.target.value);
+  carteraToggleNivelUI();
+  document.getElementById('cm-nivel').onchange = () => carteraToggleNivelUI();
   document.getElementById('cartera-modal').classList.add('open');
 }
 
@@ -265,6 +268,17 @@ function toggleCarteraAcuerdo(estado) {
   const show = estado==='acuerdo';
   document.getElementById('cm-g-fecha-acuerdo').style.display = show?'flex':'none';
   document.getElementById('cm-g-monto-acuerdo').style.display = show?'flex':'none';
+}
+
+// Etapa 2 (nivel 'firme') es deliberadamente corta y va por WhatsApp o
+// llamada, no por correo — se pide el nombre del contacto (para el saludo)
+// y se oculta "Enviar por correo" para que no se mande por ahí por error.
+function carteraToggleNivelUI() {
+  const esFirme = document.getElementById('cm-nivel').value === 'firme';
+  const gContacto = document.getElementById('cm-g-nombre-contacto');
+  if (gContacto) gContacto.style.display = esFirme ? 'flex' : 'none';
+  const btnCorreo = document.getElementById('cm-btn-correo');
+  if (btnCorreo) btnCorreo.style.display = esFirme ? 'none' : '';
 }
 
 function closeCarteraModal() {
@@ -333,9 +347,10 @@ async function carteraPrevisualizarMensaje() {
   const orig = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
   try {
+    const nombreContacto = (document.getElementById('cm-nombre-contacto').value || '').trim();
     const res = await fetch(`${API_BASE}/cartera_mensaje.php`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ clienteNombre: c.clienteNombre, facturas: c.facturas, nivel }),
+      body: JSON.stringify({ clienteNombre: c.clienteNombre, facturas: c.facturas, nivel, clienteAlegraId: editingCarteraId, nombreContacto }),
     });
     const data = await res.json();
     if (data.error) { alert('⚠️ ' + data.error); return; }
@@ -352,6 +367,10 @@ async function carteraPrevisualizarMensaje() {
 async function carteraEnviarCorreo() {
   const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
   if (!c || !carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
+  if (document.getElementById('cm-nivel').value === 'firme') {
+    alert('La Etapa 2 es para WhatsApp o llamada, no se envía por correo.');
+    return;
+  }
   const destinatarios = (document.getElementById('cm-email').value || '').trim();
   if (!destinatarios) { alert('Falta el correo del cliente.'); return; }
   const cuerpoTexto = document.getElementById('cm-mensaje-texto').value;

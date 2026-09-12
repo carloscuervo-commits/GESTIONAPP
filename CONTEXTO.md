@@ -4,6 +4,24 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — Cartera: las 3 plantillas de cobro reescritas con el texto real de Carlos)
+
+### feat: plantillas de cobro (Etapas 1/2/3) reescritas en código con el texto exacto que Carlos ya tiene afinado
+
+Carlos preguntó si las plantillas de cobro habían quedado personalizables — no lo estaban a nivel de UI (solo el mensaje ya generado es editable antes de enviar), así que pidió que por ahora se dejen fijas en código pero con el texto real que ha ido afinando en sus gestiones (frase de aceptación DIAN, valores sin decimales, cierre combinado pidiendo soporte de pago, mención de "de ahora en adelante enviar el comprobante", firma). Se reescribió `backend/lib/cartera_plantillas.php` completo con las 3 plantillas exactas que mandó, reemplazando el texto anterior (que era una aproximación mía, no lo que él realmente usa):
+
+- **Etapa 1 / cordial** (correo, primer aviso): tabla Factura/Fecha/Vencimiento/Valor, datos bancarios, pide soporte de pago y aclara que de ahí en adelante debe enviar el comprobante de cada pago, y pregunta si hay alguna observación sobre la factura (singular/plural real: "la factura X" vs "las facturas X, Y").
+- **Etapa 2 / firme** (⚠️ ya NO es correo — es un mensaje corto para WhatsApp o llamada, deliberadamente breve para retomar contacto humano antes de subir el tono). Usa el nombre del contacto (nuevo campo del modal, no se guarda, solo para ese envío) y la fecha del primer correo — si no se indica, el backend la busca sola en `cartera_gestion.fecha_ultimo_contacto` para ese cliente. El botón "Enviar por correo" se oculta cuando el nivel es 'firme' (con un guard adicional en `carteraEnviarCorreo()` por si acaso), y el `asunto` que devuelve la plantilla queda vacío a propósito.
+- **Etapa 3 / prejurídico** (correo, última instancia): plazo de 5 días hábiles (mismo valor de antes, sigue sin relación con `cartera_dias_recordatorio`), mención explícita de cobro prejurídico, e incluye el celular personal de Carlos (317 649 0590) para gestionar un acuerdo de pago.
+
+De paso se corrigió un bug que traía la implementación anterior: `cartera_plantillas.php` leía `$f['numero']`, pero las facturas que le llegan desde `alegraCarteraVigente()` usan la clave `num` — el número de factura siempre salía vacío en el texto generado. También ahora usa `f['date']` (fecha de emisión) además de `dueDate`, porque la nueva tabla de las etapas 1 y 3 tiene una columna "Fecha" además de "Vencimiento".
+
+Los textos usan la convención de escritura "factura(s)"/"aceptada(s)" tal como los escribió Carlos (válida en singular o plural sin necesidad de lógica condicional) — solo la frase "la factura X" / "las facturas X, Y" sí se resuelve dinámicamente según la cantidad real.
+
+**Archivos**: `backend/lib/cartera_plantillas.php` (reescrito) · `backend/api/cartera_mensaje.php` (ahora recibe `clienteAlegraId`/`nombreContacto`/`fechaContacto` y arma un array `$opciones` en vez del antiguo 4° parámetro `$diasPlazo`) · `assets/js/cartera.js` (campo "Nombre del contacto", `carteraToggleNivelUI()` que oculta "Enviar por correo" en Etapa 2, `?v=20260912d`) · `tareas-equipo.html` (campo nuevo, labels "Etapa 1/2/3", `?v=` de `cartera.js` subido).
+
+**Nota**: sigue pendiente el próximo deploy — este cambio se suma a los fixes de `loadCartera`, el filtro de fechas de Alegra y el 401 de Configuración, todos ya en la carpeta pero no en producción.
+
 ## Estado actual (última actualización: 2026-09-12 — fix: Configuración pedía sesión y no la mandaba (401))
 
 ### fix: `⚙️ Configuración` daba 401 (Unauthorized) al cargar

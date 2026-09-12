@@ -42,6 +42,22 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — Cartera: las 3 plantillas de cobro reescritas)
+
+Carlos mandó el texto exacto de las 3 etapas de cobro (afinado en gestiones anteriores) y pidió dejarlo fijo en código por ahora (no editable desde la UI). Se reescribió `backend/lib/cartera_plantillas.php` completo. Importante: la Etapa 2 dejó de ser un correo — ahora es un mensaje corto para WhatsApp o llamada, así que se ocultó el botón "Enviar por correo" cuando el nivel es 'firme'.
+
+**Archivos modificados:**
+- `backend/lib/cartera_plantillas.php` — las 3 plantillas reescritas con el texto real; de paso corrige un bug (leía `$f['numero']` en vez de `$f['num']`, así que el número de factura siempre salía vacío en el mensaje generado).
+- `backend/api/cartera_mensaje.php` — recibe `clienteAlegraId`, `nombreContacto` y `fechaContacto` (estos dos solo para Etapa 2); si no llega `fechaContacto`, la busca en `cartera_gestion.fecha_ultimo_contacto`.
+- `assets/js/cartera.js` — campo nuevo "Nombre del contacto" (solo visible en Etapa 2, no se guarda en ningún lado), oculta "Enviar por correo" en Etapa 2. `?v=20260912d`.
+- `tareas-equipo.html` — campo del contacto, labels "Etapa 1/2/3" en el selector de nivel, `?v=` de `cartera.js` subido.
+
+**Prueba manual sugerida:**
+1. Abrir un cliente en Cartera con más de una factura vencida → Etapa 1 → "Generar mensaje" → verificar la tabla (Factura/Fecha/Vencimiento/Valor, sin decimales) y que la frase final diga "las facturas X, Y" (no "la factura").
+2. Mismo cliente → Etapa 2 → debe aparecer el campo "Nombre del contacto" y desaparecer el botón "Enviar por correo" (solo debe quedar WhatsApp). Generar el mensaje y confirmar que sale corto, con el nombre si se puso uno.
+3. Etapa 3 → confirmar que menciona el plazo de 5 días hábiles, el cobro prejurídico y el celular personal de Carlos.
+4. Enviar por correo en Etapa 1 o 3 y confirmar que llega bien: el correo real se arma a partir del texto plano del textarea (con saltos de línea preservados vía `white-space:pre-wrap`, igual que siempre), así que la tabla de facturas se ve como el texto con "|" que arma la plantilla — igual a como la escribió Carlos, no como una tabla HTML con bordes.
+
 ## Cambios pendientes de deploy (2026-09-12 — fix: Configuración daba 401 al cargar)
 
 Carlos reportó `GET .../configuracion.php 401 (Unauthorized)` al entrar a la app. `assets/js/configuracion.js` llamaba a la API con ruta relativa (`'backend/api/configuracion.php'`) en vez de `` `${API_BASE}/...` ``, así que el interceptor de `core.js` que agrega el token de sesión a cada llamada nunca la reconocía como llamada a la API y no le ponía el header `Authorization` — bug preexistente desde el fix de seguridad del 2026-09-09, no de esta sesión.
