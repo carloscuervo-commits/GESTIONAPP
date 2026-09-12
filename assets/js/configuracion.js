@@ -1,6 +1,6 @@
 // ============================================================
 // configuracion.js  —  Módulo de configuración del sistema (solo admin)
-// v20260912a
+// v20260912c
 // ============================================================
 
 (function () {
@@ -207,14 +207,14 @@
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <div style="flex:1;min-width:220px">
-              <div style="font-weight:600;font-size:13px;color:var(--text,#1e293b)">💰 Días estándar — seguimiento de cartera</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Al registrar una gestión de cobro en la pestaña Cartera, la próxima fecha de seguimiento se sugiere como hoy + estos días (se puede cambiar caso por caso al guardar).</div>
+              <div style="font-weight:600;font-size:13px;color:var(--text,#1e293b)">💰 Días hábiles estándar — seguimiento de cartera</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Al registrar una gestión de cobro en la pestaña Cartera, la próxima fecha de seguimiento se sugiere como hoy + estos días hábiles (se puede cambiar caso por caso al confirmar el envío).</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
               <input type="number" id="cfg-cartera-dias-recordatorio" min="1" max="60" step="1" value="${esc(String(carteraDiasRecordatorio))}"
                 style="width:70px;padding:7px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;text-align:center"
                 onchange="cfgGuardarCarteraDiasRecordatorio(this.value)">
-              <span style="font-size:13px;color:var(--text-muted)">días</span>
+              <span style="font-size:13px;color:var(--text-muted)">días hábiles</span>
             </div>
           </div>
           <div style="padding:14px 20px;border-top:1px solid var(--border,#e5e7eb);display:flex;align-items:center;gap:10px;flex-wrap:wrap">

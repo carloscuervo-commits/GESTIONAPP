@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — Cartera: el recordatorio se cuenta en días hábiles colombianos)
+
+### fix/feat: "días para recordar" pasa a ser días hábiles (fines de semana y festivos colombianos)
+
+Carlos preguntó si los días del popup de confirmación (y del campo del formulario) eran hábiles o calendario — eran calendario. Pidió que fueran hábiles, que la etiqueta lo diga explícitamente, e incluir festivos colombianos.
+
+En vez de reimplementar el cálculo de festivos, se reutilizó el que ya existe en `core.js` (`esDiaHabil()`, con `_pascua()`/`_nextLunes()`/`_festivosColombia()` — el mismo que usa `tareas.js` para "días hábiles sin facturar" y las alertas de tardanza): `core.js` se carga antes que `cartera.js` en `tareas-equipo.html`, así que `esDiaHabil()` ya está disponible como función global.
+
+`_carteraFechaMasDias(dias)` en `cartera.js` ahora suma días saltando sábados, domingos y festivos colombianos (en vez de sumar directo con `setDate`). Se agregó además `_carteraDiasHabilesHasta(fecha)` para el cálculo inverso — al reabrir la gestión de un cliente que ya tiene una fecha de seguimiento guardada, el campo de días refleja los días **hábiles** que faltan, no los días calendario.
+
+Las etiquetas "Recordar seguir la gestión en (días)" (formulario y popup) ahora dicen explícitamente "(días hábiles)", y la de ⚙️ Configuración ("Días estándar — seguimiento de cartera") también se actualizó a "Días hábiles estándar — seguimiento de cartera".
+
+**Archivos**: `assets/js/cartera.js` (`_carteraFechaMasDias()` y `_carteraDiasHabilesHasta()` reescritas, reusan `esDiaHabil()` de `core.js`, `?v=20260912h`) · `assets/js/configuracion.js` (etiqueta actualizada, `?v=20260912c`) · `tareas-equipo.html` (etiquetas del modal actualizadas, `?v=` de ambos JS subidos). Sin cambios de backend ni SQL — el cálculo ocurre en el navegador antes de mandar la fecha ya resuelta.
+
 ## Estado actual (última actualización: 2026-09-12 — Cartera: popup de confirmación al enviar cobro)
 
 ### feat: al enviar cobro (correo, WhatsApp o copiar texto) se pregunta si avanzar de etapa y en cuántos días recordar

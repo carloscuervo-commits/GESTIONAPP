@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260912g
+// v20260912h
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -66,16 +66,38 @@ function _carteraHoyISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// "Días" para el recordatorio de seguimiento son días HÁBILES colombianos
+// (se saltan sábados, domingos y festivos) — reutiliza esDiaHabil() de
+// core.js, que ya calcula los festivos colombianos (fijos, Ley Emiliani y
+// móviles de Semana Santa) igual que el resto de la app.
 function _carteraFechaMasDias(dias) {
-  const d = new Date(); d.setDate(d.getDate() + (parseInt(dias, 10) || 0));
+  const d = new Date();
+  let restantes = parseInt(dias, 10) || 0;
+  while (restantes > 0) {
+    d.setDate(d.getDate() + 1);
+    if (esDiaHabil(d)) restantes--;
+  }
   return d.toISOString().slice(0, 10);
+}
+
+// Inversa: cuántos días hábiles hay entre hoy y una fecha futura ya guardada
+// (para mostrar el número correcto al reabrir la gestión de un cliente).
+function _carteraDiasHabilesHasta(fechaFinISO) {
+  const fin = new Date(fechaFinISO); fin.setHours(0,0,0,0);
+  const cur = new Date(); cur.setHours(0,0,0,0);
+  let dias = 0;
+  while (cur < fin) {
+    cur.setDate(cur.getDate() + 1);
+    if (esDiaHabil(cur)) dias++;
+  }
+  return dias;
 }
 
 // ── Popup de confirmación al enviar cobro ───────────────────
 // Antes de registrar cualquier envío (correo, WhatsApp o copiar texto) se
-// confirma si la tarjeta debe avanzar de etapa y en cuántos días recordar
-// seguir la gestión (estándar precargado, editable para ese caso puntual).
-// accionCallback(avanzar, dias) hace el envío real y el registro en
+// confirma si la tarjeta debe avanzar de etapa y en cuántos días HÁBILES
+// recordar seguir la gestión (estándar precargado, editable para ese caso
+// puntual). accionCallback(avanzar, dias) hace el envío real y el registro en
 // cartera_gestion — se dispara de forma síncrona desde el clic en
 // "Confirmar" (no desde un await previo) para no perder el gesto del
 // usuario, que window.open (WhatsApp) y el portapapeles necesitan.
@@ -283,18 +305,19 @@ async function openCarteraModal(clienteId) {
   document.getElementById('cm-nivel').value = g.plantilla_nivel || 'cordial';
   document.getElementById('cm-nombre-contacto').value = '';
 
-  // Días para recordar seguir la gestión: si ya hay una fecha de seguimiento
-  // guardada, se muestran los días que faltan desde hoy; si no hay ninguna
-  // (cliente nuevo), se usa el estándar configurado. Editable para este caso
-  // puntual, tanto aquí como en el popup de confirmación al enviar.
+  // Días HÁBILES para recordar seguir la gestión: si ya hay una fecha de
+  // seguimiento guardada, se muestran los días hábiles que faltan desde hoy;
+  // si no hay ninguna (cliente nuevo), se usa el estándar configurado.
+  // Editable para este caso puntual, tanto aquí como en el popup de
+  // confirmación al enviar.
   let dias = 7;
   try {
     const cfg = await fetch(`${API_BASE}/configuracion.php`).then(r=>r.json());
     dias = parseInt(cfg.cartera_dias_recordatorio, 10) || 7;
   } catch(e) {}
   if (g.fecha_proximo_seguimiento) {
-    const diff = Math.round((new Date(g.fecha_proximo_seguimiento) - new Date(_carteraHoyISO())) / 86400000);
-    if (diff > 0) dias = diff;
+    const habiles = _carteraDiasHabilesHasta(g.fecha_proximo_seguimiento);
+    if (habiles > 0) dias = habiles;
   }
   document.getElementById('cm-dias-seguimiento').value = dias;
 

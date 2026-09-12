@@ -42,6 +42,19 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — Cartera: recordatorio en días hábiles colombianos)
+
+No requiere migración de base de datos.
+
+Los "días para recordar" (formulario y popup de confirmación) ahora son días hábiles — se saltan sábados, domingos y festivos colombianos — reutilizando la función `esDiaHabil()` que ya existe en `core.js` (la misma que usa el resto de la app para alertas de facturación). Antes eran días calendario simples.
+
+**Archivos modificados:**
+- `assets/js/cartera.js` — `_carteraFechaMasDias()` y `_carteraDiasHabilesHasta()` usan `esDiaHabil()`. `?v=20260912h`.
+- `assets/js/configuracion.js` — etiqueta "Días hábiles estándar — seguimiento de cartera". `?v=20260912c`.
+- `tareas-equipo.html` — etiquetas "(días hábiles)" en el formulario y en el popup; `?v=` de `cartera.js`/`configuracion.js` subidos.
+
+**Prueba manual sugerida:** con el estándar en 5, generar y confirmar un envío un viernes → la próxima fecha de seguimiento debe caer el viernes siguiente (saltando sáb/dom), no el miércoles. Si hay un festivo colombiano en el rango, debe saltarlo también (se puede verificar temporalmente bajando el estándar a 1-2 días alrededor de una fecha festiva conocida).
+
 ## Cambios pendientes de deploy (2026-09-12 — Cartera: popup de confirmación al enviar cobro)
 
 No requiere migración de base de datos.
