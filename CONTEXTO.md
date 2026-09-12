@@ -4,6 +4,18 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — fix real: Cartera mostraba facturas que aún no vencían)
+
+### fix: `dueDate_before` de Alegra no filtra nada — Cartera mostraba facturas que todavía no vencían como si ya hubieran vencido
+
+Carlos reportó (con un cliente real, Beisbol de Colombia) que la pestaña Cartera mostraba facturas con fecha de vencimiento futura (ej. 2026-10-07) marcadas como "venció". Se confirmó contra la API de Alegra directamente: el parámetro `dueDate_before` de `GET /invoices` **no filtra nada** — con o sin él, Alegra devuelve exactamente las mismas facturas `status=open` de un cliente, sin importar su fecha de vencimiento (probado con el cliente id 39: la consulta con `dueDate_before=2026-09-12` devolvió sus 7 facturas abiertas completas, incluyendo 5 que vencen en octubre). La suposición original (que alcanzaba con pedirle a Alegra "antes de hoy") era incorrecta.
+
+**Fix** en `backend/lib/alegra_cartera.php` (`alegraCarteraVigente()`): se dejó de mandar `dueDate_before` en la consulta (no hace nada) y en su lugar se filtra factura por factura, en el código: solo se cuenta como vencida (y se suma a la deuda del cliente) una factura cuyo `dueDate` sea `<= hoy`. Como la empresa hoy tiene ~80 facturas "open" en total (bien por debajo del tope de seguridad de 600 que ya tenía la función), recorrer todas y filtrar acá no tiene costo real. Esto corrige de raíz tanto el tablero de Cartera como el cron de recordatorio (los dos usan esta misma función) y también corrige, de paso, el texto "venció {fecha}" agregado en el fix anterior — con este cambio sí es cierto que toda factura listada en Cartera está realmente vencida.
+
+**Nota para el próximo deploy**: el primer deploy de Cartera que hizo Carlos salió con el bug de `loadCartera` y este bug de fechas, porque ambos fixes se hicieron después de ese deploy — hace falta un deploy nuevo para que las tres correcciones (el `loadCartera`, el texto "venció" y este fix de fechas) lleguen a producción.
+
+**Archivos**: `backend/lib/alegra_cartera.php`.
+
 ## Estado actual (última actualización: 2026-09-12 — Cartera: archivado automático de pagados + fix post-deploy)
 
 ### feat: la cartera archiva sola a quien ya pagó (sin borrar el histórico) + sección "🗄️ Archivados"

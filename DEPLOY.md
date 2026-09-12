@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — fix real: Cartera mostraba facturas que aún no vencían)
+
+Carlos reportó (con el cliente Beisbol de Colombia) que Cartera mostraba facturas de octubre como ya vencidas. Se confirmó contra la API de Alegra que `dueDate_before` **no filtra nada** — con o sin él, devuelve las mismas facturas abiertas del cliente. Se quitó ese parámetro (no hacía nada) y se filtra por fecha en el código, factura por factura.
+
+**Archivo modificado**: `backend/lib/alegra_cartera.php` (usado tanto por la pestaña Cartera como por el cron de recordatorio, así que corrige los dos).
+
+**Prueba manual sugerida:** abrir la tarjeta de un cliente en Cartera que tenga facturas con vencimiento futuro además de las realmente vencidas (ej. el mismo caso reportado) → el resumen de facturas del modal solo debe listar las que ya vencieron, no las futuras; el total de deuda del cliente también debe bajar para reflejar solo lo vencido.
+
 ## Cambios pendientes de deploy (2026-09-12 — Cartera: archivado automático de pagados + fix post-deploy)
 
 **⚠️ Requiere migración ANTES del deploy de código**: ejecutar `db/041_cartera_archivado.sql` en phpMyAdmin (agrega `cartera_gestion.archivado`, `archivado_en`, `ultimo_total_deuda`). Requiere que `db/040_cartera_gestion.sql` ya esté corrida (deploy anterior).

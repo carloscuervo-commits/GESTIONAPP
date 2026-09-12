@@ -25,17 +25,25 @@ function alegraCarteraVigente(): array {
   $hoy = (new DateTime('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
 
   // Alegra pagina de a 30 registros — recorremos varias páginas hasta agotar
-  // resultados o llegar a un tope de seguridad.
+  // resultados o llegar a un tope de seguridad. IMPORTANTE: el filtro
+  // dueDate_before de la consulta NO funciona en la práctica (confirmado:
+  // con o sin él, Alegra devuelve todas las facturas "open" del cliente sin
+  // importar su fecha de vencimiento) — por eso se recorren TODAS las
+  // facturas abiertas de la empresa (no solo las vencidas) y se filtra acá
+  // mismo por fecha (ver abajo). El tope de 20 páginas (600 facturas) es
+  // holgado: hoy la empresa tiene ~80 facturas "open" en total.
   $byClient = [];
   $start = 0;
   $limitPorPagina = 30;
-  $topeSeguridad = 20; // hasta 600 facturas vencidas
+  $topeSeguridad = 20;
   $huboRespuestaValida = false;
 
   for ($pagina = 0; $pagina < $topeSeguridad; $pagina++) {
+    // No se manda dueDate_before: se probó y Alegra lo ignora (devuelve igual
+    // todas las facturas "open"), así que no vale la pena pedirlo — el
+    // filtro de vencida se hace abajo, por factura.
     $facturas = _acGet('https://api.alegra.com/api/v1/invoices?' . http_build_query([
       'status'          => 'open',
-      'dueDate_before'  => $hoy,
       'order_field'     => 'dueDate',
       'order_direction' => 'ASC',
       'limit'           => $limitPorPagina,
@@ -52,11 +60,16 @@ function alegraCarteraVigente(): array {
     foreach ($facturas as $f) {
       $balance = isset($f['balance']) ? (float)$f['balance'] : (float)($f['total'] ?? 0);
       if ($balance <= 0) continue;
+      $dueDate = $f['dueDate'] ?? '';
+
+      // dueDate_before no filtra nada del lado de Alegra (ver nota arriba) —
+      // el filtro real de "vencida" es este.
+      if ($dueDate === '' || $dueDate > $hoy) continue;
+
       $cliente = $f['client'] ?? null;
       if (!$cliente || empty($cliente['id'])) continue;
       $cid = (string)$cliente['id'];
       $numero = $f['numberTemplate']['fullNumber'] ?? $f['numberTemplate']['number'] ?? ($f['number'] ?? (string)($f['id'] ?? ''));
-      $dueDate = $f['dueDate'] ?? '';
       $date = $f['date'] ?? $dueDate;
 
       if (!isset($byClient[$cid])) {
