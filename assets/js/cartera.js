@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260912e
+// v20260912f
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -406,6 +406,45 @@ async function carteraEnviarCorreo() {
   } finally {
     btn.disabled = false; btn.textContent = orig;
   }
+}
+
+// Copiar el texto del mensaje al portapapeles — para cuando Carlos prefiere
+// pegarlo a mano (SMS, otro correo, etc.) en vez de usar los botones de
+// envío directo. Cuenta como "mensaje enviado" para todos los efectos: avanza
+// el estado igual que correo o WhatsApp (mismo nivelEnviado, forward-only).
+async function carteraCopiarTexto() {
+  const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
+  if (!carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
+  const texto = document.getElementById('cm-mensaje-texto').value;
+  try {
+    await navigator.clipboard.writeText(texto);
+  } catch (e) {
+    alert('No se pudo copiar el texto al portapapeles.');
+    return;
+  }
+  const btn = document.getElementById('cm-btn-copiar');
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✅ Copiado';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }
+
+  const nivel = document.getElementById('cm-nivel').value;
+  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
+  fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
+      nivelEnviado: nivel, // el backend avanza el estado a la etapa de este nivel, sin retroceder
+      plantillaNivel: nivel,
+      fechaUltimoContacto: _carteraHoyISO(),
+      fechaProximoSeguimiento,
+    }),
+  }).then(r=>r.json()).then(g=>{
+    carteraGestionMap[editingCarteraId] = g;
+    if (c) _carteraGuardarContactoSiCambio(c);
+    renderCartera();
+  }).catch(()=>{});
 }
 
 function carteraEnviarWhatsApp() {

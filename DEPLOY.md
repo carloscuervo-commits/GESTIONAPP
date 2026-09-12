@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — Cartera: botón "Copiar texto")
+
+Tercer botón en el modal de cobro, junto a "Enviar por correo" y "Enviar por WhatsApp": copia el mensaje al portapapeles y avanza el estado igual que los otros dos (mismo `nivelEnviado`, forward-only).
+
+**Archivos modificados:** `assets/js/cartera.js` (`carteraCopiarTexto()`, `?v=20260912f`) · `tareas-equipo.html` (botón `#cm-btn-copiar`, `?v=` de `cartera.js` subido).
+
+**Prueba manual sugerida:** en cualquier cliente, generar el mensaje y darle "📋 Copiar texto" → debe pegar el mismo texto que muestra el textarea (probar pegándolo en cualquier campo) y la tarjeta debe avanzar a la etapa correspondiente igual que si se hubiera enviado por correo o WhatsApp.
+
 ## Cambios pendientes de deploy (2026-09-12 — Cartera: tablero rediseñado con una columna por etapa)
 
 **⚠️ Requiere migración ANTES del deploy de código**: ejecutar `db/042_cartera_etapas.sql` en phpMyAdmin (remapea `estado='correo'`/`'llamado'` existentes a `etapa1`/`etapa2`/`etapa3` según el nivel de plantilla guardado). Requiere que `040_cartera_gestion.sql` y `041_cartera_archivado.sql` ya estén corridas.

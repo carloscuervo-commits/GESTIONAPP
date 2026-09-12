@@ -246,6 +246,7 @@
       <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Mensaje (editable — se usa igual para correo y WhatsApp)</label>
       <textarea id="cm-mensaje-texto" style="width:100%;min-height:180px;margin-top:4px;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border,#e5e7eb);border-radius:6px"></textarea>
       <div class="modal-actions" style="margin-top:10px">
+        <button class="btn-cancel" id="cm-btn-copiar" onclick="carteraCopiarTexto()">📋 Copiar texto</button>
         <button class="btn-cancel" onclick="carteraEnviarWhatsApp()">💬 Enviar por WhatsApp</button>
         <button class="btn-save" id="cm-btn-correo" onclick="carteraEnviarCorreo()">📧 Enviar por correo</button>
       </div>
@@ -893,7 +894,7 @@
 <script src="assets/js/core.js?v=20260909a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
 <script src="assets/js/tareas.js?v=20260912a"></script>
-<script src="assets/js/cartera.js?v=20260912e"></script>
+<script src="assets/js/cartera.js?v=20260912f"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
 <script src="assets/js/reportes.js?v=20260909a"></script>
 <script src="assets/js/comentarios.js?v=20260910a"></script>

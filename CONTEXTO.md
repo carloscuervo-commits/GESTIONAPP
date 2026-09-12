@@ -4,6 +4,16 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — Cartera: botón "Copiar texto" en el modal de cobro)
+
+### feat: tercer botón "📋 Copiar texto" junto a "Enviar por correo"/"Enviar por WhatsApp"
+
+Carlos pidió un tercer botón, junto a los dos de envío, para copiar el mensaje generado al portapapeles (para casos donde prefiere pegarlo a mano en otro canal) — con el mismo comportamiento de avance de estado que los otros dos: cuenta como mensaje enviado en esa etapa y mueve la tarjeta hacia adelante (nunca hacia atrás), igual que correo o WhatsApp.
+
+Nueva función `carteraCopiarTexto()` en `cartera.js`: usa `navigator.clipboard.writeText()` sobre el texto del textarea del mensaje, muestra brevemente "✅ Copiado" en el botón, y hace el mismo PUT a `cartera_gestion.php` con `nivelEnviado` que ya hace `carteraEnviarWhatsApp()` (mismo cálculo forward-only en el backend, sin cambios ahí).
+
+**Archivos**: `assets/js/cartera.js` (`?v=20260912f`) · `tareas-equipo.html` (botón nuevo `#cm-btn-copiar`, `?v=` de `cartera.js` subido).
+
 ## Estado actual (última actualización: 2026-09-12 — Cartera: tablero rediseñado con una columna por etapa, avance automático)
 
 ### feat: el tablero de Cartera pasa a tener una columna por etapa de cobro, que avanza sola al enviar el mensaje de esa etapa
