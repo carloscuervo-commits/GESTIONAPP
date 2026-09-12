@@ -2,7 +2,7 @@
 /**
  * cartera_enviar_correo.php — POST /cartera_enviar_correo.php
  * body: { clienteAlegraId, clienteNombre, destinatarios: "correo1,correo2",
- *         asunto, cuerpoTexto, nivel, fechaProximoSeguimiento? }
+ *         asunto, cuerpoTexto, nivel, avanzar, fechaProximoSeguimiento? }
  *
  * cuerpoTexto es el texto plano que el usuario ya revisó/editó en el modal
  * (mismo texto que se usaría para WhatsApp) — aquí se convierte a un HTML
@@ -12,14 +12,15 @@
  *
  * Envía el correo de cobro y registra la gestión en
  * cartera_gestion: fecha de contacto = hoy, nivel usado, y la próxima fecha
- * de seguimiento (la que el usuario haya dejado en el campo del modal, ya
- * sea el valor estándar sugerido o uno que haya cambiado para este caso).
+ * de seguimiento (calculada en el frontend a partir de los días que el
+ * usuario confirmó en el popup de envío, con el estándar precargado).
  *
- * El estado del tablero avanza automáticamente a la columna de la etapa
- * correspondiente al nivel de la plantilla enviada (cordial->etapa1,
- * firme->etapa2, prejuridico->etapa3) — nunca retrocede: si ya estaba en
- * una etapa más adelantada (o en acuerdo/pagado) no se toca, para no
- * perder el trabajo manual del tablero. Ver cartera_estados.php.
+ * avanzar (bool) viene del popup de confirmación que se muestra al dar clic
+ * en "Enviar por correo": si es true, el estado del tablero avanza a la
+ * columna de la etapa correspondiente al nivel de la plantilla enviada
+ * (cordial->etapa1, firme->etapa2, prejuridico->etapa3), sin retroceder
+ * nunca (ver cartera_estados.php); si es false, el usuario eligió dejar la
+ * tarjeta en su columna actual y el estado no se toca.
  */
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
@@ -42,6 +43,7 @@ $destinatariosRaw = trim($d['destinatarios'] ?? '');
 $asunto = trim($d['asunto'] ?? '');
 $cuerpoTexto = $d['cuerpoTexto'] ?? '';
 $nivel = $d['nivel'] ?? 'cordial';
+$avanzar = !empty($d['avanzar']);
 $fechaProximoSeguimiento = trim($d['fechaProximoSeguimiento'] ?? '');
 
 if ($clienteAlegraId === '' || $clienteNombre === '') jsonOut(['error' => 'clienteAlegraId y clienteNombre son requeridos'], 400);
@@ -70,7 +72,8 @@ if ($fechaProximoSeguimiento === '') {
 $stmt = $pdo->prepare("SELECT estado FROM cartera_gestion WHERE cliente_alegra_id = ?");
 $stmt->execute([$clienteAlegraId]);
 $prev = $stmt->fetch();
-$estadoNuevo = carteraEstadoTrasEnvio($prev['estado'] ?? 'por-contactar', $nivel);
+$estadoActualPrevio = $prev['estado'] ?? 'por-contactar';
+$estadoNuevo = $avanzar ? carteraEstadoTrasEnvio($estadoActualPrevio, $nivel) : $estadoActualPrevio;
 
 $pdo->prepare("INSERT INTO cartera_gestion
     (cliente_alegra_id, cliente_nombre, estado, plantilla_nivel, fecha_ultimo_contacto, fecha_proximo_seguimiento, actualizado_por)

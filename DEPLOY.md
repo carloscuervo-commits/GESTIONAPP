@@ -42,6 +42,26 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — Cartera: popup de confirmación al enviar cobro)
+
+No requiere migración de base de datos.
+
+Al dar clic en cualquiera de los 3 botones de cobro (correo, WhatsApp, copiar texto) ahora aparece un popup antes de ejecutar la acción: un check "Avanzar la tarjeta a Etapa X enviada" (marcado por defecto) y un campo "Recordar seguir la gestión en (días)" precargado con el estándar configurado — ambos editables ahí mismo. Solo al confirmar se envía/copia y se registra la gestión.
+
+De paso, el campo del formulario "Próxima fecha de seguimiento" (antes un calendario) pasó a ser un número de días — mismo comportamiento de precarga con el estándar, pero ahora expresado en días en vez de una fecha absoluta.
+
+**Archivos modificados:**
+- `assets/js/cartera.js` — popup de confirmación (`carteraAbrirConfirmacion()`/`carteraConfirmarEnvioOk()`), las 3 funciones de envío reescritas, campo de días en vez de fecha. `?v=20260912g`.
+- `tareas-equipo.html` — popup nuevo `#cartera-confirmar-modal`, campo `cm-dias-seguimiento`, `?v=` de `cartera.js` subido.
+- `backend/api/cartera_enviar_correo.php` — acepta `avanzar` (bool) del popup; si es `false` no avanza el estado.
+
+**Prueba manual sugerida:**
+1. Generar un mensaje (cualquier etapa) y darle a cualquiera de los 3 botones → debe aparecer el popup antes de que pase cualquier cosa (no debe enviarse nada todavía).
+2. Confirmar con "Avanzar" marcado → debe ejecutarse el envío/copiado normalmente y la tarjeta debe pasar a la etapa correspondiente.
+3. Repetir pero desmarcando "Avanzar" antes de confirmar → el envío/copiado debe seguir funcionando igual, pero la tarjeta NO debe cambiar de columna.
+4. Cambiar el número de días en el popup (ej. a 15) y confirmar → revisar que la próxima fecha de seguimiento haya quedado hoy + 15 días (se puede verificar reabriendo el modal del mismo cliente: el campo de días del formulario debe reflejarlo).
+5. Con WhatsApp en particular: confirmar en el popup y verificar que sí se abre la pestaña de WhatsApp (que el navegador no la haya bloqueado como pop-up).
+
 ## Cambios pendientes de deploy (2026-09-12 — Cartera: botón "Copiar texto")
 
 Tercer botón en el modal de cobro, junto a "Enviar por correo" y "Enviar por WhatsApp": copia el mensaje al portapapeles y avanza el estado igual que los otros dos (mismo `nivelEnviado`, forward-only).

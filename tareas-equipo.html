@@ -204,8 +204,8 @@
         <input type="text" id="cm-monto-acuerdo" placeholder="ej: 500000" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Próxima fecha de seguimiento</label>
-        <input type="date" id="cm-fecha-seguimiento">
+        <label>Recordar seguir la gestión en (días)</label>
+        <input type="number" id="cm-dias-seguimiento" min="1" placeholder="ej: 7">
       </div>
       <div class="form-group full">
         <label>Notas de gestión</label>
@@ -250,6 +250,27 @@
         <button class="btn-cancel" onclick="carteraEnviarWhatsApp()">💬 Enviar por WhatsApp</button>
         <button class="btn-save" id="cm-btn-correo" onclick="carteraEnviarCorreo()">📧 Enviar por correo</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- POPUP: confirmar envío de cobro (avanzar etapa + días de recordatorio) -->
+<div class="modal-overlay" id="cartera-confirmar-modal" style="z-index:410">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="modal-title" style="justify-content:center">📨 Confirmar gestión</div>
+    <div style="display:flex;flex-direction:column;gap:12px;text-align:left;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="cartera-confirmar-avanzar" checked style="width:16px;height:16px">
+        <span id="cartera-confirmar-avanzar-label">Avanzar la tarjeta a la siguiente etapa</span>
+      </label>
+      <div class="form-group">
+        <label>Recordar seguir la gestión en (días)</label>
+        <input type="number" id="cartera-confirmar-dias" min="1">
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-save" style="width:100%" onclick="carteraConfirmarEnvioOk()">✅ Confirmar</button>
+      <button class="btn-cancel" style="width:100%" onclick="document.getElementById('cartera-confirmar-modal').classList.remove('open')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -894,7 +915,7 @@
 <script src="assets/js/core.js?v=20260909a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
 <script src="assets/js/tareas.js?v=20260912a"></script>
-<script src="assets/js/cartera.js?v=20260912f"></script>
+<script src="assets/js/cartera.js?v=20260912g"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
 <script src="assets/js/reportes.js?v=20260909a"></script>
 <script src="assets/js/comentarios.js?v=20260910a"></script>

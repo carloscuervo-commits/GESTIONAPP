@@ -4,6 +4,22 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — Cartera: popup de confirmación al enviar cobro)
+
+### feat: al enviar cobro (correo, WhatsApp o copiar texto) se pregunta si avanzar de etapa y en cuántos días recordar
+
+Carlos pidió que, cada vez que se haga una gestión de cartera con cualquiera de los 3 botones, se pregunte explícitamente (1) si la tarjeta debe avanzar a la siguiente etapa o quedarse en la actual, y (2) en cuántos días recordar continuar la gestión — con el estándar configurado precargado pero editable para ese caso puntual.
+
+**Nuevo popup** (`#cartera-confirmar-modal`): aparece al dar clic en cualquiera de los 3 botones (antes de ejecutar el envío/copiado real), con un check "Avanzar la tarjeta a 'Etapa X enviada'" (marcado por defecto) y un campo numérico "Recordar seguir la gestión en (días)" precargado con el valor que ya tenía el formulario (que a su vez arranca en el estándar de `cartera_dias_recordatorio`, o en los días que falten para la fecha de seguimiento ya guardada). Solo al confirmar ahí se ejecuta la acción real — enviar el correo, abrir WhatsApp o copiar el texto — y se registra la gestión con la fecha de seguimiento resultante (hoy + los días elegidos) y, si se marcó avanzar, el nuevo estado.
+
+**Detalle técnico importante**: el envío real (abrir el enlace de WhatsApp, copiar al portapapeles) se dispara dentro del propio clic en "Confirmar" del popup — no antes — para no perder el gesto del usuario que esas dos APIs del navegador necesitan (si se abriera `window.open` o se copiara al portapapeles *antes* de mostrar el popup, o en un callback demasiado diferido, el navegador podría bloquearlo).
+
+**El campo "Próxima fecha de seguimiento" del formulario cambió a "días"**: en vez del selector de fecha calendario que había, ahora es un número de días (se sigue precargando con el estándar o con los días restantes de la fecha ya guardada, y sigue siendo editable). El botón "Guardar" (edición manual, sin pasar por el popup) calcula la fecha internamente a partir de esos días.
+
+Detrás, `backend/api/cartera_enviar_correo.php` ahora recibe un campo `avanzar` (booleano) y solo llama a `carteraEstadoTrasEnvio()` cuando viene en `true` — si viene en `false`, el estado se deja igual. Para WhatsApp y "Copiar texto" (que van por `cartera_gestion.php`), el frontend simplemente omite `nivelEnviado` del body cuando el usuario elige no avanzar (la lógica de avance en el backend, ya existente, no cambió).
+
+**Archivos**: `assets/js/cartera.js` (`carteraAbrirConfirmacion()`, `carteraConfirmarEnvioOk()`, `_carteraFechaMasDias()`, las 3 funciones de envío reescritas para pasar por el popup, `?v=20260912g`) · `tareas-equipo.html` (popup nuevo `#cartera-confirmar-modal`, campo `cm-dias-seguimiento` reemplaza a `cm-fecha-seguimiento`, `?v=` de `cartera.js` subido) · `backend/api/cartera_enviar_correo.php` (acepta `avanzar`).
+
 ## Estado actual (última actualización: 2026-09-12 — Cartera: botón "Copiar texto" en el modal de cobro)
 
 ### feat: tercer botón "📋 Copiar texto" junto a "Enviar por correo"/"Enviar por WhatsApp"

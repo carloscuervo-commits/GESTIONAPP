@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260912f
+// v20260912g
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -47,6 +47,12 @@ const CARTERA_NIVELES = [
   {id:'prejuridico', label:'⚠️ Prejurídico — última instancia'},
 ];
 
+const CARTERA_NIVEL_A_ETAPA_LABEL = {
+  cordial:     'Etapa 1',
+  firme:       'Etapa 2',
+  prejuridico: 'Etapa 3',
+};
+
 function formatCOP(n) {
   return '$' + Number(n||0).toLocaleString('es-CO');
 }
@@ -58,6 +64,43 @@ function diasDesde(isoDate) {
 
 function _carteraHoyISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function _carteraFechaMasDias(dias) {
+  const d = new Date(); d.setDate(d.getDate() + (parseInt(dias, 10) || 0));
+  return d.toISOString().slice(0, 10);
+}
+
+// ── Popup de confirmación al enviar cobro ───────────────────
+// Antes de registrar cualquier envío (correo, WhatsApp o copiar texto) se
+// confirma si la tarjeta debe avanzar de etapa y en cuántos días recordar
+// seguir la gestión (estándar precargado, editable para ese caso puntual).
+// accionCallback(avanzar, dias) hace el envío real y el registro en
+// cartera_gestion — se dispara de forma síncrona desde el clic en
+// "Confirmar" (no desde un await previo) para no perder el gesto del
+// usuario, que window.open (WhatsApp) y el portapapeles necesitan.
+let carteraConfirmarPendiente = null;
+
+function carteraAbrirConfirmacion(accionCallback) {
+  const nivel = document.getElementById('cm-nivel').value;
+  const etapaLabel = CARTERA_NIVEL_A_ETAPA_LABEL[nivel] || 'la siguiente etapa';
+  document.getElementById('cartera-confirmar-avanzar-label').textContent =
+    `Avanzar la tarjeta a "${etapaLabel} enviada"`;
+  document.getElementById('cartera-confirmar-avanzar').checked = true;
+  document.getElementById('cartera-confirmar-dias').value =
+    document.getElementById('cm-dias-seguimiento').value || 7;
+  carteraConfirmarPendiente = accionCallback;
+  document.getElementById('cartera-confirmar-modal').classList.add('open');
+}
+
+function carteraConfirmarEnvioOk() {
+  const avanzar = document.getElementById('cartera-confirmar-avanzar').checked;
+  const dias = parseInt(document.getElementById('cartera-confirmar-dias').value, 10) || 7;
+  document.getElementById('cartera-confirmar-modal').classList.remove('open');
+  document.getElementById('cm-dias-seguimiento').value = dias; // por si después guarda a mano
+  const cb = carteraConfirmarPendiente;
+  carteraConfirmarPendiente = null;
+  if (cb) cb(avanzar, dias);
 }
 
 // ── Carga de datos ──────────────────────────────────────────
@@ -240,19 +283,20 @@ async function openCarteraModal(clienteId) {
   document.getElementById('cm-nivel').value = g.plantilla_nivel || 'cordial';
   document.getElementById('cm-nombre-contacto').value = '';
 
-  // Próxima fecha de seguimiento: la guardada, o si no hay ninguna, hoy + el
-  // estándar configurado (editable para este caso puntual antes de guardar).
-  let fechaSeg = g.fecha_proximo_seguimiento || '';
-  if (!fechaSeg) {
-    let dias = 7;
-    try {
-      const cfg = await fetch(`${API_BASE}/configuracion.php`).then(r=>r.json());
-      dias = parseInt(cfg.cartera_dias_recordatorio, 10) || 7;
-    } catch(e) {}
-    const d = new Date(); d.setDate(d.getDate() + dias);
-    fechaSeg = d.toISOString().slice(0,10);
+  // Días para recordar seguir la gestión: si ya hay una fecha de seguimiento
+  // guardada, se muestran los días que faltan desde hoy; si no hay ninguna
+  // (cliente nuevo), se usa el estándar configurado. Editable para este caso
+  // puntual, tanto aquí como en el popup de confirmación al enviar.
+  let dias = 7;
+  try {
+    const cfg = await fetch(`${API_BASE}/configuracion.php`).then(r=>r.json());
+    dias = parseInt(cfg.cartera_dias_recordatorio, 10) || 7;
+  } catch(e) {}
+  if (g.fecha_proximo_seguimiento) {
+    const diff = Math.round((new Date(g.fecha_proximo_seguimiento) - new Date(_carteraHoyISO())) / 86400000);
+    if (diff > 0) dias = diff;
   }
-  document.getElementById('cm-fecha-seguimiento').value = fechaSeg;
+  document.getElementById('cm-dias-seguimiento').value = dias;
 
   carteraMensajeActual = null;
   document.getElementById('cm-mensaje-preview').style.display = 'none';
@@ -321,7 +365,7 @@ async function saveCarteraItem() {
     fechaAcuerdo: document.getElementById('cm-fecha-acuerdo').value,
     montoAcuerdo: document.getElementById('cm-monto-acuerdo').value,
     notas: document.getElementById('cm-notas').value.trim(),
-    fechaProximoSeguimiento: document.getElementById('cm-fecha-seguimiento').value,
+    fechaProximoSeguimiento: _carteraFechaMasDias(document.getElementById('cm-dias-seguimiento').value || 7),
   };
   try {
     const res = await fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
@@ -365,7 +409,7 @@ async function carteraPrevisualizarMensaje() {
   }
 }
 
-async function carteraEnviarCorreo() {
+function carteraEnviarCorreo() {
   const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
   if (!c || !carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
   if (document.getElementById('cm-nivel').value === 'firme') {
@@ -374,9 +418,16 @@ async function carteraEnviarCorreo() {
   }
   const destinatarios = (document.getElementById('cm-email').value || '').trim();
   if (!destinatarios) { alert('Falta el correo del cliente.'); return; }
+
+  carteraAbrirConfirmacion((avanzar, dias) => {
+    _carteraEnviarCorreoConfirmado(c, destinatarios, avanzar, dias);
+  });
+}
+
+async function _carteraEnviarCorreoConfirmado(c, destinatarios, avanzar, dias) {
   const cuerpoTexto = document.getElementById('cm-mensaje-texto').value;
   const nivel = document.getElementById('cm-nivel').value;
-  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
+  const fechaProximoSeguimiento = _carteraFechaMasDias(dias);
 
   const btn = document.getElementById('cm-btn-correo');
   const orig = btn.textContent;
@@ -386,7 +437,7 @@ async function carteraEnviarCorreo() {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         clienteAlegraId: editingCarteraId, clienteNombre: c.clienteNombre,
-        destinatarios, asunto: carteraMensajeActual.asunto, cuerpoTexto, nivel, fechaProximoSeguimiento,
+        destinatarios, asunto: carteraMensajeActual.asunto, cuerpoTexto, nivel, avanzar, fechaProximoSeguimiento,
       }),
     });
     const data = await res.json();
@@ -410,41 +461,45 @@ async function carteraEnviarCorreo() {
 
 // Copiar el texto del mensaje al portapapeles — para cuando Carlos prefiere
 // pegarlo a mano (SMS, otro correo, etc.) en vez de usar los botones de
-// envío directo. Cuenta como "mensaje enviado" para todos los efectos: avanza
-// el estado igual que correo o WhatsApp (mismo nivelEnviado, forward-only).
-async function carteraCopiarTexto() {
+// envío directo. Cuenta como "mensaje enviado" para todos los efectos: pasa
+// por el mismo popup de confirmación (avanzar etapa + días) que correo/WhatsApp.
+function carteraCopiarTexto() {
   const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
   if (!carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
-  const texto = document.getElementById('cm-mensaje-texto').value;
-  try {
-    await navigator.clipboard.writeText(texto);
-  } catch (e) {
-    alert('No se pudo copiar el texto al portapapeles.');
-    return;
-  }
-  const btn = document.getElementById('cm-btn-copiar');
-  if (btn) {
-    const orig = btn.textContent;
-    btn.textContent = '✅ Copiado';
-    setTimeout(() => { btn.textContent = orig; }, 1500);
-  }
 
-  const nivel = document.getElementById('cm-nivel').value;
-  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
-  fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
+  carteraAbrirConfirmacion(async (avanzar, dias) => {
+    const texto = document.getElementById('cm-mensaje-texto').value;
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch (e) {
+      alert('No se pudo copiar el texto al portapapeles.');
+      return;
+    }
+    const btn = document.getElementById('cm-btn-copiar');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✅ Copiado';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }
+
+    const nivel = document.getElementById('cm-nivel').value;
+    const fechaProximoSeguimiento = _carteraFechaMasDias(dias);
+    const body = {
       clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
-      nivelEnviado: nivel, // el backend avanza el estado a la etapa de este nivel, sin retroceder
       plantillaNivel: nivel,
       fechaUltimoContacto: _carteraHoyISO(),
       fechaProximoSeguimiento,
-    }),
-  }).then(r=>r.json()).then(g=>{
-    carteraGestionMap[editingCarteraId] = g;
-    if (c) _carteraGuardarContactoSiCambio(c);
-    renderCartera();
-  }).catch(()=>{});
+    };
+    if (avanzar) body.nivelEnviado = nivel; // el backend avanza el estado a la etapa de este nivel, sin retroceder
+    fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    }).then(r=>r.json()).then(g=>{
+      carteraGestionMap[editingCarteraId] = g;
+      if (c) _carteraGuardarContactoSiCambio(c);
+      renderCartera();
+    }).catch(()=>{});
+  });
 }
 
 function carteraEnviarWhatsApp() {
@@ -452,30 +507,36 @@ function carteraEnviarWhatsApp() {
   if (!carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
   const celularRaw = (document.getElementById('cm-celular').value || '').trim().replace(/[^\d+]/g,'');
   if (!celularRaw) { alert('Falta el celular del cliente.'); return; }
-  const texto = document.getElementById('cm-mensaje-texto').value;
 
-  // Enlace wa.me: requiere el número con indicativo de país, sin "+". Para
-  // celulares colombianos de 10 dígitos se antepone 57; si ya trae
-  // indicativo (más de 10 dígitos) se respeta tal cual.
-  let numero = celularRaw.replace(/^\+/, '');
-  if (numero.length <= 10) numero = '57' + numero.replace(/^0+/, '');
-  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+  carteraAbrirConfirmacion((avanzar, dias) => {
+    const texto = document.getElementById('cm-mensaje-texto').value;
 
-  const nivel = document.getElementById('cm-nivel').value;
-  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
-  fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
+    // Enlace wa.me: requiere el número con indicativo de país, sin "+". Para
+    // celulares colombianos de 10 dígitos se antepone 57; si ya trae
+    // indicativo (más de 10 dígitos) se respeta tal cual. Se abre aquí, ya
+    // dentro del clic en "Confirmar" del popup, para que el navegador no lo
+    // bloquee por no venir de un gesto directo del usuario.
+    let numero = celularRaw.replace(/^\+/, '');
+    if (numero.length <= 10) numero = '57' + numero.replace(/^0+/, '');
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+
+    const nivel = document.getElementById('cm-nivel').value;
+    const fechaProximoSeguimiento = _carteraFechaMasDias(dias);
+    const body = {
       clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
-      nivelEnviado: nivel, // el backend avanza el estado a la etapa de este nivel, sin retroceder
       plantillaNivel: nivel,
       fechaUltimoContacto: _carteraHoyISO(),
       fechaProximoSeguimiento,
-    }),
-  }).then(r=>r.json()).then(g=>{
-    carteraGestionMap[editingCarteraId] = g;
-    if (c) _carteraGuardarContactoSiCambio(c);
-    renderCartera();
-  }).catch(()=>{});
+    };
+    if (avanzar) body.nivelEnviado = nivel; // el backend avanza el estado a la etapa de este nivel, sin retroceder
+    fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    }).then(r=>r.json()).then(g=>{
+      carteraGestionMap[editingCarteraId] = g;
+      if (c) _carteraGuardarContactoSiCambio(c);
+      renderCartera();
+    }).catch(()=>{});
+  });
 }
 // ===================== FIN CARTERA =====================
