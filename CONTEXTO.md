@@ -4,6 +4,16 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — fix: Configuración pedía sesión y no la mandaba (401))
+
+### fix: `⚙️ Configuración` daba 401 (Unauthorized) al cargar
+
+Carlos reportó un 401 en `configuracion.php` al entrar a la app. Causa: desde el fix de seguridad del 2026-09-09 ("toda la API ahora exige sesión"), todas las llamadas a la API deben llevar el token en el header `Authorization`, que se agrega automáticamente en `core.js` interceptando `window.fetch` — pero solo a las llamadas cuya URL empiece exactamente con `API_BASE` (`https://grupoinnovate.com/ginno/backend/api`). Los 3 `fetch()` de `assets/js/configuracion.js` (cargar config, guardar toggle, guardar texto) usaban una ruta relativa (`'backend/api/configuracion.php'`) en vez de `` `${API_BASE}/configuracion.php` `` — el navegador igual la resolvía a la URL correcta, pero como el string no empezaba con `API_BASE`, el interceptor nunca le agregaba el token, así que esas 3 llamadas siempre iban sin sesión. Bug preexistente desde el fix de seguridad, no introducido en esta sesión.
+
+**Fix**: los 3 `fetch()` de `configuracion.js` ahora usan `` `${API_BASE}/configuracion.php` ``, igual que el resto de la API.
+
+**Archivos**: `assets/js/configuracion.js` (`?v=20260912b`).
+
 ## Estado actual (última actualización: 2026-09-12 — fix real: Cartera mostraba facturas que aún no vencían)
 
 ### fix: `dueDate_before` de Alegra no filtra nada — Cartera mostraba facturas que todavía no vencían como si ya hubieran vencido

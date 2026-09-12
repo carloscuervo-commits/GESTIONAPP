@@ -95,7 +95,7 @@
   // ── API ───────────────────────────────────────────────────
   async function fetchConfig() {
     try {
-      const res = await fetch('backend/api/configuracion.php');
+      const res = await fetch(`${API_BASE}/configuracion.php`);
       _config = await res.json();
     } catch (e) {
       _config = {};
@@ -106,7 +106,7 @@
     if (_guardando) return;
     _guardando = true;
     try {
-      await fetch('backend/api/configuracion.php', {
+      await fetch(`${API_BASE}/configuracion.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [clave]: valor }),
@@ -124,7 +124,7 @@
 
   async function saveTexto(clave, valor) {
     try {
-      await fetch('backend/api/configuracion.php', {
+      await fetch(`${API_BASE}/configuracion.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [clave]: valor }),

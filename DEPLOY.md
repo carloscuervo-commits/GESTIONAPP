@@ -42,6 +42,14 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — fix: Configuración daba 401 al cargar)
+
+Carlos reportó `GET .../configuracion.php 401 (Unauthorized)` al entrar a la app. `assets/js/configuracion.js` llamaba a la API con ruta relativa (`'backend/api/configuracion.php'`) en vez de `` `${API_BASE}/...` ``, así que el interceptor de `core.js` que agrega el token de sesión a cada llamada nunca la reconocía como llamada a la API y no le ponía el header `Authorization` — bug preexistente desde el fix de seguridad del 2026-09-09, no de esta sesión.
+
+**Archivo modificado**: `assets/js/configuracion.js` (los 3 `fetch()` del módulo, `?v=20260912b`).
+
+**Prueba manual sugerida**: entrar a ⚙️ Configuración → debe cargar sin error 401 en consola; cambiar cualquier toggle o campo de texto → debe guardar sin error.
+
 ## Cambios pendientes de deploy (2026-09-12 — fix real: Cartera mostraba facturas que aún no vencían)
 
 Carlos reportó (con el cliente Beisbol de Colombia) que Cartera mostraba facturas de octubre como ya vencidas. Se confirmó contra la API de Alegra que `dueDate_before` **no filtra nada** — con o sin él, devuelve las mismas facturas abiertas del cliente. Se quitó ese parámetro (no hacía nada) y se filtra por fecha en el código, factura por factura.
