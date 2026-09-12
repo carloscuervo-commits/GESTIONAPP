@@ -103,7 +103,8 @@
     <span style="font-size:13px;font-weight:600;color:var(--text-muted)">Ordenar por:</span>
     <button class="sort-btn active" id="sort-valor" onclick="setCarteraSort('valor')">💰 Mayor deuda</button>
     <button class="sort-btn" id="sort-antiguedad" onclick="setCarteraSort('antiguedad')">📅 Antigüedad</button>
-    <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Actualizado: <strong>${ALEGRA_UPDATED}</strong> · Para refrescar dile a Claude: <em>"actualiza mi cartera"</em></span>
+    <button class="sort-btn" onclick="fetchCartera()" title="Volver a consultar Alegra">🔄 Actualizar</button>
+    <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Actualizado: <strong id="cartera-actualizado">-</strong></span>
   </div>
   <div id="cartera-loading" class="cartera-loading" style="display:none">
     <div style="font-size:24px;margin-bottom:8px">⏳</div>
@@ -193,6 +194,10 @@
         <label>Monto acordado</label>
         <input type="text" id="cm-monto-acuerdo" placeholder="ej: 500000" autocomplete="off">
       </div>
+      <div class="form-group">
+        <label>Próxima fecha de seguimiento</label>
+        <input type="date" id="cm-fecha-seguimiento">
+      </div>
       <div class="form-group full">
         <label>Notas de gestión</label>
         <textarea id="cm-notas" placeholder="Qué se habló, compromisos, observaciones..."></textarea>
@@ -201,6 +206,36 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeCarteraModal()">Cancelar</button>
       <button class="btn-save" onclick="saveCarteraItem()">Guardar</button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+    <div style="font-weight:700;font-size:13px;color:var(--teal,#0D3B40);margin-bottom:10px">📨 Enviar cobro</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Correo del cliente</label>
+        <input type="text" id="cm-email" placeholder="correo@cliente.com" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Celular (WhatsApp)</label>
+        <input type="text" id="cm-celular" placeholder="ej: 3176490590" autocomplete="off">
+      </div>
+      <div class="form-group full">
+        <label>Nivel del mensaje</label>
+        <select id="cm-nivel">
+          <option value="cordial">🙂 Cordial — primer aviso</option>
+          <option value="firme">😐 Firme — segundo aviso</option>
+          <option value="prejuridico">⚠️ Prejurídico — última instancia</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-cancel" id="cm-btn-previsualizar" style="margin-top:4px" onclick="carteraPrevisualizarMensaje()">✍️ Generar mensaje</button>
+    <div id="cm-mensaje-preview" style="display:none;margin-top:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Mensaje (editable — se usa igual para correo y WhatsApp)</label>
+      <textarea id="cm-mensaje-texto" style="width:100%;min-height:180px;margin-top:4px;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border,#e5e7eb);border-radius:6px"></textarea>
+      <div class="modal-actions" style="margin-top:10px">
+        <button class="btn-cancel" onclick="carteraEnviarWhatsApp()">💬 Enviar por WhatsApp</button>
+        <button class="btn-save" id="cm-btn-correo" onclick="carteraEnviarCorreo()">📧 Enviar por correo</button>
+      </div>
     </div>
   </div>
 </div>
@@ -844,8 +879,8 @@
 
 <script src="assets/js/core.js?v=20260909a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260910a"></script>
-<script src="assets/js/cartera.js?v=20260614b"></script>
+<script src="assets/js/tareas.js?v=20260912a"></script>
+<script src="assets/js/cartera.js?v=20260912a"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
 <script src="assets/js/reportes.js?v=20260909a"></script>
 <script src="assets/js/comentarios.js?v=20260910a"></script>
@@ -858,7 +893,7 @@
 <script src="assets/js/imagenes.js?v=20260909a"></script>
 <script src="assets/js/transportes.js?v=20260704e"></script>
 <script src="assets/js/bitacora.js?v=20260807b"></script>
-<script src="assets/js/configuracion.js?v=20260827a"></script>
+<script src="assets/js/configuracion.js?v=20260912a"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
 <script src="assets/js/app.js?v=20260909a"></script>
 </body>

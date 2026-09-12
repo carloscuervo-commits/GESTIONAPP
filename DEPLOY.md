@@ -42,6 +42,38 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — módulo de Cartera: datos en vivo + envío de cobro + recordatorio)
+
+**⚠️ Requiere migración ANTES del deploy de código**: ejecutar `db/040_cartera_gestion.sql` en phpMyAdmin (crea la tabla `cartera_gestion`, agrega `clientes.celular` y el valor de configuración `cartera_dias_recordatorio`).
+
+Reemplaza el tablero "💰 Cartera" que ya existía (antes con datos de Alegra quemados en el código y estado guardado solo en `localStorage` del navegador) por uno que consulta Alegra en vivo y guarda el estado en base de datos, compartido por todo el equipo. Además agrega el envío de cobro (correo y WhatsApp) con plantillas según intensidad, y un recordatorio diario a los administradores para dar seguimiento.
+
+**Archivos nuevos:**
+- `db/040_cartera_gestion.sql` — tabla `cartera_gestion`, columna `clientes.celular`, config `cartera_dias_recordatorio`.
+- `backend/lib/cartera_plantillas.php` — genera asunto/texto del mensaje de cobro según nivel (cordial/firme/prejurídico), con el mismo estilo de los correos "Cartera pendiente" que Carlos ya envía a mano.
+- `backend/api/alegra_cartera_resumen.php` — trae en vivo de Alegra las facturas abiertas y vencidas, agrupadas por cliente (reemplaza el arreglo quemado `ALEGRA_CARTERA_DATA`).
+- `backend/api/cartera_gestion.php` — GET/PUT del estado del tablero (antes en `localStorage`).
+- `backend/api/cartera_mensaje.php` — genera la vista previa del mensaje de cobro (POST con las facturas que ya tiene el frontend, sin volver a consultar Alegra).
+- `backend/api/cartera_enviar_correo.php` — envía el correo de cobro y registra la gestión (fecha de contacto, próxima fecha de seguimiento).
+- `backend/cron/cartera_recordatorio.php` — cron diario sugerido a las 8:00 a.m.: avisa a los administradores qué clientes tienen la fecha de seguimiento vencida. Cron command:
+  `0 8 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/cartera_recordatorio.php > /dev/null 2>&1`
+  (agregar en cPanel → Cron Jobs, igual que los demás crons de Ginno)
+
+**Archivos modificados:**
+- `assets/js/cartera.js` — reescrito: ya no usa `ALEGRA_CARTERA_DATA` ni `localStorage`; agrega selector de nivel, generación de mensaje, botones "Enviar por correo"/"Enviar por WhatsApp" (enlace `wa.me`) y campo de próxima fecha de seguimiento en el modal. `?v=20260912a`.
+- `backend/api/clientes.php` — nuevo campo `celular` en GET/POST/PUT (para el número de WhatsApp).
+- `assets/js/tareas.js` — `setArea()`: al entrar a la pestaña Cartera ahora llama `fetchCartera()` en vez del flujo viejo con `cartera.length`/`fetchCarteraAlegra()`. `?v=20260912a`.
+- `assets/js/configuracion.js` — nuevo campo numérico "Días estándar — seguimiento de cartera" (`cartera_dias_recordatorio`) en el panel de Configuración. `?v=20260912a`.
+- `tareas-equipo.html` — toolbar de Cartera con botón "🔄 Actualizar" (ya no dice "dile a Claude"); modal de cartera con los campos nuevos (correo, celular, nivel, próxima fecha de seguimiento, vista previa del mensaje); `?v=` subido para `cartera.js`, `tareas.js`, `configuracion.js`.
+
+**Prueba manual sugerida:**
+1. Ejecutar la migración 040 en phpMyAdmin antes de desplegar el código.
+2. Abrir la pestaña 💰 Cartera → debe consultar Alegra en vivo (ya no aparece el mensaje de "dile a Claude") y mostrar el mismo tablero de siempre.
+3. Abrir una tarjeta de cliente → completar/editar el celular y correo si hace falta, elegir un nivel, clic en "Generar mensaje" → debe verse el texto editable con los datos de la factura y la cuenta bancaria de Innovate.
+4. "Enviar por WhatsApp" → debe abrir `wa.me` con el mensaje precargado. "Enviar por correo" → debe llegar el correo y el tablero debe pasar a la columna "Correo/WhatsApp enviado" (si estaba en "Por contactar").
+5. Guardar la gestión con una próxima fecha de seguimiento en el pasado → correr manualmente `backend/cron/cartera_recordatorio.php` (o esperar al cron de las 8 a.m.) y verificar que llega el correo de recordatorio a los administradores.
+6. En Configuración (⚙️) → verificar que aparece "Días estándar — seguimiento de cartera" y que cambiarlo se refleja como valor prellenado la próxima vez que se abre una gestión nueva.
+
 ## Cambios pendientes de deploy (2026-09-10 — fecha de creación en el modal de la tarjeta)
 
 **Archivos modificados:**

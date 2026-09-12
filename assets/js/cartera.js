@@ -1,28 +1,42 @@
-// ===================== CARTERA =====================
-// Datos pre-procesados desde Alegra (actualizado por Claude)
-const ALEGRA_CARTERA_DATA = [{"clienteId":"546","clienteNombre":"CONJUNTO RESIDENCIAL SENDEROS DEL PARQUE PROPIEDAD HORIZONTAL","facturas":[{"num":"FE1794","balance":18982447.0,"dueDate":"2026-09-29","date":"2026-06-01"},{"num":"FE1756","balance":456960.0,"dueDate":"2026-04-08","date":"2026-03-31"}],"totalDeuda":19439407.0,"fechaMasAntigua":"2026-04-08"},{"clienteId":"39","clienteNombre":"BEISBOL DE COLOMBIA S.A. S","facturas":[{"num":"FE1786","balance":5125868.0,"dueDate":"2026-06-07","date":"2026-05-08"},{"num":"FE1785","balance":4151009.0,"dueDate":"2026-06-07","date":"2026-05-08"},{"num":"FE1767","balance":5125868.0,"dueDate":"2026-05-09","date":"2026-04-09"},{"num":"FE1766","balance":4151009.0,"dueDate":"2026-05-09","date":"2026-04-09"}],"totalDeuda":18553754.0,"fechaMasAntigua":"2026-05-09"},{"clienteId":"1913","clienteNombre":"PARCELACION CAMPESTRE LAGUNA SECA - PROPIEDAD HORIZONTAL","facturas":[{"num":"FE1760","balance":783020.0,"dueDate":"2026-04-17","date":"2026-04-07"},{"num":"FE1759","balance":4845680.0,"dueDate":"2026-04-17","date":"2026-04-07"},{"num":"FE1758","balance":2523990.0,"dueDate":"2026-04-17","date":"2026-04-07"}],"totalDeuda":8152690.0,"fechaMasAntigua":"2026-04-17"},{"clienteId":"1900","clienteNombre":"CONDOMINIO CAMPESTRE VERDEHORIZONTE","facturas":[{"num":"FE1793","balance":2356200.0,"dueDate":"2026-06-05","date":"2026-05-26"},{"num":"FE1792","balance":737800.0,"dueDate":"2026-05-27","date":"2026-05-12"},{"num":"FE1761","balance":3903200.0,"dueDate":"2026-04-18","date":"2026-04-08"}],"totalDeuda":6997200.0,"fechaMasAntigua":"2026-04-18"},{"clienteId":"1858","clienteNombre":"CONJUNTO RESIDENCIAL LLANURAS DEL CASTILLO","facturas":[{"num":"FE1791","balance":357000.0,"dueDate":"2026-05-23","date":"2026-05-08"},{"num":"FE1779","balance":297500.0,"dueDate":"2026-05-08","date":"2026-04-30"},{"num":"FE1753","balance":2737000.0,"dueDate":"2026-03-27","date":"2026-03-19"},{"num":"FE1752","balance":1950410.0,"dueDate":"2026-03-27","date":"2026-03-19"}],"totalDeuda":5341910.0,"fechaMasAntigua":"2026-03-27"},{"clienteId":"573","clienteNombre":"INDUSTRIAS SUPLAS S.A.S","facturas":[{"num":"FE1751","balance":214200.0,"dueDate":"2026-03-27","date":"2026-03-19"},{"num":"FE1673","balance":1024590.0,"dueDate":"2026-02-26","date":"2026-01-27"},{"num":"FE1672","balance":2087300.0,"dueDate":"2026-02-11","date":"2026-01-27"},{"num":"FE1671","balance":202300.0,"dueDate":"2026-02-11","date":"2026-01-27"}],"totalDeuda":3528390.0,"fechaMasAntigua":"2026-02-11"},{"clienteId":"1631","clienteNombre":"CONDOMINIO CAMPESTRE SOLARES DE LA MORADA III Y IV ETAPA","facturas":[{"num":"FE1788","balance":971040.0,"dueDate":"2026-06-07","date":"2026-05-08"},{"num":"FE1784","balance":478380.0,"dueDate":"2026-06-07","date":"2026-05-08"},{"num":"FE1772","balance":971040.0,"dueDate":"2026-04-28","date":"2026-04-13"},{"num":"FE1765","balance":478380.0,"dueDate":"2026-05-09","date":"2026-04-09"}],"totalDeuda":2898840.0,"fechaMasAntigua":"2026-04-28"},{"clienteId":"995","clienteNombre":"DISPROQUIN S A S","facturas":[{"num":"FE1783","balance":1089921.0,"dueDate":"2026-06-07","date":"2026-05-08"},{"num":"FE1771","balance":337365.0,"dueDate":"2026-05-10","date":"2026-04-10"},{"num":"FE1764","balance":1089921.0,"dueDate":"2026-05-09","date":"2026-04-09"}],"totalDeuda":2517207.0,"fechaMasAntigua":"2026-05-09"},{"clienteId":"1639","clienteNombre":"ALONDRA CONJUNTO RESIDENCIAL ETAPA I - P-H","facturas":[{"num":"FE1774","balance":2487100.0,"dueDate":"2026-05-01","date":"2026-04-16"}],"totalDeuda":2487100.0,"fechaMasAntigua":"2026-05-01"},{"clienteId":"1816","clienteNombre":"CONDOMINIO SOL DE LA ARBOLEDA","facturas":[{"num":"FE1787","balance":1969999.0,"dueDate":"2026-06-07","date":"2026-05-08"}],"totalDeuda":1969999.0,"fechaMasAntigua":"2026-06-07"},{"clienteId":"1746","clienteNombre":"FUNDACION DELIRIO","facturas":[{"num":"FE1782","balance":1430380.0,"dueDate":"2026-06-07","date":"2026-05-08"},{"num":"FE1776","balance":229670.0,"dueDate":"2026-05-08","date":"2026-04-23"}],"totalDeuda":1660050.0,"fechaMasAntigua":"2026-05-08"},{"clienteId":"1811","clienteNombre":"PARQUE INDUSTRIAL Y COMERCIAL ACEROSA PROPIEDAD HORIZONTAL","facturas":[{"num":"FE1789","balance":1089504.0,"dueDate":"2026-06-07","date":"2026-05-08"}],"totalDeuda":1089504.0,"fechaMasAntigua":"2026-06-07"},{"clienteId":"1960","clienteNombre":"ITC PROFESIONALES S.A.S","facturas":[{"num":"FE1790","balance":600000.0,"dueDate":"2026-06-07","date":"2026-05-08"}],"totalDeuda":600000.0,"fechaMasAntigua":"2026-06-07"},{"clienteId":"1797","clienteNombre":"PANCE CAMPESTRE ETAPA 1 - PROPIEDAD HORIZONTAL","facturas":[{"num":"FE1755","balance":107100.0,"dueDate":"2026-03-27","date":"2026-03-19"}],"totalDeuda":107100.0,"fechaMasAntigua":"2026-03-27"}];
-const ALEGRA_UPDATED = '2026-06-03';
+// ============================================================
+// CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
+// v20260912a
+// ============================================================
+// Los datos de facturas vencidas se consultan en vivo a Alegra
+// (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
+// un arreglo quemado en el código que había que actualizar a mano pidiéndole
+// a Claude "actualiza mi cartera".
+//
+// El estado del tablero (columna, responsable, notas, acuerdo, próxima
+// fecha de seguimiento) vive en la base de datos (cartera_gestion.php),
+// compartido por todo el equipo — ya no es localStorage del navegador de
+// quien lo usó.
+//
+// Envío de cobro: cartera_mensaje.php arma el texto (plantilla según nivel
+// de intensidad — cordial/firme/prejurídico), editable antes de enviar por
+// correo (cartera_enviar_correo.php) o por WhatsApp (enlace wa.me, se abre
+// en una pestaña para revisar y dar enviar manualmente).
 
-const CARTERA_KEY = 'cowork_cartera_v1';
-let cartera = [];
+let carteraClientes = [];        // datos vivos de Alegra: [{clienteId, clienteNombre, email, celular, facturas, totalDeuda, fechaMasAntigua}]
+let carteraGestionMap = {};      // gestión guardada en BD, indexada por clienteId (cliente_alegra_id)
+let carteraActualizado = '';
 let carteraSort = 'valor';
 let editingCarteraId = null;
+let carteraMensajeActual = null; // {asunto} del último mensaje previsualizado (el texto vive en el textarea)
 
 const CARTERA_COLS = [
   {id:'por-contactar', label:'Por contactar 📋'},
   {id:'llamado',       label:'Llamado 📞'},
-  {id:'correo',        label:'Correo enviado 📧'},
+  {id:'correo',        label:'Correo/WhatsApp enviado 📨'},
   {id:'acuerdo',       label:'Acuerdo de pago 🤝'},
   {id:'pagado',        label:'Pagado ✅'},
 ];
 
-function loadCartera() { try { cartera = JSON.parse(localStorage.getItem(CARTERA_KEY))||[]; } catch { cartera=[]; } }
-function saveCartera() { localStorage.setItem(CARTERA_KEY, JSON.stringify(cartera)); updateCarteraCount(); }
-
-function updateCarteraCount() {
-  const el = document.getElementById('cnt-cartera');
-  if (el) el.textContent = cartera.filter(c=>c.estado!=='pagado').length;
-}
+const CARTERA_NIVELES = [
+  {id:'cordial',     label:'🙂 Cordial — primer aviso'},
+  {id:'firme',       label:'😐 Firme — segundo aviso'},
+  {id:'prejuridico', label:'⚠️ Prejurídico — última instancia'},
+];
 
 function formatCOP(n) {
   return '$' + Number(n||0).toLocaleString('es-CO');
@@ -33,115 +47,53 @@ function diasDesde(isoDate) {
   return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
 }
 
-function fetchCarteraAlegra() {
-  // Merge Alegra pre-processed data preserving workflow state
-  ALEGRA_CARTERA_DATA.forEach(nuevo => {
-    const exist = cartera.find(c => c.clienteId === nuevo.clienteId);
-    if (exist) {
-      exist.totalDeuda      = nuevo.totalDeuda;
-      exist.facturas        = nuevo.facturas;
-      exist.fechaMasAntigua = nuevo.fechaMasAntigua;
-      exist.clienteNombre   = nuevo.clienteNombre;
-    } else {
-      cartera.push({ ...nuevo, id:'c_'+nuevo.clienteId, estado:'por-contactar', notas:'', responsable:'', fechaAcuerdo:'', montoAcuerdo:'', creadoAt: new Date().toISOString() });
-    }
-  });
-  saveCartera();
-  document.getElementById('cartera-loading').style.display = 'none';
-  document.getElementById('cartera-kanban').style.display  = 'flex';
-  renderCartera();
+function _carteraHoyISO() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-async function fetchCarteraAlegraOLD() {
+// ── Carga de datos ──────────────────────────────────────────
+
+async function fetchCartera() {
   const loadEl   = document.getElementById('cartera-loading');
   const kanbanEl = document.getElementById('cartera-kanban');
   loadEl.style.display   = 'block';
   kanbanEl.style.display = 'none';
-  loadEl.innerHTML = '<div style="font-size:24px;margin-bottom:8px">⏳</div>Consultando Alegra...';
+  loadEl.innerHTML = '<div style="font-size:24px;margin-bottom:8px">⏳</div>Consultando cartera en Alegra...';
 
   try {
-    if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
-      throw new Error('Conector Alegra no disponible. Recarga la página.');
-    }
+    const [resResumen, resGestion] = await Promise.all([
+      fetch(`${API_BASE}/alegra_cartera_resumen.php`),
+      fetch(`${API_BASE}/cartera_gestion.php`),
+    ]);
+    const dataResumen = await resResumen.json();
+    if (dataResumen.error) throw new Error(dataResumen.error);
+    const dataGestion = await resGestion.json();
 
-    // Fetch open invoices (no status filter — more compatible)
-    const result = await window.cowork.callMcpTool(
-      'mcp__f067cf01-4c8b-4396-aa35-8fe541f3b3d0__invoice_getInvoices',
-      { limit: 100 }
-    );
+    carteraClientes   = dataResumen.clientes || [];
+    carteraActualizado = dataResumen.actualizado || '';
+    carteraGestionMap = {};
+    (Array.isArray(dataGestion) ? dataGestion : []).forEach(g => { carteraGestionMap[g.cliente_alegra_id] = g; });
 
-    // Normalize response — can be array or object with data
-    let invoices = [];
-    if (Array.isArray(result))           invoices = result;
-    else if (Array.isArray(result?.data)) invoices = result.data;
-    else if (typeof result === 'string') {
-      try { const p = JSON.parse(result); invoices = Array.isArray(p) ? p : (p?.data||[]); } catch{}
-    }
-
-    // Only keep invoices with outstanding balance
-    const open = invoices.filter(inv => inv.client && Number(inv.balance) > 0);
-
-    if (!open.length) {
-      loadEl.innerHTML = '<div style="font-size:24px;margin-bottom:8px">✅</div>No hay facturas con saldo pendiente en Alegra.';
-      loadEl.style.display = 'block';
-      kanbanEl.style.display = 'none';
-      return;
-    }
-
-    // Group by client
-    const byClient = {};
-    open.forEach(inv => {
-      const cid = String(inv.client.id);
-      if (!byClient[cid]) byClient[cid] = {
-        clienteId: cid,
-        clienteNombre: inv.client.name,
-        facturas: [],
-        totalDeuda: 0,
-        fechaMasAntigua: inv.dueDate || inv.date,
-      };
-      byClient[cid].facturas.push({
-        num: inv.numberTemplate?.fullNumber || inv.id,
-        balance: Number(inv.balance),
-        dueDate: inv.dueDate,
-        date: inv.date
-      });
-      byClient[cid].totalDeuda += Number(inv.balance);
-      const fecha = inv.dueDate || inv.date;
-      if (fecha && fecha < byClient[cid].fechaMasAntigua) byClient[cid].fechaMasAntigua = fecha;
-    });
-
-    // Merge preserving workflow state
-    Object.values(byClient).forEach(nuevo => {
-      const exist = cartera.find(c => c.clienteId === nuevo.clienteId);
-      if (exist) {
-        exist.totalDeuda      = nuevo.totalDeuda;
-        exist.facturas        = nuevo.facturas;
-        exist.fechaMasAntigua = nuevo.fechaMasAntigua;
-        exist.clienteNombre   = nuevo.clienteNombre;
-      } else {
-        cartera.push({
-          ...nuevo,
-          id: 'c_' + nuevo.clienteId,
-          estado: 'por-contactar',
-          notas: '', responsable: '', fechaAcuerdo: '', montoAcuerdo: '',
-          creadoAt: new Date().toISOString()
-        });
-      }
-    });
-
-    saveCartera();
     loadEl.style.display   = 'none';
     kanbanEl.style.display = 'flex';
+    const actEl = document.getElementById('cartera-actualizado');
+    if (actEl) actEl.textContent = carteraActualizado || '-';
     renderCartera();
-
-  } catch(e) {
-    console.error('Error Alegra cartera:', e);
+  } catch (e) {
     loadEl.innerHTML = `<div style="font-size:24px;margin-bottom:8px">⚠️</div>
       <strong>No se pudo cargar la cartera</strong><br>
-      <span style="font-size:12px;color:#94a3b8">${e.message||e}</span><br><br>
-      <button class="btn-refresh" onclick="fetchCarteraAlegra()">Reintentar</button>`;
+      <span style="font-size:12px;color:#94a3b8">${esc(e.message||String(e))}</span><br><br>
+      <button class="btn-refresh" onclick="fetchCartera()">Reintentar</button>`;
+    loadEl.style.display   = 'block';
+    kanbanEl.style.display = 'none';
   }
 }
+
+function carteraEstadoDe(clienteId) {
+  return (carteraGestionMap[clienteId] && carteraGestionMap[clienteId].estado) || 'por-contactar';
+}
+
+// ── Tablero ──────────────────────────────────────────────────
 
 function setCarteraSort(s) {
   carteraSort = s;
@@ -150,34 +102,40 @@ function setCarteraSort(s) {
   renderCartera();
 }
 
-function sortedCartera(col) {
-  const items = cartera.filter(c=>c.estado===col);
+function sortedCartera(colId) {
+  const items = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) === colId);
   if (carteraSort==='valor') return items.sort((a,b)=>b.totalDeuda-a.totalDeuda);
   return items.sort((a,b)=>new Date(a.fechaMasAntigua)-new Date(b.fechaMasAntigua));
 }
 
 function carteraCard(c) {
+  const g = carteraGestionMap[c.clienteId] || {};
   const dias = diasDesde(c.fechaMasAntigua);
   const grave = dias > 60;
   const montoClass = c.totalDeuda > 1000000 ? 'alta' : '';
   const diasLabel = dias > 0 ? `Vencida hace ${dias} días` : 'Al día';
-  const resp = TEAM.find(m=>m.id===c.responsable);
-  return `<div class="cartera-card${grave?' vencida-grave':''}" onclick="openCarteraModal('${c.id}')">
+  const resp = TEAM.find(m=>m.id===g.responsable_id);
+  const seguimiento = g.fecha_proximo_seguimiento;
+  const seguimientoVencido = !!seguimiento && seguimiento <= _carteraHoyISO();
+  return `<div class="cartera-card${grave?' vencida-grave':''}" onclick="openCarteraModal('${c.clienteId}')">
     <div class="cartera-nombre">${esc(c.clienteNombre)}</div>
     <div class="cartera-monto ${montoClass}">${formatCOP(c.totalDeuda)}</div>
     <div class="cartera-meta">📅 Fact. más antigua: ${c.fechaMasAntigua||'-'}</div>
-    <div class="cartera-meta ${grave?'':''}">⏱ ${diasLabel}</div>
+    <div class="cartera-meta">⏱ ${diasLabel}</div>
     <div class="cartera-meta">🧾 ${c.facturas?.length||0} factura(s) pendiente(s)</div>
-    ${resp?`<div class="cartera-meta" style="margin-top:5px"><div class="avatar" style="width:18px;height:18px;background:${resp.color};font-size:8px;display:inline-flex">${resp.initials}</div> ${resp.name.split(' ')[0]}</div>`:''}
-    ${c.fechaAcuerdo?`<div class="cartera-meta" style="color:#d97706;font-weight:600">🤝 Acuerdo: ${c.fechaAcuerdo}</div>`:''}
-    ${c.notas?`<div class="cartera-meta" style="margin-top:4px;font-style:italic">"${esc(c.notas.slice(0,50))}${c.notas.length>50?'...':''}"</div>`:''}
+    ${resp?`<div class="cartera-meta" style="margin-top:5px"><div class="avatar" style="width:18px;height:18px;background:${resp.color};font-size:8px;display:inline-flex">${resp.initials}</div> ${esc(resp.name.split(' ')[0])}</div>`:''}
+    ${g.fecha_acuerdo?`<div class="cartera-meta" style="color:#d97706;font-weight:600">🤝 Acuerdo: ${g.fecha_acuerdo}</div>`:''}
+    ${seguimiento?`<div class="cartera-meta" style="${seguimientoVencido?'color:#dc2626;font-weight:600':''}">🔔 Seguimiento: ${seguimiento}</div>`:''}
+    ${g.notas?`<div class="cartera-meta" style="margin-top:4px;font-style:italic">"${esc(g.notas.slice(0,50))}${g.notas.length>50?'...':''}"</div>`:''}
   </div>`;
 }
 
 function renderCartera() {
-  updateCarteraCount();
-  if (!cartera.length) {
-    document.getElementById('cartera-kanban').innerHTML = '<div class="cartera-loading"><div style="font-size:32px;margin-bottom:8px">💰</div>No hay cartera cargada. Haz clic en "Actualizar desde Alegra".</div>';
+  const cntEl = document.getElementById('cnt-cartera');
+  if (cntEl) cntEl.textContent = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) !== 'pagado').length;
+
+  if (!carteraClientes.length) {
+    document.getElementById('cartera-kanban').innerHTML = '<div class="cartera-loading"><div style="font-size:32px;margin-bottom:8px">✅</div>No hay facturas vencidas en Alegra.</div>';
     return;
   }
   document.getElementById('cartera-kanban').innerHTML = CARTERA_COLS.map(col=>{
@@ -189,25 +147,50 @@ function renderCartera() {
   }).join('');
 }
 
-function openCarteraModal(id) {
-  editingCarteraId = id;
-  const c = cartera.find(x=>x.id===id);
+// ── Modal "Gestión de cobro" ────────────────────────────────
+
+async function openCarteraModal(clienteId) {
+  editingCarteraId = clienteId;
+  const c = carteraClientes.find(x=>x.clienteId===clienteId);
   if (!c) return;
+  const g = carteraGestionMap[clienteId] || {};
+
   document.getElementById('cm-titulo').textContent = c.clienteNombre;
   document.getElementById('cm-resumen').innerHTML = `
     <div style="font-size:20px;font-weight:800;color:#0f766e">${formatCOP(c.totalDeuda)}</div>
     <div style="color:var(--text-muted);font-size:12px;margin-top:3px">Fact. más antigua: ${c.fechaMasAntigua||'-'} · ${c.facturas?.length||0} factura(s)</div>
-    ${c.facturas?.map(f=>`<div style="font-size:11px;color:var(--text-muted)">${f.num}: ${formatCOP(f.balance)} — vence ${f.dueDate}</div>`).join('')||''}
+    ${c.facturas?.map(f=>`<div style="font-size:11px;color:var(--text-muted)">${esc(f.num)}: ${formatCOP(f.balance)} — vence ${f.dueDate}</div>`).join('')||''}
   `;
-  document.getElementById('cm-estado').value = c.estado||'por-contactar';
-  // Populate responsable
+  document.getElementById('cm-estado').value = g.estado || 'por-contactar';
   const rSel = document.getElementById('cm-responsable');
   rSel.innerHTML = '<option value="">Sin asignar</option>' + TEAM.map(m=>`<option value="${m.id}">${m.initials} — ${m.name}</option>`).join('');
-  rSel.value = c.responsable||'';
-  document.getElementById('cm-fecha-acuerdo').value = c.fechaAcuerdo||'';
-  document.getElementById('cm-monto-acuerdo').value = c.montoAcuerdo||'';
-  document.getElementById('cm-notas').value = c.notas||'';
-  toggleCarteraAcuerdo(c.estado);
+  rSel.value = g.responsable_id || '';
+  document.getElementById('cm-fecha-acuerdo').value = g.fecha_acuerdo || '';
+  document.getElementById('cm-monto-acuerdo').value = g.monto_acuerdo || '';
+  document.getElementById('cm-notas').value = g.notas || '';
+  document.getElementById('cm-celular').value = c.celular || '';
+  document.getElementById('cm-email').value = c.email || '';
+  document.getElementById('cm-nivel').value = g.plantilla_nivel || 'cordial';
+
+  // Próxima fecha de seguimiento: la guardada, o si no hay ninguna, hoy + el
+  // estándar configurado (editable para este caso puntual antes de guardar).
+  let fechaSeg = g.fecha_proximo_seguimiento || '';
+  if (!fechaSeg) {
+    let dias = 7;
+    try {
+      const cfg = await fetch(`${API_BASE}/configuracion.php`).then(r=>r.json());
+      dias = parseInt(cfg.cartera_dias_recordatorio, 10) || 7;
+    } catch(e) {}
+    const d = new Date(); d.setDate(d.getDate() + dias);
+    fechaSeg = d.toISOString().slice(0,10);
+  }
+  document.getElementById('cm-fecha-seguimiento').value = fechaSeg;
+
+  carteraMensajeActual = null;
+  document.getElementById('cm-mensaje-preview').style.display = 'none';
+  document.getElementById('cm-mensaje-texto').value = '';
+
+  toggleCarteraAcuerdo(g.estado || 'por-contactar');
   document.getElementById('cm-estado').onchange = e => toggleCarteraAcuerdo(e.target.value);
   document.getElementById('cartera-modal').classList.add('open');
 }
@@ -218,20 +201,157 @@ function toggleCarteraAcuerdo(estado) {
   document.getElementById('cm-g-monto-acuerdo').style.display = show?'flex':'none';
 }
 
-function closeCarteraModal() { document.getElementById('cartera-modal').classList.remove('open'); editingCarteraId=null; }
+function closeCarteraModal() {
+  document.getElementById('cartera-modal').classList.remove('open');
+  editingCarteraId = null;
+  carteraMensajeActual = null;
+}
 
-function saveCarteraItem() {
-  const c = cartera.find(x=>x.id===editingCarteraId);
+// Guarda el celular en la ficha del cliente (tabla clientes) solo si cambió
+// respecto al que ya traía Alegra/Ginno — no bloquea el resto del guardado
+// si falla, es un dato auxiliar para WhatsApp.
+async function _carteraGuardarContactoSiCambio(c) {
+  const celularInput = (document.getElementById('cm-celular').value || '').trim();
+  if (celularInput === (c.celular || '')) return;
+  try {
+    const existente = await fetch(`${API_BASE}/clientes.php?alegra_id=${encodeURIComponent(c.clienteId)}`).then(r=>r.json());
+    if (existente && existente.id) {
+      await fetch(`${API_BASE}/clientes.php?id=${existente.id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ celular: celularInput }),
+      });
+    } else {
+      await fetch(`${API_BASE}/clientes.php`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ nombre: c.clienteNombre, alegra_id: c.clienteId, celular: celularInput, email: c.email || null }),
+      });
+    }
+    c.celular = celularInput;
+  } catch (e) { /* silencioso */ }
+}
+
+async function saveCarteraItem() {
+  const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
   if (!c) return;
-  c.estado       = document.getElementById('cm-estado').value;
-  c.responsable  = document.getElementById('cm-responsable').value;
-  c.fechaAcuerdo = document.getElementById('cm-fecha-acuerdo').value;
-  c.montoAcuerdo = document.getElementById('cm-monto-acuerdo').value;
-  c.notas        = document.getElementById('cm-notas').value.trim();
-  c.updatedAt    = new Date().toISOString();
-  saveCartera();
-  closeCarteraModal();
-  renderCartera();
+  const body = {
+    clienteNombre: c.clienteNombre,
+    estado: document.getElementById('cm-estado').value,
+    responsableId: document.getElementById('cm-responsable').value,
+    fechaAcuerdo: document.getElementById('cm-fecha-acuerdo').value,
+    montoAcuerdo: document.getElementById('cm-monto-acuerdo').value,
+    notas: document.getElementById('cm-notas').value.trim(),
+    fechaProximoSeguimiento: document.getElementById('cm-fecha-seguimiento').value,
+  };
+  try {
+    const res = await fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body),
+    });
+    const g = await res.json();
+    if (g.error) { alert('⚠️ ' + g.error); return; }
+    carteraGestionMap[editingCarteraId] = g;
+    await _carteraGuardarContactoSiCambio(c);
+    closeCarteraModal();
+    renderCartera();
+  } catch (e) {
+    alert('No se pudo guardar la gestión.');
+  }
+}
+
+// ── Envío de cobro (correo / WhatsApp) ──────────────────────
+
+async function carteraPrevisualizarMensaje() {
+  const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
+  if (!c) return;
+  const nivel = document.getElementById('cm-nivel').value;
+  const btn = document.getElementById('cm-btn-previsualizar');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res = await fetch(`${API_BASE}/cartera_mensaje.php`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ clienteNombre: c.clienteNombre, facturas: c.facturas, nivel }),
+    });
+    const data = await res.json();
+    if (data.error) { alert('⚠️ ' + data.error); return; }
+    carteraMensajeActual = { asunto: data.asunto };
+    document.getElementById('cm-mensaje-texto').value = data.texto;
+    document.getElementById('cm-mensaje-preview').style.display = 'block';
+  } catch (e) {
+    alert('No se pudo generar el mensaje.');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+async function carteraEnviarCorreo() {
+  const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
+  if (!c || !carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
+  const destinatarios = (document.getElementById('cm-email').value || '').trim();
+  if (!destinatarios) { alert('Falta el correo del cliente.'); return; }
+  const cuerpoTexto = document.getElementById('cm-mensaje-texto').value;
+  const nivel = document.getElementById('cm-nivel').value;
+  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
+
+  const btn = document.getElementById('cm-btn-correo');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Enviando...';
+  try {
+    const res = await fetch(`${API_BASE}/cartera_enviar_correo.php`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        clienteAlegraId: editingCarteraId, clienteNombre: c.clienteNombre,
+        destinatarios, asunto: carteraMensajeActual.asunto, cuerpoTexto, nivel, fechaProximoSeguimiento,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) { alert('⚠️ ' + data.error); return; }
+    carteraGestionMap[editingCarteraId] = {
+      ...(carteraGestionMap[editingCarteraId]||{}),
+      cliente_alegra_id: editingCarteraId, cliente_nombre: c.clienteNombre,
+      estado: data.estado, plantilla_nivel: nivel,
+      fecha_ultimo_contacto: _carteraHoyISO(), fecha_proximo_seguimiento: data.fechaProximoSeguimiento,
+    };
+    await _carteraGuardarContactoSiCambio(c);
+    alert('✅ Correo enviado.');
+    closeCarteraModal();
+    renderCartera();
+  } catch (e) {
+    alert('No se pudo enviar el correo.');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+function carteraEnviarWhatsApp() {
+  const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
+  if (!carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
+  const celularRaw = (document.getElementById('cm-celular').value || '').trim().replace(/[^\d+]/g,'');
+  if (!celularRaw) { alert('Falta el celular del cliente.'); return; }
+  const texto = document.getElementById('cm-mensaje-texto').value;
+
+  // Enlace wa.me: requiere el número con indicativo de país, sin "+". Para
+  // celulares colombianos de 10 dígitos se antepone 57; si ya trae
+  // indicativo (más de 10 dígitos) se respeta tal cual.
+  let numero = celularRaw.replace(/^\+/, '');
+  if (numero.length <= 10) numero = '57' + numero.replace(/^0+/, '');
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+
+  const nivel = document.getElementById('cm-nivel').value;
+  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
+  const estadoActual = carteraGestionMap[editingCarteraId]?.estado;
+  fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
+      estado: (estadoActual && estadoActual !== 'por-contactar') ? estadoActual : 'correo',
+      plantillaNivel: nivel,
+      fechaUltimoContacto: _carteraHoyISO(),
+      fechaProximoSeguimiento,
+    }),
+  }).then(r=>r.json()).then(g=>{
+    carteraGestionMap[editingCarteraId] = g;
+    if (c) _carteraGuardarContactoSiCambio(c);
+    renderCartera();
+  }).catch(()=>{});
 }
 // ===================== FIN CARTERA =====================
-

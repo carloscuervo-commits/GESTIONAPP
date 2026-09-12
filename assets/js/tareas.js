@@ -1103,7 +1103,7 @@ function setArea(a) {
   document.getElementById('btn-lista').style.display     = isOther ? 'none' : '';
   document.querySelector('.btn-add').style.display       = isOther ? 'none' : 'inline-flex';
   if (isOther) document.getElementById('dashboard-view').style.display = 'none';
-  if (isCartera) { renderCartera(); if (!cartera.length) fetchCarteraAlegra(); }
+  if (isCartera) { fetchCartera(); }
   else if (isFacturacion) { if (typeof cargarFacturasPendientes === 'function') cargarFacturasPendientes(); }
   else if (isInformes)  { renderInformesView(); }
   else if (isClientes)  { cargarClientes(); }
