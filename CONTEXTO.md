@@ -4,6 +4,30 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-12 — Cartera: archivado automático de pagados + fix post-deploy)
+
+### feat: la cartera archiva sola a quien ya pagó (sin borrar el histórico) + sección "🗄️ Archivados"
+
+Carlos preguntó qué pasa en Ginno cuando un cliente paga y él lo registra en Alegra, y pidió explícitamente que la gestión de ese cliente no se borre (para no perder el histórico) pero tampoco siga ocupando el tablero activo — "que se vaya desocupando ese módulo de cartera".
+
+**Lógica de archivado** (`backend/lib/cartera_archivo.php`, función `carteraSincronizarYArchivar($pdo, $vigentes)`): cada vez que se consulta la cartera vigente en Alegra, se compara contra `cartera_gestion` — a quien ya no tenga facturas vencidas se le pone `archivado = 1` (con `archivado_en`) y `estado = 'pagado'`, sin borrar la fila; a quien reaparezca con cartera vencida después de haber sido archivado se le reactiva solo (`archivado = 0`). Se guarda además `ultimo_total_deuda` en cada sincronización, para poder mostrar en el histórico cuánto se le llegó a cobrar (una vez archivado, Alegra ya no lo reporta, así que no hay forma de volver a consultarlo). Por seguridad, si la consulta a Alegra viene vacía por un error (no porque de verdad no haya nadie vencido), **no se archiva nada** ese ciclo — mejor perder un archivado que archivar a todo el mundo por un fallo de red.
+
+Esta sincronización se dispara en dos momentos: (1) `backend/api/alegra_cartera_resumen.php` (ahora un wrapper delgado sobre la lógica de Alegra, extraída a `backend/lib/alegra_cartera.php` para poder compartirla con el cron) la corre cada vez que se abre/refresca la pestaña "💰 Cartera" — así el board se va vaciando solo; (2) `backend/cron/cartera_recordatorio.php` la corre primero que nada, para no recordar seguimiento de alguien que ya pagó aunque nadie haya abierto Ginno ese día (si la consulta a Alegra falla, el cron no se detiene — sigue con los recordatorios de todas formas, usando `archivado = 0` como filtro de respaldo sobre lo que ya había en la base).
+
+**Sección "🗄️ Archivados"**: debajo del kanban, colapsada por defecto (botón con contador), lista no-clicable armada desde `cartera_gestion` (ya no desde Alegra, que dejó de reportarlos) con nombre, último monto adeudado, fecha de archivado y notas.
+
+**Migración**: `db/041_cartera_archivado.sql` agrega `cartera_gestion.archivado`, `archivado_en`, `ultimo_total_deuda` — debe correr antes de este deploy.
+
+**Archivos**: `backend/lib/alegra_cartera.php`, `backend/lib/cartera_archivo.php` (nuevos) · `backend/api/alegra_cartera_resumen.php` (reescrito como wrapper) · `backend/api/cartera_gestion.php` (`_cgRow` castea los 2 campos nuevos) · `backend/cron/cartera_recordatorio.php` (cruza Alegra antes de recordar + filtro `archivado = 0`) · `assets/js/cartera.js` (`renderCarteraArchivados()`, `toggleCarteraArchivados()`) · `tareas-equipo.html` (sección `#cartera-archivados-section`) · `assets/css/app.css` (`.cartera-card-archivada`). `?v=20260912a` en `app.css`, `?v=20260912c` en `cartera.js`.
+
+### fix: primer deploy del módulo de Cartera rompía el arranque de toda la app + texto "vence" en facturas ya vencidas
+
+Al hacer el primer deploy del módulo de Cartera (ver sección de abajo), `app.js` seguía llamando `loadCartera()` y `updateCarteraCount()` en `iniciarApp()` — funciones que existían en la versión vieja de `cartera.js` (leían de `localStorage`) y que la reescritura del módulo quitó sin darles reemplazo, así que la app entera quedaba rota desde el arranque (`ReferenceError: loadCartera is not defined`) para todos los usuarios, no solo en la pestaña Cartera. Se agregaron ambas funciones de vuelta en `cartera.js`, ahora como compatibilidad: `loadCartera()` solo actúa si `currentUser.perfil === 'admin'` (para no disparar una consulta a Alegra — y un 403 — en cada carga de un técnico) y reusa `fetchCartera()`; `updateCarteraCount()` actualiza el contador de la pestaña igual que antes.
+
+De paso, en el modal "Gestión de cobro" las facturas del cliente decían "vence {fecha}" — como todo lo que aparece en Cartera es, por definición, cartera ya vencida (se filtra `dueDate_before = hoy` contra Alegra), se cambió a "venció {fecha}".
+
+**Archivos**: `assets/js/cartera.js` (`?v=20260912c`).
+
 ## Estado actual (última actualización: 2026-09-12 — módulo de Cartera: datos en vivo, envío de cobro y recordatorio)
 
 ### feat: la pestaña "💰 Cartera" pasa a datos en vivo de Alegra + estado en base de datos + envío de cobro por correo/WhatsApp + recordatorio de seguimiento

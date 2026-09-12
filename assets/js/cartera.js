@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260912a
+// v20260912b
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -16,6 +16,13 @@
 // de intensidad — cordial/firme/prejurídico), editable antes de enviar por
 // correo (cartera_enviar_correo.php) o por WhatsApp (enlace wa.me, se abre
 // en una pestaña para revisar y dar enviar manualmente).
+//
+// Archivado: cada vez que se consulta alegra_cartera_resumen.php (o corre el
+// cron), el backend archiva solo (archivado=1, sin borrar nada) a quien ya
+// no tenga facturas vencidas en Alegra — es decir, pagó. Esos clientes dejan
+// de venir en carteraClientes (Alegra ya no los reporta) pero siguen en
+// cartera_gestion.php con su historial, así que la sección "🗄️ Archivados"
+// se arma aparte, a partir de carteraGestionMap.
 
 let carteraClientes = [];        // datos vivos de Alegra: [{clienteId, clienteNombre, email, celular, facturas, totalDeuda, fechaMasAntigua}]
 let carteraGestionMap = {};      // gestión guardada en BD, indexada por clienteId (cliente_alegra_id)
@@ -23,6 +30,7 @@ let carteraActualizado = '';
 let carteraSort = 'valor';
 let editingCarteraId = null;
 let carteraMensajeActual = null; // {asunto} del último mensaje previsualizado (el texto vive en el textarea)
+let carteraArchivadosAbierto = false;
 
 const CARTERA_COLS = [
   {id:'por-contactar', label:'Por contactar 📋'},
@@ -79,6 +87,7 @@ async function fetchCartera() {
     const actEl = document.getElementById('cartera-actualizado');
     if (actEl) actEl.textContent = carteraActualizado || '-';
     renderCartera();
+    renderCarteraArchivados();
   } catch (e) {
     loadEl.innerHTML = `<div style="font-size:24px;margin-bottom:8px">⚠️</div>
       <strong>No se pudo cargar la cartera</strong><br>
@@ -91,6 +100,22 @@ async function fetchCartera() {
 
 function carteraEstadoDe(clienteId) {
   return (carteraGestionMap[clienteId] && carteraGestionMap[clienteId].estado) || 'por-contactar';
+}
+
+// ── Compatibilidad con el arranque de la app ────────────────
+// app.js (iniciarApp) llama loadCartera() + updateCarteraCount() apenas
+// carga la página, para mostrar el contador en la pestaña 💰 Cartera antes
+// de que el usuario la abra. Antes leían de localStorage (síncrono); ahora
+// consultan lo mismo que fetchCartera() — solo para administradores, para
+// no disparar una consulta a Alegra (y un 403) en cada carga de un técnico.
+async function loadCartera() {
+  if (typeof currentUser === 'undefined' || !currentUser || currentUser.perfil !== 'admin') return;
+  await fetchCartera();
+}
+
+function updateCarteraCount() {
+  const cntEl = document.getElementById('cnt-cartera');
+  if (cntEl) cntEl.textContent = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) !== 'pagado').length;
 }
 
 // ── Tablero ──────────────────────────────────────────────────
@@ -147,6 +172,47 @@ function renderCartera() {
   }).join('');
 }
 
+// ── Sección "Archivados" (histórico de clientes que ya pagaron) ─────────
+// No son tarjetas clicables (openCarteraModal necesita el dato vivo de
+// Alegra, que un archivado ya no tiene) — es solo un registro de consulta.
+
+function carteraArchivadoCard(g) {
+  const fecha = g.archivado_en ? g.archivado_en.slice(0, 10) : '-';
+  const monto = g.ultimo_total_deuda != null ? formatCOP(g.ultimo_total_deuda) : '-';
+  return `<div class="cartera-card cartera-card-archivada">
+    <div class="cartera-nombre">${esc(g.cliente_nombre)}</div>
+    <div class="cartera-monto">${monto}</div>
+    <div class="cartera-meta">✅ Archivado el ${fecha}</div>
+    ${g.notas ? `<div class="cartera-meta" style="margin-top:4px;font-style:italic">"${esc(g.notas.slice(0,50))}${g.notas.length>50?'...':''}"</div>` : ''}
+  </div>`;
+}
+
+function renderCarteraArchivados() {
+  const wrap = document.getElementById('cartera-archivados-section');
+  if (!wrap) return;
+  const archivados = Object.values(carteraGestionMap)
+    .filter(g => Number(g.archivado) === 1)
+    .sort((a, b) => (b.archivado_en || '').localeCompare(a.archivado_en || ''));
+
+  const cntEl = document.getElementById('cartera-archivados-count');
+  if (cntEl) cntEl.textContent = archivados.length;
+
+  const listaEl = document.getElementById('cartera-archivados-lista');
+  if (!listaEl) return;
+  if (!carteraArchivadosAbierto) { listaEl.style.display = 'none'; return; }
+  listaEl.style.display = 'flex';
+  listaEl.innerHTML = archivados.length
+    ? archivados.map(carteraArchivadoCard).join('')
+    : '<div class="empty">Sin clientes archivados todavía.</div>';
+}
+
+function toggleCarteraArchivados() {
+  carteraArchivadosAbierto = !carteraArchivadosAbierto;
+  const icon = document.getElementById('cartera-archivados-toggle-icon');
+  if (icon) icon.textContent = carteraArchivadosAbierto ? '▲' : '▼';
+  renderCarteraArchivados();
+}
+
 // ── Modal "Gestión de cobro" ────────────────────────────────
 
 async function openCarteraModal(clienteId) {
@@ -159,7 +225,7 @@ async function openCarteraModal(clienteId) {
   document.getElementById('cm-resumen').innerHTML = `
     <div style="font-size:20px;font-weight:800;color:#0f766e">${formatCOP(c.totalDeuda)}</div>
     <div style="color:var(--text-muted);font-size:12px;margin-top:3px">Fact. más antigua: ${c.fechaMasAntigua||'-'} · ${c.facturas?.length||0} factura(s)</div>
-    ${c.facturas?.map(f=>`<div style="font-size:11px;color:var(--text-muted)">${esc(f.num)}: ${formatCOP(f.balance)} — vence ${f.dueDate}</div>`).join('')||''}
+    ${c.facturas?.map(f=>`<div style="font-size:11px;color:var(--text-muted)">${esc(f.num)}: ${formatCOP(f.balance)} — venció ${f.dueDate}</div>`).join('')||''}
   `;
   document.getElementById('cm-estado').value = g.estado || 'por-contactar';
   const rSel = document.getElementById('cm-responsable');

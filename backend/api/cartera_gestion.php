@@ -19,7 +19,9 @@ $usuario = requireSesion($pdo, 'admin');
 $method = $_SERVER['REQUEST_METHOD'];
 
 function _cgRow($row) {
-  $row['monto_acuerdo'] = $row['monto_acuerdo'] !== null ? (float)$row['monto_acuerdo'] : null;
+  $row['monto_acuerdo']       = $row['monto_acuerdo']       !== null ? (float)$row['monto_acuerdo']       : null;
+  $row['ultimo_total_deuda']  = $row['ultimo_total_deuda']  !== null ? (float)$row['ultimo_total_deuda']  : null;
+  $row['archivado']           = (int)($row['archivado'] ?? 0);
   return $row;
 }
 

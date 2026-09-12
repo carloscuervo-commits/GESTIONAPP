@@ -42,6 +42,33 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-12 — Cartera: archivado automático de pagados + fix post-deploy)
+
+**⚠️ Requiere migración ANTES del deploy de código**: ejecutar `db/041_cartera_archivado.sql` en phpMyAdmin (agrega `cartera_gestion.archivado`, `archivado_en`, `ultimo_total_deuda`). Requiere que `db/040_cartera_gestion.sql` ya esté corrida (deploy anterior).
+
+Carlos pidió que cuando un cliente paga (y lo registra en Alegra) su gestión de cartera NO se borre — se archive, para no perder el histórico ni seguir ocupando el tablero activo. También pidió que el cron cruce la cartera vigente antes de recordar seguimiento, y una sección "Archivados" en el tablero. Incluye además un fix urgente: el primer deploy del módulo de Cartera rompía el arranque completo de la app para todos los usuarios (`loadCartera is not defined`).
+
+**Archivos nuevos:**
+- `db/041_cartera_archivado.sql` — columnas `archivado`, `archivado_en`, `ultimo_total_deuda` en `cartera_gestion`.
+- `backend/lib/alegra_cartera.php` — lógica de consulta a Alegra (antes solo en `alegra_cartera_resumen.php`), extraída para que el cron la use sin pasar por HTTP.
+- `backend/lib/cartera_archivo.php` — `carteraSincronizarYArchivar()`: archiva (o reactiva) en `cartera_gestion` según la cartera vigente de Alegra, sin borrar nada.
+
+**Archivos modificados:**
+- `backend/api/alegra_cartera_resumen.php` — reescrito como wrapper delgado sobre `alegra_cartera.php`; llama a `carteraSincronizarYArchivar()` en cada consulta (cada vez que se abre/refresca la pestaña Cartera).
+- `backend/api/cartera_gestion.php` — `_cgRow()` castea `archivado`/`ultimo_total_deuda`.
+- `backend/cron/cartera_recordatorio.php` — cruza la cartera vigente de Alegra y archiva antes de armar los recordatorios; filtro `archivado = 0` agregado a la consulta (no bloquea el cron si la consulta a Alegra falla).
+- `assets/js/cartera.js` — nueva sección "🗄️ Archivados" (`renderCarteraArchivados()`, `toggleCarteraArchivados()`, colapsada por defecto); **fix**: se restauran `loadCartera()`/`updateCarteraCount()` (rotas en el deploy anterior — ver más abajo); **fix**: "vence {fecha}" → "venció {fecha}" en las facturas del modal (toda la cartera es, por definición, vencida). `?v=20260912c`.
+- `assets/css/app.css` — estilos `.cartera-kanban-archivados`, `.cartera-card-archivada`. `?v=20260912a`.
+- `tareas-equipo.html` — sección `#cartera-archivados-section` debajo del kanban; `?v=` subido para `app.css` y `cartera.js`.
+
+**Prueba manual sugerida:**
+1. Ejecutar la migración 041 en phpMyAdmin antes de desplegar el código.
+2. Recargar Ginno como técnico y como admin → la app debe arrancar sin errores en consola (el fix de `loadCartera`).
+3. Abrir 💰 Cartera → el contador de la pestaña debe coincidir con las tarjetas del tablero.
+4. Marcar en Alegra una factura como pagada (o de prueba, alguna que ya esté al día) → refrescar la pestaña Cartera → ese cliente debe desaparecer del tablero activo y aparecer en "🗄️ Archivados" (clic para desplegar) con su último monto y fecha de archivado.
+5. Correr manualmente `backend/cron/cartera_recordatorio.php` → no debe llegar recordatorio de un cliente ya archivado, aunque tuviera una próxima fecha de seguimiento vencida guardada.
+6. Abrir una tarjeta en Cartera → en el resumen de facturas debe decir "venció {fecha}", no "vence {fecha}".
+
 ## Cambios pendientes de deploy (2026-09-12 — módulo de Cartera: datos en vivo + envío de cobro + recordatorio)
 
 **⚠️ Requiere migración ANTES del deploy de código**: ejecutar `db/040_cartera_gestion.sql` en phpMyAdmin (crea la tabla `cartera_gestion`, agrega `clientes.celular` y el valor de configuración `cartera_dias_recordatorio`).

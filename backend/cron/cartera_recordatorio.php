@@ -2,9 +2,18 @@
 /**
  * cartera_recordatorio.php — Cron diario (sugerido 8:00 a.m.).
  *
- * Busca en cartera_gestion los clientes cuya fecha_proximo_seguimiento ya
- * pasó (o es hoy) y que no están en estado 'pagado', y envía un correo
- * consolidado a los administradores recordándoles darles seguimiento.
+ * Antes que nada, cruza la cartera vigente en Alegra (misma lógica que usa
+ * la pestaña "💰 Cartera" al abrirse) y archiva en cartera_gestion a quien ya
+ * no tenga facturas vencidas — así el cron nunca manda un recordatorio de un
+ * cliente que ya pagó, aunque el admin no haya abierto Ginno ese día. Si la
+ * consulta a Alegra falla, el cron NO se detiene: sigue con los recordatorios
+ * usando el estado que ya haya en la base (con archivado = 0 como filtro de
+ * respaldo), simplemente sin poder archivar nada nuevo ese día.
+ *
+ * Luego busca en cartera_gestion los clientes cuya fecha_proximo_seguimiento
+ * ya pasó (o es hoy), que no están en estado 'pagado' y que no están
+ * archivados, y envía un correo consolidado a los administradores
+ * recordándoles darles seguimiento.
  *
  * No re-agenda nada por su cuenta: mientras el admin no vuelva a guardar una
  * gestión con una fecha_proximo_seguimiento nueva, este cron lo sigue
@@ -16,9 +25,20 @@
  */
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/avisos_tecnicos.php';
+require_once __DIR__ . '/../lib/alegra_cartera.php';
+require_once __DIR__ . '/../lib/cartera_archivo.php';
 
 $pdo = getDB();
 $hoy = (new DateTime('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
+
+try {
+  $vigentes = alegraCarteraVigente();
+  carteraSincronizarYArchivar($pdo, $vigentes);
+} catch (Throwable $e) {
+  // No bloquear el cron por un problema puntual con Alegra: seguimos con los
+  // recordatorios de todas formas, usando el estado archivado que ya haya en
+  // la base (ver filtro "archivado = 0" abajo).
+}
 
 $stmt = $pdo->prepare("
   SELECT cliente_alegra_id, cliente_nombre, estado, fecha_proximo_seguimiento, notas
@@ -26,6 +46,7 @@ $stmt = $pdo->prepare("
   WHERE fecha_proximo_seguimiento IS NOT NULL
     AND fecha_proximo_seguimiento <= ?
     AND estado != 'pagado'
+    AND archivado = 0
   ORDER BY fecha_proximo_seguimiento ASC
 ");
 $stmt->execute([$hoy]);
