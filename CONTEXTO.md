@@ -4,6 +4,26 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-13 — Cartera: total general en la pestaña + alerta en el dashboard)
+
+### feat: total general de cartera vencida al abrir la pestaña
+
+Nuevo bloque `#cartera-total-general` justo debajo de la barra de herramientas de Cartera, con la suma de la deuda vigente de todos los clientes que Alegra reporta como vencidos (los archivados no cuentan, porque Alegra ya no los reporta) y la cantidad de clientes. Se recalcula en cada `renderCartera()` (al abrir la pestaña, al actualizar, y después de cualquier envío/guardado).
+
+**Archivos**: `assets/js/cartera.js` (`?v=20260913a` → luego `b`, ver siguiente feature) · `assets/css/app.css` (`.cartera-total-general`, `?v=20260913a`) · `tareas-equipo.html`.
+
+### feat: "Gestión de cartera por realizar" en la zona de alertas del dashboard
+
+Carlos pidió agregar Cartera a la zona de alertas del dashboard principal (la que ya tiene "Realizados sin facturar", "Pendientes por cotizar", etc.), en segunda posición — justo después de "Realizados sin facturar", que se deja igual. La nueva alerta lista los clientes cuya **próxima fecha de seguimiento** (la que se calcula en la pestaña Cartera a partir de los días hábiles del plazo) ya llegó hoy o ya pasó, siempre que el cliente no esté archivado ni en estado "pagado".
+
+**Cómo se calcula**: no hace falta consultar Alegra para esto — `cartera_gestion.php` (GET) ya tiene `fecha_proximo_seguimiento` guardada localmente, así que `cargarAlertasCarteraSeguimiento()` (nueva función en `tareas.js`) solo filtra `archivado != 1 && estado != 'pagado' && fecha_proximo_seguimiento <= hoy`, ordenado por más vencida primero. Sigue el mismo patrón ya establecido para las demás sub-secciones asíncronas de la zona de alertas (`cargarAlertasSinReporte()`, `cargarContratosVigentes()`): un `<div>` placeholder en la posición fija dentro de `renderDashboard()`, agregado a `_idsConDatosAsincronos` (para que no parpadee vacío durante el auto-refresh), y una función aparte que llena ese div con su propio fetch.
+
+**Clic en una tarjeta de la alerta**: lleva directo a la pestaña Cartera y abre la gestión de ese cliente (`irACarteraCliente()` en `cartera.js`, guarda el id pendiente en `_carteraAbrirAlLlegar` y `setArea('cartera')`; `fetchCartera()` revisa esa variable al terminar de cargar y abre el modal — si el cliente ya no aparece entre los vigentes de Alegra, no hace nada, sin error).
+
+Solo visible para admin (mismo gate que el resto de Cartera). Color distintivo: violeta `#7c3aed` (el mismo que ya se usa para la columna "Acuerdo de pago" del tablero, para que se lea como "de Cartera" de un vistazo).
+
+**Archivos**: `assets/js/tareas.js` (`cargarAlertasCarteraSeguimiento()`, placeholder en `renderDashboard()`, `?v=20260913a`) · `assets/js/cartera.js` (`irACarteraCliente()`, `_carteraAbrirAlLlegar`, hook en `fetchCartera()`, `?v=20260913b`) · `tareas-equipo.html` (`?v=` de ambos JS subidos). Sin cambios de backend ni SQL — usa el mismo endpoint `cartera_gestion.php` que ya existe.
+
 ## Estado actual (última actualización: 2026-09-12 — Cartera: el recordatorio se cuenta en días hábiles colombianos)
 
 ### fix/feat: "días para recordar" pasa a ser días hábiles (fines de semana y festivos colombianos)

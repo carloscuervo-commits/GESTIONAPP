@@ -42,6 +42,24 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-13 — Cartera: total general en la pestaña + alerta en el dashboard)
+
+No requiere migración de base de datos.
+
+Dos cambios: (1) la pestaña Cartera ahora muestra el total general de la deuda vencida al abrir; (2) el dashboard principal (zona de alertas) ahora incluye, en segunda posición justo después de "Realizados sin facturar", una alerta "Gestión de cartera por realizar" con los clientes cuya próxima fecha de seguimiento ya llegó o ya venció.
+
+**Archivos modificados:**
+- `assets/js/cartera.js` — total general en `renderCartera()`; `irACarteraCliente()` + `_carteraAbrirAlLlegar` (deep-link desde la alerta del dashboard). `?v=20260913b`.
+- `assets/js/tareas.js` — `cargarAlertasCarteraSeguimiento()`, placeholder `#alertas-cartera-seguimiento` en `renderDashboard()`. `?v=20260913a`.
+- `assets/css/app.css` — `.cartera-total-general`. `?v=20260913a`.
+- `tareas-equipo.html` — `?v=` de los 3 archivos anteriores subidos.
+
+**Prueba manual sugerida:**
+1. Abrir la pestaña Cartera → debe verse el total general (suma de deuda vencida) y el número de clientes justo debajo de la barra de herramientas.
+2. Ir al dashboard principal (con algún cliente que tenga `fecha_proximo_seguimiento` de hoy o anterior y que no esté archivado/pagado) → debe aparecer la tarjeta violeta "📇 Gestión de cartera por realizar" en segunda posición de la zona de alertas, justo después de "Realizados sin facturar".
+3. Hacer clic en un cliente de esa alerta → debe llevar a la pestaña Cartera y abrir directo el modal de gestión de ese cliente.
+4. Confirmar que un cliente archivado o en estado "pagado" NO aparece en esta alerta aunque tenga una fecha de seguimiento vieja.
+
 ## Cambios pendientes de deploy (2026-09-12 — Cartera: recordatorio en días hábiles colombianos)
 
 No requiere migración de base de datos.

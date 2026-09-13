@@ -653,6 +653,12 @@ function renderDashboard() {
     </div>`;
   }
 
+  // 2.5. Gestión de cartera por realizar (dato asíncrono, ver
+  // cargarAlertasCarteraSeguimiento() — se llena aparte de este render()
+  // igual que contratos/sin-reporte/fuera-sitio, para no bloquear el
+  // dashboard con un fetch a cartera_gestion.php)
+  html += '<div id="alertas-cartera-seguimiento"></div>';
+
   // 3. Pendientes por cotizar
   if (sinCotizarAlerts.length) {
     html += `<div style="background:#ec008c;border:1px solid #ec008c;border-radius:var(--radius);padding:16px;margin-bottom:14px">
@@ -738,6 +744,7 @@ function renderDashboard() {
     'contratos-vigentes-section', 'proyectos-activos-section',
     'alertas-incumplidas', 'contratos-alerta-fin-mes',
     'alertas-sin-reporte', 'alertas-fuera-sitio',
+    'alertas-cartera-seguimiento',
   ];
   const _htmlPrevio = {};
   _idsConDatosAsincronos.forEach(id => {
@@ -757,6 +764,7 @@ function renderDashboard() {
   actualizarBadgeFueraSitio();
   cargarAlertasSinReporte();
   cargarContratosVigentes();
+  cargarAlertasCarteraSeguimiento();
   renderProyectosActivosCard();
 }
 
@@ -930,6 +938,41 @@ async function cargarAlertasSinReporte() {
     _setHtmlConservandoScroll(el, `
       <div style="background:#dc2626;border:1px solid #dc2626;border-radius:var(--radius);padding:16px;margin-bottom:14px">
         <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚫 Visitas terminadas sin reporte (${items.length})</div>
+        <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
+      </div>`);
+  } catch(e) { /* silencioso */ }
+}
+
+// --------------------------------------------------------------
+// Gestión de cartera por realizar (zona de alertas): clientes cuya próxima
+// fecha de seguimiento (la que se calcula en la pestaña Cartera a partir de
+// los días hábiles ingresados en el plazo) ya llegó o ya pasó. No hace
+// falta consultar Alegra para esto — cartera_gestion.php ya tiene esa fecha
+// guardada localmente, así que este chequeo es liviano.
+// --------------------------------------------------------------
+async function cargarAlertasCarteraSeguimiento() {
+  if (!currentUser || currentUser.perfil !== 'admin' || !API_BASE) return;
+  const el = document.getElementById('alertas-cartera-seguimiento');
+  if (!el) return;
+  try {
+    const res = await fetch(`${API_BASE}/cartera_gestion.php`);
+    const data = await res.json();
+    const hoy = new Date().toISOString().slice(0, 10);
+    const items = (Array.isArray(data) ? data : [])
+      .filter(g => Number(g.archivado) !== 1 && g.estado !== 'pagado' && g.fecha_proximo_seguimiento && g.fecha_proximo_seguimiento <= hoy)
+      .sort((a, b) => a.fecha_proximo_seguimiento.localeCompare(b.fecha_proximo_seguimiento)); // más vencidas primero
+    if (!items.length) { _setHtmlConservandoScroll(el, ''); return; }
+    const filas = items.map(g => {
+      const vencido = g.fecha_proximo_seguimiento < hoy;
+      const dias = Math.floor((new Date(hoy) - new Date(g.fecha_proximo_seguimiento)) / 86400000);
+      return `<div onclick="irACarteraCliente('${esc(g.cliente_alegra_id)}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#ffffff;border-radius:8px;border:1px solid rgba(255,255,255,.5);cursor:pointer;font-size:13px">
+        <span style="font-weight:600;flex:1">${esc(g.cliente_nombre)}</span>
+        <span style="color:${vencido?'#e63946':'var(--text)'};font-weight:700;font-size:12px">${vencido ? `⏰ ${dias} día${dias===1?'':'s'} vencida` : '📅 hoy'}</span>
+      </div>`;
+    }).join('');
+    _setHtmlConservandoScroll(el, `
+      <div style="background:#7c3aed;border:1px solid #7c3aed;border-radius:var(--radius);padding:16px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📇 Gestión de cartera por realizar (${items.length})</div>
         <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
       </div>`);
   } catch(e) { /* silencioso */ }

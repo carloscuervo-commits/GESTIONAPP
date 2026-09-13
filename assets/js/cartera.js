@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260912h
+// v20260913b
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -31,6 +31,7 @@ let carteraSort = 'valor';
 let editingCarteraId = null;
 let carteraMensajeActual = null; // {asunto} del último mensaje previsualizado (el texto vive en el textarea)
 let carteraArchivadosAbierto = false;
+let _carteraAbrirAlLlegar = null; // clienteId pendiente de abrir en cuanto cargue fetchCartera()
 
 const CARTERA_COLS = [
   {id:'por-contactar', label:'Por contactar 📋'},
@@ -154,6 +155,17 @@ async function fetchCartera() {
     if (actEl) actEl.textContent = carteraActualizado || '-';
     renderCartera();
     renderCarteraArchivados();
+
+    // Si se llegó a esta pestaña desde la "Gestión de cartera por realizar"
+    // de la zona de alertas (irACarteraCliente()), abrir directo la gestión
+    // de ese cliente. Si ya no aparece entre los clientes vigentes (por
+    // ejemplo, Alegra ya no lo reporta como vencido), openCarteraModal()
+    // simplemente no hace nada — sin error.
+    if (_carteraAbrirAlLlegar) {
+      const pendienteId = _carteraAbrirAlLlegar;
+      _carteraAbrirAlLlegar = null;
+      openCarteraModal(pendienteId);
+    }
   } catch (e) {
     loadEl.innerHTML = `<div style="font-size:24px;margin-bottom:8px">⚠️</div>
       <strong>No se pudo cargar la cartera</strong><br>
@@ -162,6 +174,14 @@ async function fetchCartera() {
     loadEl.style.display   = 'block';
     kanbanEl.style.display = 'none';
   }
+}
+
+// Ir directo a la pestaña Cartera y abrir la gestión de un cliente puntual
+// — usado desde la "Gestión de cartera por realizar" en la zona de alertas
+// del dashboard (tareas.js, cargarAlertasCarteraSeguimiento()).
+function irACarteraCliente(clienteId) {
+  _carteraAbrirAlLlegar = clienteId;
+  if (typeof setArea === 'function') setArea('cartera');
 }
 
 function carteraEstadoDe(clienteId) {
@@ -224,6 +244,17 @@ function carteraCard(c) {
 function renderCartera() {
   const cntEl = document.getElementById('cnt-cartera');
   if (cntEl) cntEl.textContent = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) !== 'pagado').length;
+
+  // Total general de la cartera vencida (suma de la deuda vigente de todos
+  // los clientes que Alegra sigue reportando como vencidos — los archivados,
+  // que ya pagaron, no entran aquí porque Alegra ya no los reporta).
+  const totalEl = document.getElementById('cartera-total-general');
+  if (totalEl) {
+    const totalGeneral = carteraClientes.reduce((sum, c) => sum + (Number(c.totalDeuda) || 0), 0);
+    totalEl.innerHTML = carteraClientes.length
+      ? `💰 Total cartera vencida: <strong>${formatCOP(totalGeneral)}</strong> — ${carteraClientes.length} cliente${carteraClientes.length===1?'':'s'}`
+      : '✅ No hay cartera vencida';
+  }
 
   if (!carteraClientes.length) {
     document.getElementById('cartera-kanban').innerHTML = '<div class="cartera-loading"><div style="font-size:32px;margin-bottom:8px">✅</div>No hay facturas vencidas en Alegra.</div>';

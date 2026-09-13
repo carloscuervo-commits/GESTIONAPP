@@ -177,6 +177,7 @@
   .area-tab[data-area="cartera"].active { background: #0e7a8a; }
   .cartera-view { padding: 0 20px 20px; }
   .cartera-toolbar { display: flex; gap: 8px; padding: 12px 20px 8px; align-items: center; flex-wrap: wrap; }
+  .cartera-total-general { margin: 4px 20px 10px; padding: 10px 16px; background: #D6F3F4; border-radius: 8px; font-size: 14px; font-weight: 700; color: #0D3B40; }
   .cartera-kanban { display: flex; gap: 12px; overflow-x: auto; min-height: calc(100vh - 260px); }
   .col-por-contactar .col-header { background: #a3a6ab; }
   .col-etapa1 .col-header        { background: #0891b2; }
