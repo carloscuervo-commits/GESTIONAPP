@@ -217,3 +217,11 @@
     .area-tabs { padding: 8px 10px 0; }
     .btn-add-text { display: none; }
   }
+
+  /* DASHBOARD: ancho responsivo (móvil sin cambios, más ancho/centrado en pantallas grandes) */
+  .dashboard-wrap { max-width: 960px; margin: 0 auto; }
+  .alerta-lista { display: flex; flex-direction: column; gap: 6px; }
+  @media (min-width: 1300px) {
+    .dashboard-wrap { max-width: 1500px; }
+    .alerta-lista { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  }

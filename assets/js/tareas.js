@@ -572,7 +572,7 @@ function renderDashboard() {
 
   const today = new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  let html = `<div style="max-width:960px">
+  let html = `<div class="dashboard-wrap">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <div style="font-size:12px;color:var(--text-muted);text-transform:capitalize">${today}</div>
       <button class="btn-save" onclick="openProgModal()" style="font-size:12px;padding:7px 14px">📋 Copiar programación</button>
@@ -617,8 +617,8 @@ function renderDashboard() {
   // 1. Pendientes sin programar
   if (sinProgAlerts.length) {
     html += `<div style="background:#8dc63f;border:1px solid #8dc63f;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">⚠️ Pendientes sin programar</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">⚠️ Pendientes sin programar (${sinProgAlerts.length})</div>
+      <div class="alerta-lista">
         ${sinProgAlerts.map(t=>{
           const a = alertaProgramacion(t);
           const vencido = a.vencido;
@@ -636,8 +636,8 @@ function renderDashboard() {
   // 2. Pendientes sin facturar
   if (allAlerts.length) {
     html += `<div style="background:#f7941e;border:1px solid #f7941e;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚨 Realizados sin facturar</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚨 Realizados sin facturar (${allAlerts.length})</div>
+      <div class="alerta-lista">
         ${allAlerts.map(t=>{
           const a = alertaFacturacion(t);
           const vencido = a && a.vencido;
@@ -662,8 +662,8 @@ function renderDashboard() {
   // 3. Pendientes por cotizar
   if (sinCotizarAlerts.length) {
     html += `<div style="background:#ec008c;border:1px solid #ec008c;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">⏳ Pendientes por cotizar</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">⏳ Pendientes por cotizar (${sinCotizarAlerts.length})</div>
+      <div class="alerta-lista">
         ${sinCotizarAlerts.map(t=>{
           const a = alertaPorCotizar(t);
           const vencido = a.vencido;
@@ -689,8 +689,8 @@ function renderDashboard() {
     .sort((a, b) => _diasAtrasoSeguimiento(b) - _diasAtrasoSeguimiento(a)); // más vencidas primero
   if (comSeguimiento.length) {
     html += `<div style="background:#14a8bd;border:1px solid #14a8bd;border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📞 Cotizado por seguimiento</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📞 Cotizado por seguimiento (${comSeguimiento.length})</div>
+      <div class="alerta-lista">
         ${comSeguimiento.map(t=>{
           const a = alertaSeguimiento(t);
           const vencido = a.tipo==='sin-seguimiento' && a.vencido;
@@ -717,7 +717,7 @@ function renderDashboard() {
     html += `<div style="background:#0D3B40;border:1px solid #169BBC;border-radius:var(--radius);padding:16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-weight:700;font-size:13px;color:#D6F3F4;margin-bottom:6px">📋 Horas sin justificar en bitácora</div>
+          <div style="font-weight:700;font-size:13px;color:#D6F3F4;margin-bottom:6px">📋 Horas sin justificar en bitácora (${_bitDeficitData.length})</div>
           <div style="font-size:13px;color:#fff">${nombres}</div>
         </div>
         <button class="btn-save" onclick="setArea('bitacora')"
@@ -938,7 +938,7 @@ async function cargarAlertasSinReporte() {
     _setHtmlConservandoScroll(el, `
       <div style="background:#dc2626;border:1px solid #dc2626;border-radius:var(--radius);padding:16px;margin-bottom:14px">
         <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">🚫 Visitas terminadas sin reporte (${items.length})</div>
-        <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
+        <div class="alerta-lista">${filas}</div>
       </div>`);
   } catch(e) { /* silencioso */ }
 }
@@ -973,7 +973,7 @@ async function cargarAlertasCarteraSeguimiento() {
     _setHtmlConservandoScroll(el, `
       <div style="background:#7c3aed;border:1px solid #7c3aed;border-radius:var(--radius);padding:16px;margin-bottom:14px">
         <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📇 Gestión de cartera por realizar (${items.length})</div>
-        <div style="display:flex;flex-direction:column;gap:6px">${filas}</div>
+        <div class="alerta-lista">${filas}</div>
       </div>`);
   } catch(e) { /* silencioso */ }
 }
@@ -1109,7 +1109,7 @@ function renderContratosAlertaFinMes() {
 
   _setHtmlConservandoScroll(el, `<div style="background:#f59e0b;border:1px solid #f59e0b;border-radius:var(--radius);padding:16px;margin-bottom:14px">
     <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:10px">📋 Contratos por consumir antes del cierre (${pendientes.length})</div>
-    <div style="display:flex;flex-direction:column;gap:6px">${items}</div>
+    <div class="alerta-lista">${items}</div>
   </div>`);
 }
 

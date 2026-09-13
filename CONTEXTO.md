@@ -4,6 +4,22 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-13 — Dashboard: ancho responsivo en pantallas grandes, alertas a 2 columnas, contador por sección)
+
+### feat: dashboard aprovecha el ancho en pantallas grandes, sin afectar celular
+
+Carlos mostró capturas del dashboard en su PC: el contenido quedaba encajonado a `max-width:960px` y pegado a la izquierda, desperdiciando espacio horizontal en monitores grandes. Se cambió el `<div style="max-width:960px">` que envuelve todo `renderDashboard()` por `<div class="dashboard-wrap">`, y esa clase vive ahora en `app.css`: mismo `max-width:960px` + `margin:0 auto` por defecto (esto ya centra el contenido en ventanas de 960–1300px, aunque el ancho no cambie), y a partir de `min-width:1300px` el `max-width` sube a `1500px`. Como todo depende de una media query con piso 1300px, el celular queda exactamente igual que antes.
+
+### feat: listas largas de la zona de alertas en 2 columnas (solo pantallas grandes)
+
+La segunda captura de Carlos mostraba "Realizados sin facturar" con 33 ítems en una sola columna larguísima. Los 7 contenedores de listas de la zona de alertas (que antes tenían el estilo inline `display:flex;flex-direction:column;gap:6px` repetido) ahora usan la clase `alerta-lista`. Esa clase mantiene el mismo comportamiento de columna única por defecto (para celular y pantallas medianas), y dentro de la misma media query `min-width:1300px` usada arriba cambia a `display:grid;grid-template-columns:1fr 1fr`. Mismo breakpoint que el ancho del dashboard, para que ambos cambios se sientan como una sola transición al redimensionar.
+
+### feat: contador "(N)" en cada título de la zona de alertas
+
+Se agregó `(${...length})` al lado del título en las secciones que no lo tenían: "⚠️ Pendientes sin programar", "🚨 Realizados sin facturar", "⏳ Pendientes por cotizar", "📞 Cotizado por seguimiento" y "📋 Horas sin justificar en bitácora". Las demás secciones (visitas sin reporte, gestión de cartera por realizar, contratos por consumir, técnicos tardíos, tareas incumplidas) ya mostraban su conteo. La única que se dejó tal cual fue "📍 N checks fuera de sitio por gestionar": no es una lista sino un banner de una sola línea que ya trae el número incrustado en el texto, así que agregar un "(N)" adicional habría sido redundante.
+
+**Archivos**: `assets/js/tareas.js` (`dashboard-wrap`, `class="alerta-lista"` ×7, contadores en 5 títulos, `?v=20260913a` → `b`) · `assets/css/app.css` (`.dashboard-wrap`, `.alerta-lista` + media query `min-width:1300px`, `?v=20260913a` → `b`) · `tareas-equipo.html` (`?v=` de ambos subidos).
+
 ## Estado actual (última actualización: 2026-09-13 — Cartera: total general en la pestaña + alerta en el dashboard)
 
 ### feat: total general de cartera vencida al abrir la pestaña

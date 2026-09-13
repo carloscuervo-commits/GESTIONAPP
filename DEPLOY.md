@@ -42,6 +42,23 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-13 — Dashboard: ancho responsivo, alertas a 2 columnas, contador por sección)
+
+No requiere migración de base de datos.
+
+Tres cambios visuales al dashboard principal, todos sin tocar el comportamiento en celular (dependen de una media query `min-width:1300px`): (1) el contenido del dashboard ya no queda encajonado a 960px en pantallas grandes — se centra siempre y, a partir de 1300px de ancho de ventana, crece hasta 1500px; (2) las listas largas de la zona de alertas (ej. "Realizados sin facturar") se muestran en 2 columnas cuando la ventana es grande, y en 1 columna en cualquier otro caso (igual que antes); (3) los títulos de las secciones de alertas que no tenían conteo ahora muestran "(N)" con la cantidad de ítems.
+
+**Archivos modificados:**
+- `assets/js/tareas.js` — `<div class="dashboard-wrap">` en `renderDashboard()` (antes `style="max-width:960px"`); `class="alerta-lista"` en los 7 contenedores de listas de alertas (antes estilo inline repetido); contador `(${...length})` agregado a 5 títulos de alerta. `?v=20260913b`.
+- `assets/css/app.css` — nuevas clases `.dashboard-wrap` y `.alerta-lista`, con media query `@media (min-width:1300px)` que amplía el ancho del dashboard y cambia las listas a grid de 2 columnas. `?v=20260913b`.
+- `tareas-equipo.html` — `?v=` de `tareas.js` y `app.css` subidos.
+
+**Prueba manual sugerida:**
+1. Con la ventana del navegador angosta (celular o < 1300px), confirmar que el dashboard se ve exactamente igual que antes: mismo ancho máximo (960px), listas de alertas en una sola columna.
+2. Ampliar la ventana a 1300px o más → el contenido del dashboard debe ensancharse (hasta 1500px) y las listas largas de la zona de alertas (ej. "Realizados sin facturar" si hay varios ítems) deben pasar a mostrarse en 2 columnas.
+3. Reducir la ventana de nuevo por debajo de 1300px → todo debe volver a una sola columna y al ancho original, sin saltos raros.
+4. Revisar los títulos de la zona de alertas: "Pendientes sin programar", "Realizados sin facturar", "Pendientes por cotizar", "Cotizado por seguimiento" y "Horas sin justificar en bitácora" deben mostrar la cantidad entre paréntesis junto al título.
+
 ## Cambios pendientes de deploy (2026-09-13 — Cartera: total general en la pestaña + alerta en el dashboard)
 
 No requiere migración de base de datos.
