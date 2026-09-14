@@ -40,7 +40,20 @@
   .area-tab[data-area="clientes"].active { background: #F29206; }
   .area-tab[data-area="transportes"].active { background: #169BBC; }
   .area-tab[data-area="bitacora"].active { background: #0D3B40; border: 1px solid #169BBC; }
+  .area-tab[data-area="anticipos-recibidos"].active { background: #0ea5e9; }
+  .area-tab[data-area="anticipos-entregados"].active { background: #f97316; }
   .area-tab .tab-count { display: inline-block; background: rgba(0,0,0,0.15); border-radius: 99px; padding: 0 6px; font-size: 11px; margin-left: 5px; }
+
+  /* Grupo de pestañas con menú desplegable (ej. "💰 Finanzas": Cartera, Anticipos, Facturación) */
+  .area-tab-group { position: relative; }
+  .area-tab-group-btn { padding: 8px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); white-space: nowrap; border-bottom: 3px solid transparent; transition: all .15s; display: inline-flex; align-items: center; gap: 4px; }
+  .area-tab-group-btn:hover { color: var(--text); background: var(--bg); }
+  .area-tab-group.group-active .area-tab-group-btn { color: white; background: #0e7a8a; }
+  .area-tab-group-caret { font-size: 10px; transition: transform .15s; }
+  .area-tab-group.open .area-tab-group-caret { transform: rotate(180deg); }
+  .area-tab-dropdown { position: absolute; top: calc(100% + 4px); left: 0; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 150; min-width: 210px; max-width: calc(100vw - 40px); padding: 6px; display: none; flex-direction: column; gap: 2px; }
+  .area-tab-group.open .area-tab-dropdown { display: flex; }
+  .area-tab-dropdown .area-tab { border-radius: 7px; border-bottom: none; text-align: left; width: 100%; }
   .area-tab:not(.active) .tab-count { background: var(--border); color: var(--text-muted); }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; padding: 12px 20px 0; }

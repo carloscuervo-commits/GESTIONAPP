@@ -1113,6 +1113,21 @@ function renderContratosAlertaFinMes() {
   </div>`);
 }
 
+// Grupos de pestañas con menú desplegable en la barra de áreas (ej. "💰 Finanzas").
+// toggleAreaDropdown('finanzas') abre/cierra #area-tab-group-finanzas; cualquier
+// clic afuera del grupo, o elegir un área (ver setArea), lo vuelve a cerrar.
+function toggleAreaDropdown(nombre) {
+  const grupo = document.getElementById(`area-tab-group-${nombre}`);
+  if (!grupo) return;
+  const yaAbierto = grupo.classList.contains('open');
+  document.querySelectorAll('.area-tab-group.open').forEach(g => g.classList.remove('open'));
+  if (!yaAbierto) grupo.classList.add('open');
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.area-tab-group')) return;
+  document.querySelectorAll('.area-tab-group.open').forEach(g => g.classList.remove('open'));
+});
+
 function setArea(a) {
   if (currentUser && currentUser.perfil === 'tecnico' && !['it','if','agenda'].includes(a)) return; // técnicos solo ven IT/IF/Agenda
   currentArea=a;
@@ -1120,6 +1135,11 @@ function setArea(a) {
   ['search','f-estado','f-responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.querySelectorAll('.area-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.area-tab[data-area="${a}"]`).classList.add('active');
+  // Grupo "💰 Finanzas" (menú desplegable): cerrar el desplegable al elegir
+  // algo, y resaltar el botón del grupo si el área elegida vive adentro.
+  document.querySelectorAll('.area-tab-group').forEach(g => g.classList.remove('open'));
+  const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
+  if (grupoFinanzas) grupoFinanzas.classList.toggle('group-active', ['cartera','anticipos-recibidos','anticipos-entregados','facturacion'].includes(a));
   const isCartera    = a === 'cartera';
   const isAnticiposRecibidos  = a === 'anticipos-recibidos';
   const isAnticiposEntregados = a === 'anticipos-entregados';

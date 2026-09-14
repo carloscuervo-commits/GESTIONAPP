@@ -42,6 +42,48 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-14 — corrección: Anticipos detecta la aplicación real en Alegra; menú "💰 Finanzas")
+
+⚠️ Este deploy trae UN paso manual además del deploy normal:
+
+1. **Correr la migración `db/044_anticipos_saldo_tercero.sql` en phpMyAdmin** antes (o justo después) del deploy — crea la tabla `anticipos_saldo_tercero` y **recrea `anticipos_gestion`** con una llave nueva (`contacto_id` + `direccion` en vez de `alegra_payment_id` + `direccion`). El módulo se lanzó el mismo día y no tenía notas reales que preservar, pero si alguien ya guardó una nota de prueba, se pierde con esta migración.
+
+**Por qué**: Carlos probó el módulo recién lanzado y las pestañas de Anticipos mostraban TODOS los anticipos históricos, no solo los pendientes. Causa: Alegra no modifica el pago original al "aplicar" un anticipo a una factura — crea aparte un comprobante contable (journal), y el pago original queda codificado a la cuenta de anticipos para siempre. El escaneo (que solo miraba pagos) no tenía forma de saberlo. Ver el detalle técnico completo en `CONTEXTO.md` (sección de esta misma fecha).
+
+**Archivos nuevos:**
+- `db/044_anticipos_saldo_tercero.sql` — migración (ejecutar manualmente, ver arriba).
+
+**Archivos modificados:**
+- `backend/lib/alegra_anticipos.php` — nuevas `_aaTotalAplicadoContacto()` y `anticiposActualizarSaldoContacto()`; `anticiposActualizarCache()` ahora también sincroniza el saldo pendiente por contacto (acotado: solo contactos nuevos o que seguían con saldo abierto).
+- `backend/api/anticipos.php` — GET agrupa por cliente/proveedor y solo devuelve a quien sigue con saldo pendiente; PUT ahora recibe `contacto_id` en vez de `alegra_payment_id`.
+- `assets/js/anticipos.js` — reescrito: una tarjeta por cliente/proveedor con su saldo pendiente y un desplegable "Ver pagos" con el detalle. `?v=20260914d`.
+- `assets/js/tareas.js` — sin cambios de lógica de anticipos (los cambios de este archivo en este deploy son por el menú "💰 Finanzas", ver abajo). `?v=20260914b`.
+- `tareas-equipo.html` — `?v=` de `anticipos.js`, `tareas.js`, `app.css`, `auth.js` subidos.
+
+**Prueba manual sugerida:**
+1. Correr la migración 044 en phpMyAdmin.
+2. Abrir "📥 Anticipos recibidos" → clic en "🔄 Actualizar ahora" (esta primera corrida revisa a TODOS los clientes que ya había en caché contra Alegra — puede tardar más de lo normal esta única vez).
+3. Buscar a Disproquin en la lista → NO debería aparecer (su anticipo de $1.663.072 ya está aplicado del todo).
+4. Confirmar que los clientes que de verdad deben algo aparecen con el monto correcto, y que "Ver pagos" muestra el detalle esperado.
+5. Repetir en "📤 Anticipos entregados".
+6. Si algo se ve raro (alguien que no debería aparecer sigue apareciendo, o alguien que sí debe desaparece), avisar — la forma exacta en que Alegra devuelve las líneas de cada comprobante contable no se pudo probar en vivo desde el entorno de desarrollo, así que es el primer sospechoso.
+
+### feat: menú "💰 Finanzas" agrupa Cartera / Anticipos / Facturación en un desplegable
+
+No requiere migración adicional (ya cubierta arriba). Carlos pidió una barra de pestañas más amigable; se agruparon las 4 pestañas relacionadas con dinero bajo un solo botón "💰 Finanzas ▾" que despliega las 4 al hacer clic.
+
+**Archivos modificados:**
+- `tareas-equipo.html` — las 4 pestañas quedaron dentro de `<div class="area-tab-group" id="area-tab-group-finanzas">`.
+- `assets/css/app.css` — estilos del desplegable + corrección de un bug latente (color `.active` faltante en las pestañas de anticipos). `?v=20260914a`.
+- `assets/js/tareas.js` — `toggleAreaDropdown()` + ajustes en `setArea()`. `?v=20260914b`.
+- `assets/js/auth.js` — oculta el grupo completo para usuarios técnico. `?v=20260914a`.
+
+**Prueba manual sugerida:**
+1. Clic en "💰 Finanzas" → se despliegan Cartera/Anticipos recibidos/Anticipos entregados/Facturación.
+2. Elegir una → el desplegable se cierra, carga la vista correcta, y el botón "💰 Finanzas" queda resaltado mientras esa área siga activa.
+3. Clic afuera del menú (sin elegir nada) → se cierra sin cambiar de pestaña.
+4. Con un usuario técnico, confirmar que el botón "💰 Finanzas" no aparece.
+
 ## Cambios pendientes de deploy (2026-09-14 — nuevo módulo: Anticipos recibidos / entregados)
 
 ⚠️ Este deploy trae DOS pasos manuales además del deploy normal — sin ellos el módulo no funciona:

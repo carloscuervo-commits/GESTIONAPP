@@ -180,6 +180,10 @@ function aplicarPermisosUI() {
   if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
+  // Grupo "💰 Finanzas" (Cartera/Anticipos/Facturación en un desplegable):
+  // no es un .area-tab, así que el loop genérico de arriba no lo cubre.
+  const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
+  if (grupoFinanzas) grupoFinanzas.style.display = esTecnico ? 'none' : '';
   // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
   const btnSettings = document.getElementById('btn-settings');
   if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';

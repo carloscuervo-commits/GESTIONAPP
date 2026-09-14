@@ -4,6 +4,39 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-14 — corrección: Anticipos ahora detecta la aplicación real en Alegra; menú "💰 Finanzas" con desplegable)
+
+### fix: Anticipos mostraba TODOS los históricos, no solo los pendientes
+
+Carlos probó el módulo recién lanzado y reportó: "aparecen todos los anticipos recibidos, deberían aparecer solo los que aún está por aplicar". Causa raíz, confirmada con un caso real (Disproquin, NIT 805007508, anticipo de $1.663.072 aplicado a las facturas FE1771/FE1764/FE1783 el 04/06/2026 — Carlos mandó captura de Alegra): **Alegra NO modifica el pago original cuando se "aplica" un anticipo a una factura**. Crea aparte un comprobante contable (`journal`) que debita la cuenta de anticipos y acredita cartera; el pago original queda codificado a la cuenta de anticipos *para siempre*, sin importar que ya se haya aplicado. Por eso `alegraAnticiposEscanear()` (que solo mira pagos) los mostraba todos, sin poder saber cuáles ya se habían resuelto.
+
+(De paso: el reporte de Alegra hecho justo para esto —"balance de prueba por tercero"— devuelve error 502 cada vez que se pide para toda la empresa junta, pero funciona bien si se filtra por un solo cliente a la vez. Aun así, ese reporte es parte del servidor MCP de Alegra, no de su API pública — el backend de Ginno (PHP con `curl` + usuario/token) no lo puede llamar directo. Por eso la corrección usa `GET /api/v1/journals?client_id=...`, que sí es API pública, y suma nosotros mismos lo ya aplicado.)
+
+**Corrección** (`backend/lib/alegra_anticipos.php`):
+- `alegraAnticiposEscanear()` sigue igual — sigue siendo el escaneo liviano de pagos que alimenta `anticipos_cache` (fecha, número, anotación, link a Alegra).
+- Nueva `_aaTotalAplicadoContacto($direccion, $contactoId)`: pagina `GET /journals?client_id=X`, revisa las líneas (`entries`) de cada comprobante y suma los débitos contra la cuenta de anticipos (eso es lo que "mata" el saldo).
+- Nueva `anticiposActualizarSaldoContacto()`: `saldo = total recibido/entregado (suma de anticipos_cache) − total ya aplicado (Alegra)`, guardado en la tabla nueva `anticipos_saldo_tercero` (una fila por cliente/proveedor).
+- `anticiposActualizarCache()` ahora, después de refrescar la caché de pagos, revisa el saldo de: (a) contactos con un anticipo nuevo en este escaneo, o (b) contactos que la vez pasada seguían con saldo > 0. A quien ya está en $0 y sin actividad nueva no se le vuelve a preguntar nada — así no se vuelve pesado. Tope de 40 contactos por corrida (si sobran, sigue en la próxima). La primera corrida tras este cambio revisa a TODOS los contactos que ya había en caché (equivalente al escaneo completo original), así que puede tardar más esa única vez.
+
+**Cambio de vista**: la pestaña ahora agrupa por cliente/proveedor (no por pago individual) — una tarjeta por contacto con su saldo pendiente real, y un desplegable "Ver pagos" con el detalle de cada pago que lo compone (fecha, número, anotación, link a Alegra). Solo se muestra a quien de verdad sigue con saldo > $0 según Alegra; un contacto sin verificar todavía (recién descubierto) se muestra por seguridad hasta que se confirme. La nota + próxima revisión (`anticipos_gestion`) pasó de guardarse por pago a guardarse por cliente/proveedor — más lógico con la nueva agrupación.
+
+**Migración `db/044_anticipos_saldo_tercero.sql`**: crea `anticipos_saldo_tercero` y recrea `anticipos_gestion` con la nueva llave (`contacto_id` + `direccion` en vez de `alegra_payment_id` + `direccion`) — el módulo se lanzó el mismo día y no tenía notas reales que preservar.
+
+**Archivos**: `db/044_anticipos_saldo_tercero.sql` (nuevo) · `backend/lib/alegra_anticipos.php` (+`_aaTotalAplicadoContacto()`, +`anticiposActualizarSaldoContacto()`) · `backend/api/anticipos.php` (GET agrupa por contacto, PUT ahora recibe `contacto_id` en vez de `alegra_payment_id`) · `assets/js/anticipos.js` (reescrito: tarjeta por contacto + desplegable de pagos, `?v=20260914d`).
+
+**Pendiente de verificar con Carlos**: la forma exacta en que `GET /journals` devuelve las líneas (`entries`) de cada comprobante no está 100% confirmada contra la API real (se dedujo de la documentación pública de Alegra, no se pudo probar en vivo desde este entorno) — el código quedó defensivo (reintenta con varios nombres de campo), pero si tras correr "🔄 Actualizar ahora" algún cliente sigue mostrando saldo que ya se aplicó (o al revés, desaparece uno que no debería), es la primera pista a revisar.
+
+### feat: menú "💰 Finanzas" agrupa Cartera / Anticipos recibidos / Anticipos entregados / Facturación
+
+Carlos pidió que la barra de pestañas fuera más amigable, proponiendo agrupar anticipos/cartera/facturación. Se armó un menú desplegable: un botón padre "💰 Finanzas ▾" que al hacer clic despliega las 4 pestañas relacionadas (antes sueltas en la barra). Alcance acordado con Carlos vía pregunta: solo Finanzas por ahora (Clientes/Agenda/Transportes/Bitácora quedan para después, si hace falta).
+
+- `tareas-equipo.html`: las 4 pestañas (`cartera`, `anticipos-recibidos`, `anticipos-entregados`, `facturacion`) quedaron adentro de un `<div class="area-tab-group" id="area-tab-group-finanzas">` con un botón `.area-tab-group-btn` y un `.area-tab-dropdown` — cada botón interno sigue siendo un `.area-tab` normal con su `data-area`/`onclick`, así que `setArea()` no necesitó cambios en su lógica de ruteo.
+- `assets/css/app.css`: estilos nuevos para `.area-tab-group*` (desplegable posicionado absoluto, se resalta el botón padre con `.group-active` cuando el área activa vive adentro). De paso se corrigió un bug latente: a `anticipos-recibidos`/`anticipos-entregados` les faltaba el color de fondo `.active` (quedaban con texto blanco invisible sobre fondo transparente al seleccionarlas) — se agregó `#0ea5e9` y `#f97316`.
+- `assets/js/tareas.js`: `toggleAreaDropdown(nombre)` abre/cierra el desplegable; un listener de clic afuera lo cierra; `setArea()` cierra el desplegable y marca `.group-active` en el grupo cuando el área elegida es una de las 4 internas.
+- `assets/js/auth.js`: `aplicarPermisosUI()` oculta `#area-tab-group-finanzas` completo para técnicos (el loop genérico que oculta `.area-tab` no cubre el wrapper del grupo, que no tiene esa clase).
+
+**Archivos**: `tareas-equipo.html`, `assets/css/app.css` (`?v=20260914a`), `assets/js/tareas.js` (`?v=20260914b`), `assets/js/auth.js` (`?v=20260914a`).
+
 ## Estado actual (última actualización: 2026-09-14 — nuevo módulo: Anticipos recibidos / entregados)
 
 ### feat: pestañas "📥 Anticipos recibidos" y "📤 Anticipos entregados"

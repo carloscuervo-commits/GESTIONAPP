@@ -1,12 +1,14 @@
 // ============================================================
 // anticipos.js — Anticipos recibidos y entregados (dos pestañas).
 //
-// Muestra, para cada dirección, los pagos que en Alegra quedaron
-// codificados a la cuenta de anticipos en vez de a una factura/compra
-// (así es como Grupo Innovate los registra hoy — no se usa la función
-// nativa "aplicar anticipo" de Alegra). Es solo de consulta + seguimiento
-// (nota + próxima revisión, guardado en Ginno): "matar" el anticipo
-// (aplicarlo a la factura con sus retenciones) siempre se hace en Alegra.
+// Muestra, para cada dirección, los CLIENTES/PROVEEDORES que en Alegra
+// todavía tienen saldo pendiente en la cuenta de anticipos (no un pago
+// individual: Alegra no modifica el pago original al "aplicar" un anticipo,
+// crea aparte un comprobante contable — por eso hay que comparar lo recibido
+// contra lo ya aplicado, y agrupar por contacto es lo que de verdad refleja
+// si queda algo pendiente). Es solo de consulta + seguimiento (nota +
+// próxima revisión, guardado en Ginno, ahora por contacto): "matar" el
+// anticipo siempre se hace en Alegra.
 //
 // La lista viene de una caché en la BD de Ginno (backend/lib/alegra_anticipos.php),
 // refrescada por un cron nocturno o por el botón "🔄 Actualizar ahora" — no
@@ -28,9 +30,12 @@ function _anticiposUrlAlegra(direccion, id) {
   return null;
 }
 
+// contacto_id no siempre es un ID "limpio" para usar en un id de HTML —
+// se usa un índice de la lista en vez del id real, más simple y sin riesgo.
+function _anticiposClave(direccion, idx) { return `${direccion}-${idx}`; }
+
 async function fetchAnticipos(direccion) {
   if (!currentUser || currentUser.perfil !== 'admin' || !API_BASE) return;
-  const lista = document.getElementById(`anticipos-${direccion}-lista`);
   const loading = document.getElementById(`anticipos-${direccion}-loading`);
   if (loading) loading.style.display = 'block';
   try {
@@ -52,10 +57,10 @@ function renderAnticipos(direccion) {
 
   const totalEl = document.getElementById(`anticipos-${direccion}-total`);
   if (totalEl) {
-    const total = items.reduce((s, it) => s + (Number(it.valor) || 0), 0);
+    const total = items.reduce((s, it) => s + (Number(it.saldoPendiente) || 0), 0);
     totalEl.innerHTML = items.length
-      ? `${items.length} anticipo${items.length === 1 ? '' : 's'} ${ANTICIPOS_LABEL[direccion]} abierto${items.length === 1 ? '' : 's'} — <strong>${formatCOP(total)}</strong>`
-      : `✅ Sin anticipos ${ANTICIPOS_LABEL[direccion]} abiertos`;
+      ? `${items.length} cliente${items.length === 1 ? '' : 's'}/proveedor${items.length === 1 ? '' : 'es'} con anticipo ${ANTICIPOS_LABEL[direccion]} pendiente — <strong>${formatCOP(total)}</strong>`
+      : `✅ Sin anticipos ${ANTICIPOS_LABEL[direccion]} pendientes`;
   }
 
   const meta = anticiposMeta[direccion] || {};
@@ -71,50 +76,74 @@ function renderAnticipos(direccion) {
     return;
   }
 
-  lista.innerHTML = items.map(it => {
-    const dias = diasDesde(it.fecha);
+  lista.innerHTML = items.map((it, idx) => {
+    const clave = _anticiposClave(direccion, idx);
+    const dias = diasDesde(it.fechaMasAntigua);
     const urgente = dias > 60;
-    const urlAlegra = _anticiposUrlAlegra(direccion, it.alegra_payment_id);
+    const sinVerificar = it.contactoId && !it.saldoVerificadoEn;
+    const pagosHtml = it.pagos.map(p => {
+      const urlAlegra = _anticiposUrlAlegra(direccion, p.alegra_payment_id);
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--border,#e5e7eb);font-size:12px">
+        <div style="color:var(--text-muted)">
+          📅 ${p.fecha} · Pago #${esc(p.numero || p.alegra_payment_id)} · ${esc(p.cuenta_nombre)}
+          ${p.anotacion ? `<br>"${esc(p.anotacion)}"` : ''}
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <div>${formatCOP(p.valor)}</div>
+          ${urlAlegra ? `<a href="${urlAlegra}" target="_blank" rel="noopener" style="color:var(--primary,#14a8bd);text-decoration:none">🔗 Alegra</a>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
     return `<div class="anticipo-card" style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:var(--radius);padding:14px">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div>
-          <div style="font-weight:700;font-size:14px">${it.contacto_nombre ? esc(it.contacto_nombre) : '❔ Sin identificar'}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">📅 ${it.fecha} · hace ${dias} día${dias === 1 ? '' : 's'} · Pago #${esc(it.numero || it.alegra_payment_id)} · ${esc(it.cuenta_nombre)}</div>
-          ${it.anotacion ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">"${esc(it.anotacion)}"</div>` : ''}
+          <div style="font-weight:700;font-size:14px">${it.contactoNombre ? esc(it.contactoNombre) : '❔ Sin identificar'}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
+            Desde ${it.fechaMasAntigua} · hace ${dias} día${dias === 1 ? '' : 's'} · ${it.pagos.length} pago${it.pagos.length === 1 ? '' : 's'}
+            ${it.totalRecibido !== it.saldoPendiente ? ` · ${formatCOP(it.totalRecibido)} en total, ya aplicó parte` : ''}
+            ${sinVerificar ? ' · ⏳ saldo sin verificar contra Alegra todavía' : ''}
+          </div>
         </div>
         <div style="text-align:right">
-          <div style="font-weight:700;font-size:16px;color:${urgente ? '#e63946' : 'var(--text)'};white-space:nowrap">${formatCOP(it.valor)}</div>
-          ${urlAlegra ? `<a href="${urlAlegra}" target="_blank" rel="noopener" style="font-size:11px;color:var(--primary,#14a8bd);text-decoration:none;white-space:nowrap">🔗 Abrir en Alegra</a>` : ''}
+          <div style="font-weight:700;font-size:16px;color:${urgente ? '#e63946' : 'var(--text)'};white-space:nowrap">${formatCOP(it.saldoPendiente)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">saldo pendiente</div>
         </div>
       </div>
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--primary,#14a8bd)">Ver pago${it.pagos.length === 1 ? '' : 's'} (${it.pagos.length})</summary>
+        ${pagosHtml}
+      </details>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:200px">
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:2px">Nota (¿por qué sigue abierto? ¿quién lo resuelve?)</label>
-          <input type="text" id="nota-${direccion}-${it.alegra_payment_id}" value="${esc(it.nota || '')}"
+          <input type="text" id="nota-${clave}" value="${esc(it.nota || '')}"
             style="width:100%;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:12px;box-sizing:border-box">
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:2px">Próxima revisión</label>
-          <input type="date" id="revision-${direccion}-${it.alegra_payment_id}" value="${it.fecha_proxima_revision || ''}"
+          <input type="date" id="revision-${clave}" value="${it.fechaProximaRevision || ''}"
             style="padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:12px">
         </div>
-        <button class="btn-save" style="padding:7px 14px;font-size:12px" onclick="anticiposGuardarNota('${direccion}','${it.alegra_payment_id}')">Guardar</button>
+        <button class="btn-save" style="padding:7px 14px;font-size:12px" onclick="anticiposGuardarNota('${direccion}',${idx})">Guardar</button>
       </div>
     </div>`;
   }).join('');
 }
 
-async function anticiposGuardarNota(direccion, alegraId) {
-  const notaEl = document.getElementById(`nota-${direccion}-${alegraId}`);
-  const revisionEl = document.getElementById(`revision-${direccion}-${alegraId}`);
+async function anticiposGuardarNota(direccion, idx) {
+  const it = (anticiposCache[direccion] || [])[idx];
+  if (!it || !it.contactoId) return; // sin identificar: no hay contacto al que guardarle nota
+  const clave = _anticiposClave(direccion, idx);
+  const notaEl = document.getElementById(`nota-${clave}`);
+  const revisionEl = document.getElementById(`revision-${clave}`);
   const body = { nota: notaEl ? notaEl.value : '', fechaProximaRevision: revisionEl ? revisionEl.value : '' };
   try {
-    const res = await fetch(`${API_BASE}/anticipos.php?alegra_payment_id=${encodeURIComponent(alegraId)}&direccion=${direccion}`, {
+    const res = await fetch(`${API_BASE}/anticipos.php?contacto_id=${encodeURIComponent(it.contactoId)}&direccion=${direccion}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     const saved = await res.json();
-    const item = (anticiposCache[direccion] || []).find(it => it.alegra_payment_id === alegraId);
-    if (item) { item.nota = saved.nota; item.fecha_proxima_revision = saved.fecha_proxima_revision; }
+    it.nota = saved.nota; it.fechaProximaRevision = saved.fecha_proxima_revision;
   } catch (e) { /* silencioso */ }
 }
 

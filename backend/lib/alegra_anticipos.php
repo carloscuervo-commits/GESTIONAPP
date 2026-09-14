@@ -190,7 +190,117 @@ function anticiposActualizarCache(PDO $pdo, string $direccion, bool $completo = 
     throw $e;
   }
 
+  // --- Sincroniza el saldo pendiente por cliente/proveedor ----------------
+  // Aparte de la transacción de arriba: esto sí consulta a Alegra (1 llamada
+  // extra por contacto), así que se limita a quien nunca se ha verificado
+  // (nuevo, o —la primera corrida tras este cambio— todo lo que ya había en
+  // caché) o seguía con saldo abierto la vez pasada. Tope de 40 por corrida
+  // para no demorar el cron; si queda pendiente, sigue en la próxima.
+  $pendientesStmt = $pdo->prepare("
+    SELECT DISTINCT c.contacto_id, c.contacto_nombre
+    FROM anticipos_cache c
+    LEFT JOIN anticipos_saldo_tercero s
+      ON s.direccion = c.direccion AND s.contacto_id = c.contacto_id
+    WHERE c.direccion = ?
+      AND c.contacto_id IS NOT NULL
+      AND (s.contacto_id IS NULL OR s.saldo > 0.5)
+    LIMIT 40
+  ");
+  $pendientesStmt->execute([$direccion]);
+  foreach ($pendientesStmt->fetchAll() as $row) {
+    try {
+      anticiposActualizarSaldoContacto($pdo, $direccion, $row['contacto_id'], $row['contacto_nombre']);
+    } catch (Throwable $e) {
+      // Alegra no respondió para este contacto puntual — se reintenta la próxima corrida.
+    }
+  }
+
   return ['encontrados' => count($r['items']), 'fechaMasAntigua' => $nuevoCursor];
+}
+
+/**
+ * Cuánto de la cuenta de anticipos de este contacto ya se aplicó a facturas
+ * en Alegra. Confirmado con el caso real de Disproquin (mayo-junio 2026):
+ * aplicar un anticipo NO toca el pago original — Alegra crea aparte un
+ * comprobante contable (journal) que debita la cuenta de anticipos y
+ * acredita cartera. Por eso hay que sumar esos comprobantes aparte; el pago
+ * original (ya capturado por alegraAnticiposEscanear) nunca cambia.
+ * Devuelve el monto aplicado (a restar del total recibido/entregado).
+ */
+function _aaTotalAplicadoContacto(string $direccion, string $contactoId): float {
+  $authHeader = [
+    'Authorization: Basic ' . base64_encode(ALEGRA_EMAIL . ':' . ALEGRA_TOKEN),
+    'Accept: application/json',
+  ];
+  $cuentasValidas = array_flip(ANTICIPOS_CUENTAS[$direccion]);
+
+  $total = 0.0;
+  $start = 0;
+  $limit = 30;
+  $topeSeguridad = 20; // hasta 600 comprobantes contables de este contacto — de sobra
+
+  for ($pagina = 0; $pagina < $topeSeguridad; $pagina++) {
+    $journals = _aaGet('https://api.alegra.com/api/v1/journals?' . http_build_query([
+      'client_id' => $contactoId,
+      'start'     => $start,
+      'limit'     => $limit,
+    ]), $authHeader);
+
+    if (!is_array($journals) || empty($journals)) break;
+
+    foreach ($journals as $j) {
+      $entries = $j['entries'] ?? null;
+      if ($entries === null && isset($j['id'])) {
+        // La lista no trajo el detalle de las líneas del comprobante — se pide aparte.
+        $detalle = _aaGet('https://api.alegra.com/api/v1/journals/' . $j['id'], $authHeader);
+        $entries = $detalle['entries'] ?? [];
+      }
+      foreach ((array)$entries as $entry) {
+        $catId = (string)($entry['category']['id'] ?? $entry['id'] ?? '');
+        if ($catId === '' || !isset($cuentasValidas[$catId])) continue;
+        // "Aplicar" el anticipo DEBITA la cuenta de anticipos (baja el saldo
+        // pendiente); un crédito ahí sería inusual pero se resta si aparece.
+        $debito  = (float)($entry['debit']  ?? 0);
+        $credito = (float)($entry['credit'] ?? 0);
+        if ($debito === 0.0 && $credito === 0.0 && isset($entry['operation'], $entry['amount'])) {
+          $monto = is_array($entry['amount']) ? (float)($entry['amount']['mainCurrency'] ?? 0) : (float)$entry['amount'];
+          if ($entry['operation'] === 'debit') $debito = $monto; else $credito = $monto;
+        }
+        $total += $debito - $credito;
+      }
+    }
+
+    if (count($journals) < $limit) break;
+    $start += $limit;
+  }
+
+  return $total;
+}
+
+/**
+ * Recalcula y guarda el saldo pendiente (recibido/entregado) de un
+ * cliente/proveedor puntual: lo que se le ha recibido/entregado como
+ * anticipo (suma de anticipos_cache, ya escaneado) menos lo que ya se le ha
+ * aplicado a facturas en Alegra (_aaTotalAplicadoContacto, consulta en vivo).
+ * Lanza excepción si Alegra no respondió — el saldo guardado no se toca.
+ */
+function anticiposActualizarSaldoContacto(PDO $pdo, string $direccion, string $contactoId, ?string $contactoNombre): float {
+  $sumaStmt = $pdo->prepare("SELECT COALESCE(SUM(valor),0) AS s FROM anticipos_cache WHERE direccion = ? AND contacto_id = ?");
+  $sumaStmt->execute([$direccion, $contactoId]);
+  $totalRecibido = (float)($sumaStmt->fetch()['s'] ?? 0);
+
+  $totalAplicado = _aaTotalAplicadoContacto($direccion, $contactoId); // puede lanzar
+
+  $saldo = round($totalRecibido - $totalAplicado, 2);
+  if ($saldo < 0) $saldo = 0.0; // por seguridad ante desfases de redondeo
+
+  $pdo->prepare("INSERT INTO anticipos_saldo_tercero (direccion, contacto_id, contacto_nombre, saldo, consultado_en)
+      VALUES (?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+      contacto_nombre = VALUES(contacto_nombre), saldo = VALUES(saldo), consultado_en = VALUES(consultado_en)")
+    ->execute([$direccion, $contactoId, $contactoNombre, $saldo]);
+
+  return $saldo;
 }
 
 function _aaGet(string $url, array $headers) {
