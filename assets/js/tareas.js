@@ -1121,18 +1121,22 @@ function setArea(a) {
   document.querySelectorAll('.area-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.area-tab[data-area="${a}"]`).classList.add('active');
   const isCartera    = a === 'cartera';
+  const isAnticiposRecibidos  = a === 'anticipos-recibidos';
+  const isAnticiposEntregados = a === 'anticipos-entregados';
   const isFacturacion = a === 'facturacion';
   const isInformes   = a === 'informes';
   const isClientes   = a === 'clientes';
   const isAgenda      = a === 'agenda';
   const isTransportes = a === 'transportes';
   const isBitacora       = a === 'bitacora';
-  const isOther = isCartera || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora;
+  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
   if (archSection) archSection.style.display = (!isOther && currentView==='kanban') ? 'block' : 'none';
   document.getElementById('cartera-view').style.display     = isCartera    ? 'block' : 'none';
+  document.getElementById('anticipos-recibidos-view').style.display  = isAnticiposRecibidos  ? 'block' : 'none';
+  document.getElementById('anticipos-entregados-view').style.display = isAnticiposEntregados ? 'block' : 'none';
   document.getElementById('facturacion-view').style.display = isFacturacion ? 'block' : 'none';
   document.getElementById('informes-view').style.display    = isInformes   ? 'block' : 'none';
   document.getElementById('clientes-view').style.display    = isClientes   ? 'block' : 'none';
@@ -1147,6 +1151,8 @@ function setArea(a) {
   document.querySelector('.btn-add').style.display       = isOther ? 'none' : 'inline-flex';
   if (isOther) document.getElementById('dashboard-view').style.display = 'none';
   if (isCartera) { fetchCartera(); }
+  else if (isAnticiposRecibidos)  { if (typeof fetchAnticipos === 'function') fetchAnticipos('recibido'); }
+  else if (isAnticiposEntregados) { if (typeof fetchAnticipos === 'function') fetchAnticipos('entregado'); }
   else if (isFacturacion) { if (typeof cargarFacturasPendientes === 'function') cargarFacturasPendientes(); }
   else if (isInformes)  { renderInformesView(); }
   else if (isClientes)  { cargarClientes(); }

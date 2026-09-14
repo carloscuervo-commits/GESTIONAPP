@@ -42,6 +42,37 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-14 — nuevo módulo: Anticipos recibidos / entregados)
+
+⚠️ Este deploy trae DOS pasos manuales además del deploy normal — sin ellos el módulo no funciona:
+
+1. **Correr la migración `db/043_anticipos.sql` en phpMyAdmin** antes (o justo después) del deploy — crea las tablas `anticipos_cache`, `anticipos_gestion` y `anticipos_scan_estado`. Sin esto, las pestañas nuevas van a mostrar error al abrirse.
+2. **Agregar el cron nocturno en cPanel** (Cron Jobs), igual que se hizo con `cartera_recordatorio.php`:
+   ```
+   0 2 * * * /usr/bin/php /home/innovate/public_html/ginno/backend/cron/anticipos_index.php > /dev/null 2>&1
+   ```
+   Sin esto, la caché nunca se refresca sola — solo con el botón "🔄 Actualizar ahora" de cada pestaña (que sirve mientras tanto, pero conviene dejar el cron puesto).
+
+Nuevo módulo: dos pestañas, "📥 Anticipos recibidos" y "📤 Anticipos entregados", que listan los pagos que en Alegra quedan codificados a la cuenta de anticipos en vez de a una factura — así es como Grupo Innovate los registra hoy (no usa la función "aplicar anticipo" nativa de Alegra). Es de solo consulta + seguimiento (nota + próxima revisión); aplicar el anticipo a una factura siempre se hace directo en Alegra, nunca desde Ginno.
+
+**Archivos nuevos:**
+- `db/043_anticipos.sql` — migración (ejecutar manualmente, ver arriba).
+- `backend/lib/alegra_anticipos.php` — escaneo de pagos en Alegra + guardado en caché.
+- `backend/api/anticipos.php` — GET lista / PUT nota+revisión / POST actualizar o escaneo completo.
+- `backend/cron/anticipos_index.php` — cron nocturno (agregar en cPanel, ver arriba).
+- `assets/js/anticipos.js` — frontend de las dos pestañas, incluye el botón "🔗 Abrir en Alegra" (recibidos: `.../income-payments/view/id/{id}`, entregados: `.../payment/view/id/{id}`, ambos confirmados con Carlos). `?v=20260914c`.
+
+**Archivos modificados:**
+- `assets/js/tareas.js` — dos áreas nuevas (`anticipos-recibidos`, `anticipos-entregados`) en `setArea()`. `?v=20260914a`.
+- `tareas-equipo.html` — dos pestañas + dos vistas + `<script src="assets/js/anticipos.js">` nuevo.
+
+**Prueba manual sugerida:**
+1. Después de correr la migración y hacer deploy, abrir la pestaña "📥 Anticipos recibidos" → debe cargar sin error (probablemente vacía la primera vez, porque el cron todavía no ha corrido).
+2. Clic en "🔄 Actualizar ahora" → debe consultar Alegra (puede tardar más la primera vez, porque al no haber cursor guardado hace un escaneo completo del historial) y mostrar los anticipos recibidos abiertos, con cliente, valor, fecha y antigüedad.
+3. Escribir una nota y una fecha de próxima revisión en una tarjeta, clic en "Guardar" → recargar la pestaña y confirmar que la nota quedó guardada.
+4. Repetir 1-3 en "📤 Anticipos entregados".
+5. Confirmar que un usuario con perfil "técnico" no ve estas dos pestañas.
+
 ## Cambios pendientes de deploy (2026-09-13 — Dashboard: ancho responsivo, alertas a 2 columnas, contador por sección)
 
 No requiere migración de base de datos.

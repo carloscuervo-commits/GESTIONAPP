@@ -61,6 +61,8 @@
   <button class="area-tab" data-area="admin" onclick="setArea('admin')">📁 Administrativo <span class="tab-count" id="cnt-admin">0</span></button>
   <button class="area-tab" data-area="comercial" onclick="setArea('comercial')">💼 Comercial <span class="tab-count" id="cnt-comercial">0</span></button>
   <button class="area-tab" data-area="cartera" onclick="setArea('cartera')">💰 Cartera <span class="tab-count" id="cnt-cartera">0</span></button>
+  <button class="area-tab" data-area="anticipos-recibidos" onclick="setArea('anticipos-recibidos')">📥 Anticipos recibidos</button>
+  <button class="area-tab" data-area="anticipos-entregados" onclick="setArea('anticipos-entregados')">📤 Anticipos entregados</button>
   <button class="area-tab" data-area="facturacion" onclick="setArea('facturacion')">🧾 Facturación</button>
   <button class="area-tab" data-area="informes" onclick="setArea('informes')">📊 Informes</button>
   <button class="area-tab" data-area="clientes" id="tab-clientes" onclick="setArea('clientes')" style="display:none">🏢 Clientes</button>
@@ -120,6 +122,35 @@
     </button>
     <div id="cartera-archivados-lista" class="cartera-kanban-archivados" style="display:none;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
   </div>
+</div>
+
+<!-- ANTICIPOS RECIBIDOS / ENTREGADOS VIEWS -->
+<div id="anticipos-recibidos-view" style="display:none;padding:16px 20px 30px">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <button class="sort-btn" id="anticipos-recibido-btn-actualizar" onclick="anticiposActualizar('recibido', false)">🔄 Actualizar ahora</button>
+    <button class="sort-btn" onclick="anticiposActualizar('recibido', true)" title="Recorre todo el historial de Alegra en vez de solo lo nuevo — más lento, úsalo si crees que quedó algo viejo sin detectar">⚙️ Escaneo completo</button>
+    <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Última actualización: <strong id="anticipos-recibido-actualizado">-</strong></span>
+  </div>
+  <div id="anticipos-recibido-total" class="cartera-total-general">-</div>
+  <div id="anticipos-recibido-loading" class="cartera-loading" style="display:none">
+    <div style="font-size:24px;margin-bottom:8px">⏳</div>
+    Consultando anticipos en Alegra...
+  </div>
+  <div id="anticipos-recibido-lista" class="alerta-lista"></div>
+</div>
+
+<div id="anticipos-entregados-view" style="display:none;padding:16px 20px 30px">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <button class="sort-btn" id="anticipos-entregado-btn-actualizar" onclick="anticiposActualizar('entregado', false)">🔄 Actualizar ahora</button>
+    <button class="sort-btn" onclick="anticiposActualizar('entregado', true)" title="Recorre todo el historial de Alegra en vez de solo lo nuevo — más lento, úsalo si crees que quedó algo viejo sin detectar">⚙️ Escaneo completo</button>
+    <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Última actualización: <strong id="anticipos-entregado-actualizado">-</strong></span>
+  </div>
+  <div id="anticipos-entregado-total" class="cartera-total-general">-</div>
+  <div id="anticipos-entregado-loading" class="cartera-loading" style="display:none">
+    <div style="font-size:24px;margin-bottom:8px">⏳</div>
+    Consultando anticipos en Alegra...
+  </div>
+  <div id="anticipos-entregado-lista" class="alerta-lista"></div>
 </div>
 
 <!-- FACTURACION VIEW -->
@@ -915,8 +946,9 @@
 
 <script src="assets/js/core.js?v=20260909a"></script>
 <script src="assets/js/auth.js?v=20260704p"></script>
-<script src="assets/js/tareas.js?v=20260913b"></script>
+<script src="assets/js/tareas.js?v=20260914a"></script>
 <script src="assets/js/cartera.js?v=20260913b"></script>
+<script src="assets/js/anticipos.js?v=20260914c"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
 <script src="assets/js/reportes.js?v=20260909a"></script>
 <script src="assets/js/comentarios.js?v=20260910a"></script>

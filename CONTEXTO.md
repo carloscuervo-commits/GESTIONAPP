@@ -4,6 +4,34 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-14 — nuevo módulo: Anticipos recibidos / entregados)
+
+### feat: pestañas "📥 Anticipos recibidos" y "📤 Anticipos entregados"
+
+Carlos preguntó si se podían ubicar en Alegra todos los anticipos recibidos y entregados — resultó que Grupo Innovate no usa la función nativa "aplicar anticipo" de Alegra (se confirmó por API: no hay ningún movimiento `advanceAppliedJournal` en el histórico). En la práctica, un anticipo se registra como un pago (recibido o emitido) codificado directamente a la cuenta contable de anticipos en vez de a una factura/compra — eso pasa cuando llega una plata que no se sabe a qué factura aplicar, o cuando las retenciones no cuadran. El objetivo de Carlos es mantener esas dos cuentas en $0, pero Alegra no tiene una vista que las liste todas juntas, así que se dificulta mantenerlas al día.
+
+**Cuentas de Alegra involucradas** (fijas para el plan de cuentas de Grupo Innovate, confirmadas vía API — todas tienen seguimiento por tercero activado):
+- Recibidos: `5042` (Anticipos Recibidos), `211894` (Avances y anticipos recibidos — cuenta activa), `212026` (Anticipo recibido por identificar — subcuenta para consignaciones sin asociar a cliente).
+- Entregados: `5044` (Anticipos Proveedores), `211878` (Avances y anticipos entregados — cuenta activa).
+
+**Cómo se detectan**: un pago está "codificado a la cuenta de anticipos" cuando su campo `categories` incluye una de esas cuentas (en vez de tener facturas/compras asociadas). No hay un filtro directo en la API de Alegra para esto, así que hay que recorrer los pagos y revisar cada uno.
+
+**Diseño para que sea liviano** (la empresa tiene ~5.900 pagos recibidos en 11 años — recorrerlos todos cada vez sería lento y pesado para la API de Alegra):
+- El escaneo real ocurre en `backend/lib/alegra_anticipos.php` (`alegraAnticiposEscanear()`), que pagina los pagos de Alegra (`GET /payments?type=in|out`, ordenados por fecha DESC) y se queda con los que tengan alguna de las cuentas de anticipos en `categories`.
+- El resultado se guarda en una caché de solo lectura (tabla `anticipos_cache`) — la pestaña de Ginno lee de ahí, nunca consulta Alegra en vivo al abrirse. La verdad financiera sigue siendo 100% de Alegra; esta caché se reconstruye completa en cada corrida, nunca se edita a mano.
+- **Escaneo incremental**: cada corrida guarda en `anticipos_scan_estado` la fecha más vieja entre los anticipos que encontró todavía abiertos (el "cursor"), y la siguiente corrida solo le pide a Alegra los pagos desde esa fecha en adelante — mucho más liviano que recorrer los ~5.900 pagos del historial completo cada vez. Ojo: esto asume que los pagos no se registran con fecha retroactiva más vieja que el cursor; por eso existe también un "⚙️ Escaneo completo" (recorre todo el historial desde cero, más lento) para cuando se sospeche que quedó algo viejo sin detectar.
+- Un cron nocturno (`backend/cron/anticipos_index.php`, sugerido 2:00 a.m. — **hay que agregarlo a mano en cPanel, ver DEPLOY.md**) refresca la caché de las dos direcciones todas las noches. El botón "🔄 Actualizar ahora" en cada pestaña dispara el mismo refresco al toque, sin esperar al cron.
+
+**Seguimiento (sin tocar Alegra)**: cada anticipo tiene un campo de nota libre + fecha de próxima revisión, guardados en `anticipos_gestion` (mismo patrón que `cartera_gestion`) — ayuda a recordar por qué sigue abierto o quién quedó de resolverlo. "Matar" el anticipo (aplicarlo a la factura con sus retenciones) siempre se hace directo en Alegra — cuando eso pasa, el pago deja de tener esa cuenta en `categories` y automáticamente desaparece de la lista de Ginno en el siguiente refresco (no hace falta marcarlo como resuelto a mano).
+
+**Link directo al pago en Alegra**: cada tarjeta tiene un botón "🔗 Abrir en Alegra". Confirmado con Carlos (función `_anticiposUrlAlegra()` en `anticipos.js`):
+- Recibidos: `https://app.alegra.com/income-payments/view/id/{id}`
+- Entregados: `https://app.alegra.com/payment/view/id/{id}`
+
+Sin alerta en la zona de alertas del dashboard por ahora (a pedido de Carlos) — se puede agregar después si hace falta.
+
+**Archivos**: `db/043_anticipos.sql` (tablas `anticipos_cache`, `anticipos_gestion`, `anticipos_scan_estado`) · `backend/lib/alegra_anticipos.php` (escaneo + `anticiposActualizarCache()`) · `backend/api/anticipos.php` (GET lista, PUT nota/revisión, POST actualizar/escaneo completo) · `backend/cron/anticipos_index.php` (cron nocturno, **requiere configurarse en cPanel**) · `assets/js/anticipos.js` (nuevo, `?v=20260914a`) · `tareas.js` (dos áreas nuevas en `setArea()`, `?v=20260914a`) · `tareas-equipo.html` (dos pestañas + dos vistas + script nuevo).
+
 ## Estado actual (última actualización: 2026-09-13 — Dashboard: ancho responsivo en pantallas grandes, alertas a 2 columnas, contador por sección)
 
 ### feat: dashboard aprovecha el ancho en pantallas grandes, sin afectar celular
