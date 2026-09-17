@@ -6,8 +6,9 @@
 -- de vacaciones (fecha de inicio informativa; la cuota es manual).
 ALTER TABLE usuarios
   ADD COLUMN IF NOT EXISTS fecha_inicio_contrato DATE          NULL AFTER cedula,
-  ADD COLUMN IF NOT EXISTS dias_vacaciones_anual  DECIMAL(5,2) NULL AFTER fecha_inicio_contrato
-    COMMENT 'Cuota de días de vacaciones que le corresponden al año, asignada manualmente por el admin';
+  ADD COLUMN IF NOT EXISTS dias_vacaciones_anual  DECIMAL(5,2) NULL
+    COMMENT 'Cuota de días de vacaciones que le corresponden al año, asignada manualmente por el admin'
+    AFTER fecha_inicio_contrato;
 
 -- Registro de ausencias (vacaciones / permisos / incapacidades / faltas).
 -- Cada fila es un período. "dias" se calcula al crear el registro pero
