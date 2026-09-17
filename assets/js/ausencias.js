@@ -32,6 +32,12 @@ let _ausData           = { items: [], resumen: [] };
 let _ausFiltroUsuario  = '';
 let _ausEditandoId     = null;
 
+// Mapa 'YYYY-MM-DD' -> nombre, con los festivos colombianos cargados en
+// Ginno (tabla `festivos`, ver backend/lib/festivos.php). Se carga una
+// vez al abrir el módulo y se usa en _amCalcularDiasLocal() para que la
+// vista previa del cálculo de días coincida con la del backend.
+let _festivosSet = {};
+
 function _ausFormatFecha(iso) {
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00');
@@ -50,14 +56,22 @@ async function renderAusenciasView() {
   try {
     const token = localStorage.getItem('sesion_token') || '';
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const [resUsuarios, resAusencias] = await Promise.all([
+    const [resUsuarios, resAusencias, resFestivos] = await Promise.all([
       fetch(`${API_BASE}/usuarios.php`, { headers }),
       fetch(`${API_BASE}/ausencias.php?anio=${_ausAnio}`, { headers }),
+      fetch(`${API_BASE}/festivos.php`, { headers }),
     ]);
     const usuarios = await resUsuarios.json();
     _ausUsuarios = (Array.isArray(usuarios) ? usuarios : []).filter(u => u.activo == 1);
     _ausData = await resAusencias.json();
     if (!_ausData || !Array.isArray(_ausData.items)) throw new Error('Respuesta inesperada');
+    try {
+      const festivosResp = await resFestivos.json();
+      _festivosSet = {};
+      (festivosResp?.items || []).forEach(f => { _festivosSet[f.fecha] = f.nombre; });
+    } catch (e) {
+      _festivosSet = {}; // sin festivos no se rompe el módulo, solo pierde precisión la vista previa
+    }
   } catch (e) {
     cont.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444">No se pudo cargar Vacaciones y permisos.</div>';
     return;
@@ -194,35 +208,76 @@ function cerrarModalAusencia() {
   _ausEditandoId = null;
 }
 
-// Días hábiles lun-vie, más sábado/domingo de cada semana completa SOLO
-// para permiso_no_remunerado — espejo simple del cálculo del backend,
-// para mostrar un valor sugerido mientras se llena el formulario (el
-// backend vuelve a calcularlo si no se manda "dias", y de todos modos
-// el campo queda editable).
+// Espejo en JS del cálculo del backend (backend/api/ausencias.php ::
+// calcularDiasAusencia) — mismo comportamiento, usando _festivosSet
+// (cargado en renderAusenciasView). Sirve para mostrar un valor
+// sugerido mientras se llena el formulario; el backend vuelve a
+// calcularlo si no se manda "dias", y de todos modos el campo queda
+// editable.
+//
+//   - vacaciones: lunes a SÁBADO del rango, sin contar festivos.
+//   - permiso_no_remunerado: si falta al menos un día hábil (lun-vie)
+//     de una semana, se pierde también sábado, domingo y cualquier
+//     festivo de esa semana; los días que sí trabajó esa semana no
+//     se cuentan.
+//   - el resto: lunes a viernes del rango, igual que antes.
+function _fechaYmd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function _amCalcularDiasLocal(tipo, inicioStr, finStr) {
   if (!inicioStr || !finStr) return null;
   const d0 = new Date(inicioStr + 'T00:00:00');
   const d1 = new Date(finStr + 'T00:00:00');
   if (d1 < d0) return null;
 
-  let diasHabiles = 0;
-  for (let d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
-    const dow = d.getDay(); // 0=domingo ... 6=sábado
-    if (dow >= 1 && dow <= 5) diasHabiles++;
+  if (tipo === 'vacaciones') {
+    let dias = 0;
+    for (let d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay(); // 0=domingo ... 6=sábado
+      if (dow >= 1 && dow <= 6 && !_festivosSet[_fechaYmd(d)]) dias++;
+    }
+    return dias;
   }
 
-  let diasExtra = 0;
   if (tipo === 'permiso_no_remunerado') {
+    let total = 0;
     const lunes = new Date(d0);
     const offset = (lunes.getDay() + 6) % 7; // días desde el lunes de esa semana
     lunes.setDate(lunes.getDate() - offset);
-    for (let l = new Date(lunes); l <= d1; l.setDate(l.getDate() + 7)) {
-      const viernes = new Date(l); viernes.setDate(viernes.getDate() + 4);
-      if (l >= d0 && viernes <= d1) diasExtra += 2;
+
+    const ultimoLunes = new Date(d1);
+    const offsetFin = (ultimoLunes.getDay() + 6) % 7;
+    ultimoLunes.setDate(ultimoLunes.getDate() - offsetFin);
+
+    for (let l = new Date(lunes); l <= ultimoLunes; l.setDate(l.getDate() + 7)) {
+      const diasSemana = [];
+      for (let n = 0; n < 7; n++) {
+        const dia = new Date(l); dia.setDate(dia.getDate() + n);
+        diasSemana.push(dia);
+      }
+      const activada = diasSemana.some((dia, i) => i <= 4 && dia >= d0 && dia <= d1);
+      if (activada) {
+        diasSemana.forEach((dia, i) => {
+          const esFestivo = !!_festivosSet[_fechaYmd(dia)];
+          if (i <= 4) {
+            const dentroDelPermiso = dia >= d0 && dia <= d1;
+            if (dentroDelPermiso || esFestivo) total++;
+          } else {
+            total++;
+          }
+        });
+      }
     }
+    return total;
   }
 
-  return diasHabiles + diasExtra;
+  let dias = 0;
+  for (let d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) dias++;
+  }
+  return dias;
 }
 
 function _amRecalcularDias() {

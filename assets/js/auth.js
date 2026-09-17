@@ -176,13 +176,13 @@ function aplicarPermisosUI() {
   // Tabs solo visibles para administradores
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
-  // Grupos desplegables ("💰 Finanzas", "🗂️ Más"): no son .area-tab, así
-  // que el loop genérico de arriba no cubre el botón que los abre (sí
+  // Grupos desplegables ("💰 Finanzas", "🗂️ Administrativo"): no son .area-tab,
+  // así que el loop genérico de arriba no cubre el botón que los abre (sí
   // cubre las pestañas de adentro, por su data-area).
   const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
   if (grupoFinanzas) grupoFinanzas.style.display = esTecnico ? 'none' : '';
-  const grupoMas = document.getElementById('area-tab-group-mas');
-  if (grupoMas) grupoMas.style.display = esTecnico ? 'none' : '';
+  const grupoAdministrativo = document.getElementById('area-tab-group-administrativo');
+  if (grupoAdministrativo) grupoAdministrativo.style.display = esTecnico ? 'none' : '';
   // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
   const btnSettings = document.getElementById('btn-settings');
   if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';

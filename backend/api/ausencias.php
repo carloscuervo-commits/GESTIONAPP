@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/db.php';
+require_once __DIR__ . '/../lib/festivos.php';
 applyCors();
 
 $pdo    = getDB();
@@ -28,43 +29,88 @@ function requireAdmin($pdo) {
 }
 
 // --------------------------------------------------------------
-// Calcula los días de una ausencia:
-//   - Cuenta lunes a viernes dentro del rango (todos los técnicos
-//     trabajan de lunes a viernes).
-//   - Solo para 'permiso_no_remunerado': por cada semana en la que los
-//     5 días hábiles (lun-vie) caen completos dentro del rango, se
-//     suman también el sábado y domingo de esa semana (se pierde la
-//     semana completa, no solo los días hábiles).
-//   - No contempla festivos (no existe hoy un calendario de festivos
-//     en Ginno) — el valor queda siempre editable a mano en el front.
+// Calcula los días de una ausencia. $festivos es un mapa ['Y-m-d' =>
+// nombre] con los festivos que tocan el rango (ver festivosEnRango()
+// en backend/lib/festivos.php) — se recibe ya armado para no consultar
+// la tabla adentro de esta función (así queda fácil de probar sola).
+//
+//   - Vacaciones: cuenta lunes a SÁBADO del rango, sin contar los
+//     festivos que caigan ahí (así se cuentan en Colombia: domingo y
+//     festivo no descuentan de la cuota de vacaciones).
+//   - Permiso no remunerado: si el técnico falta aunque sea un solo
+//     día hábil (lunes a viernes) de una semana, esa semana completa
+//     queda sin pagar — se pierden también sábado, domingo y
+//     cualquier festivo de esa semana. Los días que sí trabajó esa
+//     semana (lunes a viernes, no festivo, fuera del rango del
+//     permiso) no se cuentan.
+//   - El resto de tipos: cuenta lunes a viernes del rango, igual que
+//     antes (sin lógica de fin de semana ni de festivos).
+//
+// El valor calculado siempre queda editable a mano en el front.
 // --------------------------------------------------------------
-function calcularDiasAusencia(string $tipo, string $fechaInicio, string $fechaFin): float {
+function calcularDiasAusencia(string $tipo, string $fechaInicio, string $fechaFin, array $festivos = []): float {
   $d0 = new DateTime($fechaInicio);
   $d1 = new DateTime($fechaFin);
   if ($d1 < $d0) return 0.0;
 
-  $diasHabiles = 0;
-  $cursor = clone $d0;
-  while ($cursor <= $d1) {
-    $dow = (int)$cursor->format('N'); // 1=lunes ... 7=domingo
-    if ($dow >= 1 && $dow <= 5) $diasHabiles++;
-    $cursor->modify('+1 day');
+  if ($tipo === 'vacaciones') {
+    $dias = 0;
+    $cursor = clone $d0;
+    while ($cursor <= $d1) {
+      $dow   = (int)$cursor->format('N'); // 1=lunes ... 7=domingo
+      $fecha = $cursor->format('Y-m-d');
+      if ($dow >= 1 && $dow <= 6 && !isset($festivos[$fecha])) $dias++;
+      $cursor->modify('+1 day');
+    }
+    return (float)$dias;
   }
 
-  $diasExtra = 0;
   if ($tipo === 'permiso_no_remunerado') {
+    $total = 0;
     $lunes = clone $d0;
     $lunes->modify('monday this week');
-    while ($lunes <= $d1) {
-      $viernes = (clone $lunes)->modify('+4 days');
-      if ($lunes >= $d0 && $viernes <= $d1) {
-        $diasExtra += 2; // sábado y domingo de esa semana
+    $ultimoLunes = clone $d1;
+    $ultimoLunes->modify('monday this week');
+
+    while ($lunes <= $ultimoLunes) {
+      $diasSemana = [];
+      for ($n = 0; $n < 7; $n++) $diasSemana[] = (clone $lunes)->modify("+{$n} days");
+
+      // ¿esta semana tiene algún día hábil (lun-vie) dentro del rango del permiso?
+      $activada = false;
+      foreach ($diasSemana as $i => $dia) {
+        if ($i <= 4 && $dia >= $d0 && $dia <= $d1) { $activada = true; break; }
+      }
+
+      if ($activada) {
+        foreach ($diasSemana as $i => $dia) {
+          $fecha     = $dia->format('Y-m-d');
+          $esFestivo = isset($festivos[$fecha]);
+          if ($i <= 4) {
+            // lunes a viernes: cuenta si está dentro del permiso, o si
+            // es festivo (ese día tampoco se trabajaba de todas formas).
+            $dentroDelPermiso = $dia >= $d0 && $dia <= $d1;
+            if ($dentroDelPermiso || $esFestivo) $total++;
+          } else {
+            // sábado y domingo: se pierden completos, la semana ya se activó
+            $total++;
+          }
+        }
       }
       $lunes->modify('+7 days');
     }
+    return (float)$total;
   }
 
-  return (float)($diasHabiles + $diasExtra);
+  // Resto de tipos: lunes a viernes del rango, sin más.
+  $dias = 0;
+  $cursor = clone $d0;
+  while ($cursor <= $d1) {
+    $dow = (int)$cursor->format('N');
+    if ($dow >= 1 && $dow <= 5) $dias++;
+    $cursor->modify('+1 day');
+  }
+  return (float)$dias;
 }
 
 function _auRow(array $r): array {
@@ -157,7 +203,9 @@ if ($method === 'POST') {
   $chk->execute([$usuarioId]);
   if (!$chk->fetch()) jsonOut(['error' => "No existe el usuario '$usuarioId'"], 404);
 
-  $dias = isset($d['dias']) && $d['dias'] !== '' ? round((float)$d['dias'], 1) : calcularDiasAusencia($tipo, $fechaInicio, $fechaFin);
+  $dias = isset($d['dias']) && $d['dias'] !== ''
+    ? round((float)$d['dias'], 1)
+    : calcularDiasAusencia($tipo, $fechaInicio, $fechaFin, festivosEnRango($pdo, $fechaInicio, $fechaFin));
   if ($dias <= 0) jsonOut(['error' => 'Los días de la ausencia deben ser mayores a 0'], 400);
 
   $stmt = $pdo->prepare(

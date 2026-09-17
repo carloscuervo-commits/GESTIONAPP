@@ -1162,9 +1162,9 @@ function setArea(a) {
   document.querySelectorAll('.area-tab-group').forEach(g => g.classList.remove('open'));
   const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
   if (grupoFinanzas) grupoFinanzas.classList.toggle('group-active', ['cartera','anticipos-recibidos','anticipos-entregados','facturacion'].includes(a));
-  // Grupo "🗂️ Más" (Vacaciones y permisos / Clientes / Transportes).
-  const grupoMas = document.getElementById('area-tab-group-mas');
-  if (grupoMas) grupoMas.classList.toggle('group-active', ['ausencias','clientes','transportes'].includes(a));
+  // Grupo "🗂️ Administrativo" (Vacaciones y permisos / Clientes / Transportes).
+  const grupoAdministrativo = document.getElementById('area-tab-group-administrativo');
+  if (grupoAdministrativo) grupoAdministrativo.classList.toggle('group-active', ['ausencias','clientes','transportes'].includes(a));
   const isCartera    = a === 'cartera';
   const isAnticiposRecibidos  = a === 'anticipos-recibidos';
   const isAnticiposEntregados = a === 'anticipos-entregados';

@@ -42,13 +42,43 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-17 — corrección: reglas de días de Vacaciones/Permisos + tabla de festivos)
+
+⚠️ Este deploy trae UN paso manual además del deploy normal:
+
+1. **Correr la migración `db/046_festivos.sql` en phpMyAdmin** (pestaña "Importar", igual que la 045) — crea la tabla `festivos` y la carga con los festivos colombianos de 2026 a 2028. Sin esto, el cálculo de días de Vacaciones/Permisos no remunerado sigue funcionando pero sin tener en cuenta festivos (y `GET /festivos.php` devolvería la lista vacía).
+
+**Qué cambió**: dos correcciones a las reglas del módulo de Vacaciones/Permisos que se lanzó hoy mismo (ver sección de abajo), después de que Carlos lo revisó:
+- **Vacaciones** ahora cuenta lunes a **sábado** (antes solo lunes a viernes, aunque el rango incluyera el sábado). Domingo y festivos dentro del rango no descuentan de la cuota.
+- **Permiso no remunerado**: con que falte **un solo día hábil** de una semana ya se pierde completa (antes hacía falta que faltaran los 5 días hábiles). Se descuentan también sábado, domingo y cualquier festivo de esa semana.
+
+Para esto, Ginno ahora tiene un calendario de festivos colombianos (calculado con algoritmo — fijos + Ley Emiliani + Pascua — no digitado a mano), cargado 2026-2028. No hay pantalla de administración de festivos todavía; para cargar un año más adelante, correr en el servidor: `php backend/cron/generar_festivos.php 2029`.
+
+**Archivos nuevos:**
+- `db/046_festivos.sql` — migración (ejecutar manualmente, ver arriba). Crea `festivos` y la carga 2026-2028.
+- `backend/lib/festivos.php` — `festivosColombia()`, `festivosEnRango()`, `esFestivo()`.
+- `backend/cron/generar_festivos.php` — script de mantenimiento (correr a mano por SSH/terminal cPanel cuando haga falta un año nuevo; no es un cron programado).
+- `backend/api/festivos.php` — `GET` (con sesión, sin requerir admin), `?anio=` opcional.
+
+**Archivos modificados:**
+- `backend/api/ausencias.php` — `calcularDiasAusencia()` reescrita con las dos reglas nuevas y usando la tabla de festivos. Probada con 12 casos antes de subir (`php -r`, ver `CONTEXTO.md`).
+- `assets/js/ausencias.js` — trae festivos (`GET /festivos.php`) al abrir el módulo y `_amCalcularDiasLocal()` espeja la nueva lógica (verificado en Node contra los mismos 12 casos que el backend). `?v=20260917c`.
+
+**Prueba manual sugerida:**
+1. Correr la migración 046 en phpMyAdmin (pestaña Importar).
+2. "Vacaciones y permisos" → "+ Registrar ausencia" → un técnico, tipo Vacaciones, rango lunes a **sábado** → el campo Días debe calcular **6** (antes daba 5).
+3. Mismo tipo Vacaciones, un rango que incluya un festivo cargado (ej. 12 de octubre de 2026, lunes a sábado esa semana) → Días debe calcular **5** (el festivo no se descuenta).
+4. Tipo Permiso no remunerado, un solo día (ej. un martes suelto) → Días debe calcular **3** (ese martes + sábado y domingo de esa semana) — antes daba 1.
+5. Tipo Permiso no remunerado, semana completa lunes a viernes → Días debe seguir calculando **7** (sin cambio).
+6. Confirmar que los demás tipos (permiso remunerado, incapacidad, falta, otro) calculan igual que antes (lunes a viernes, sin festivos).
+
 ## Cambios pendientes de deploy (2026-09-17 — nuevo módulo: Vacaciones, permisos y faltas)
 
 ⚠️ Este deploy trae UN paso manual además del deploy normal:
 
 1. **Correr la migración `db/045_ausencias.sql` en phpMyAdmin** antes (o justo después) del deploy — agrega `fecha_inicio_contrato` y `dias_vacaciones_anual` a `usuarios`, y crea la tabla `ausencias`. Sin esto, la pestaña nueva "🏖️ Vacaciones y permisos" da error al abrirse. Usa la pestaña **"Importar"** de phpMyAdmin (subir el archivo tal cual, no copiar/pegar el texto) para evitar problemas de saltos de línea.
 
-**Qué es**: módulo para que el encargado (Carlos) lleve el control de vacaciones/permisos/faltas de cada técnico, con control anual contra la cuota de vacaciones que le corresponde a cada uno (asignada manualmente en la ficha técnico). No hay autogestión de técnicos — solo el admin registra. Es una pestaña propia (no vive dentro de ⚙️ Configuración), agrupada con Clientes y Transportes bajo un desplegable nuevo "🗂️ Más ▾" en la barra de pestañas (mismo patrón que "💰 Finanzas ▾"). Detalle completo del diseño en `CONTEXTO.md` (sección de esta misma fecha, incluye el ajuste de navegación).
+**Qué es**: módulo para que el encargado (Carlos) lleve el control de vacaciones/permisos/faltas de cada técnico, con control anual contra la cuota de vacaciones que le corresponde a cada uno (asignada manualmente en la ficha técnico). No hay autogestión de técnicos — solo el admin registra. Es una pestaña propia (no vive dentro de ⚙️ Configuración), agrupada con Clientes y Transportes bajo un desplegable nuevo "🗂️ Administrativo ▾" en la barra de pestañas (mismo patrón que "💰 Finanzas ▾"; el desplegable se llamó primero "Más", pero se renombró el mismo día — ver más abajo). Detalle completo del diseño en `CONTEXTO.md` (sección de esta misma fecha, incluye los dos ajustes de navegación).
 
 **Archivos nuevos:**
 - `db/045_ausencias.sql` — migración (ejecutar manualmente, ver arriba).
@@ -58,21 +88,22 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 **Archivos modificados:**
 - `backend/api/usuarios.php` — GET/POST/PUT ahora incluyen `fecha_inicio_contrato`/`dias_vacaciones_anual`.
 - `assets/js/usuarios.js` — ficha técnico con los dos campos nuevos. `?v=20260917a`.
-- `assets/js/tareas.js` — `setArea()` conoce la nueva área `ausencias` y el grupo "🗂️ Más". `?v=20260917a`.
-- `assets/js/auth.js` — oculta el grupo "🗂️ Más" completo para usuarios técnico. `?v=20260917a`.
+- `assets/js/tareas.js` — `setArea()` conoce la nueva área `ausencias` y el grupo "🗂️ Administrativo". `?v=20260917b`.
+- `assets/js/auth.js` — oculta el grupo "🗂️ Administrativo" completo para usuarios técnico. `?v=20260917b`.
 - `assets/js/configuracion.js` — ya no renderiza ausencias (volvió a ser solo Usuarios + Avisos). `?v=20260917b`.
-- `tareas-equipo.html` — nuevo grupo desplegable "🗂️ Más" (Vacaciones y permisos / Clientes / Transportes) en la barra de pestañas, `#ausencias-view` como view-container normal, dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`), `?v=` de los JS de arriba actualizados.
+- `tareas-equipo.html` — nuevo grupo desplegable "🗂️ Administrativo" (Vacaciones y permisos / Clientes / Transportes) en la barra de pestañas, `#ausencias-view` como view-container normal, dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`), `?v=` de los JS de arriba actualizados. **Además**: la pestaña kanban que decía "📁 Administrativo" ahora dice "📁 ADM" y "💼 Comercial" ahora dice "💼 COM" (solo el texto del botón — internamente siguen siendo las mismas áreas `admin`/`comercial`, nada más cambia), para no chocar con el nombre del desplegable nuevo.
 
 **Prueba manual sugerida:**
 1. Correr la migración 045 en phpMyAdmin (pestaña Importar).
-2. Clic en "🗂️ Más" en la barra de pestañas → debe desplegarse "🏖️ Vacaciones y permisos", "🏢 Clientes" y "🚗 Transportes", pegado justo debajo del botón. Elegir "Vacaciones y permisos" → carga la vista y el botón "🗂️ Más" queda resaltado.
-3. Entrar a la ficha de un técnico (pestaña "🗂️ Más" → Clientes no aplica; la ficha técnico sigue en ⚙️ Configuración → Usuarios) → confirmar que aparecen "Fecha inicio de contrato" y "Días de vacaciones al año", guardar un valor (ej. 15) y confirmar que se guarda al volver a abrir la ficha.
-4. Volver a "🏖️ Vacaciones y permisos" → debe aparecer el resumen del técnico con esa cuota (Tomados: 0, Saldo: 15).
-5. "+ Registrar ausencia" → elegir ese técnico, tipo "Vacaciones", un rango lunes a viernes → el campo Días debe calcularse solo en 5 → Guardar → debe aparecer en "Pendientes de gestión" y el resumen debe bajar el saldo a 10.
-6. Probar tipo "Permiso no remunerado" con el mismo rango lunes a viernes completo → Días debe calcularse en 7 (suma sábado y domingo) — y con un rango parcial (ej. martes a jueves) → Días debe quedar en 3 (sin sumar fin de semana).
-7. "🗄️ Marcar gestionada" sobre el registro de vacaciones → debe pedir la nota sugerida ("Carta firmada del trabajador recibida") → al guardar, pasa a "Archivadas" y el saldo del resumen NO debe cambiar (la vacación ya restaba desde que se registró, esté o no gestionada).
-8. Con un usuario técnico (no admin), confirmar que no ve el botón "🗂️ Más" en absoluto.
-9. Confirmar que "🏢 Clientes" y "🚗 Transportes" siguen funcionando igual que antes desde su nueva ubicación dentro del desplegable.
+2. En la barra de pestañas, confirmar que los primeros 4 botones ahora dicen "IT", "IF", "ADM", "COM" (antes "Administrativo"/"Comercial" completos) y que sus tableros kanban siguen funcionando igual que antes.
+3. Clic en "🗂️ Administrativo" (el desplegable nuevo, junto a "💰 Finanzas") → debe desplegarse "🏖️ Vacaciones y permisos", "🏢 Clientes" y "🚗 Transportes", pegado justo debajo del botón. Elegir "Vacaciones y permisos" → carga la vista y el botón "🗂️ Administrativo" queda resaltado.
+4. Entrar a la ficha de un técnico (⚙️ Configuración → Usuarios) → confirmar que aparecen "Fecha inicio de contrato" y "Días de vacaciones al año", guardar un valor (ej. 15) y confirmar que se guarda al volver a abrir la ficha.
+5. Volver a "🏖️ Vacaciones y permisos" → debe aparecer el resumen del técnico con esa cuota (Tomados: 0, Saldo: 15).
+6. "+ Registrar ausencia" → elegir ese técnico, tipo "Vacaciones", un rango lunes a viernes → el campo Días debe calcularse solo en 5 → Guardar → debe aparecer en "Pendientes de gestión" y el resumen debe bajar el saldo a 10.
+7. Probar tipo "Permiso no remunerado" con el mismo rango lunes a viernes completo → Días debe calcularse en 7 (suma sábado y domingo) — y con un rango parcial (ej. martes a jueves) → Días debe quedar en 3 (sin sumar fin de semana).
+8. "🗄️ Marcar gestionada" sobre el registro de vacaciones → debe pedir la nota sugerida ("Carta firmada del trabajador recibida") → al guardar, pasa a "Archivadas" y el saldo del resumen NO debe cambiar (la vacación ya restaba desde que se registró, esté o no gestionada).
+9. Con un usuario técnico (no admin), confirmar que no ve el botón "🗂️ Administrativo" en absoluto.
+10. Confirmar que "🏢 Clientes" y "🚗 Transportes" siguen funcionando igual que antes desde su nueva ubicación dentro del desplegable.
 
 ## Cambios pendientes de deploy (2026-09-14 — corrección: Anticipos detecta la aplicación real en Alegra; menú "💰 Finanzas")
 

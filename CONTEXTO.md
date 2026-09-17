@@ -4,6 +4,37 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-17 — corrección: reglas de días de Vacaciones/Permisos + festivos colombianos)
+
+### fix: reglas de cálculo de días del módulo de Ausencias + tabla de festivos
+
+Carlos corrigió dos reglas del módulo de Vacaciones/permisos (recién lanzado el mismo día, ver sección de abajo) después de revisarlo:
+
+- **Vacaciones**: ahora cuenta lunes a **sábado** del rango (antes solo contaba lunes a viernes, aunque el rango incluyera el sábado). Domingo y festivos dentro del rango NO se descuentan de la cuota — así se cuentan las vacaciones en Colombia.
+- **Permiso no remunerado**: antes solo se perdía el fin de semana si el permiso cubría los 5 días hábiles completos de esa semana. Ahora **con que falte un solo día hábil de esa semana ya se pierde completa** — se descuentan también sábado, domingo y cualquier festivo de esa semana. Los días que sí trabajó esa semana no se descuentan.
+
+Para poder aplicar esto (y para que cualquier otra función de Ginno que lo necesite pueda usarlo), se agregó una **tabla de festivos colombianos**. Decisiones (confirmadas con Carlos):
+
+- Los festivos se **calculan con un algoritmo** (fijos + Ley Emiliani + móviles de Pascua vía Meeus/Jones/Butcher), no se digitan a mano — precisión alta, cero mantenimiento mientras el algoritmo siga vigente en Colombia.
+- Se cargan **2026-2028** por la migración. Sin pantalla de administración en Ginno por ahora (Carlos lo prefirió así para v1) — si hace falta un año más adelante, se corre `php backend/cron/generar_festivos.php 2029` desde el servidor (agrega solo ese año, sin duplicar).
+- Un festivo entre semana dentro de un permiso no remunerado **no suma aparte** como día de permiso (ese día no se trabajaba de todas formas), pero **sí activa** el descuento de fin de semana/festivos de esa semana.
+- Un festivo dentro del rango de vacaciones (entre semana o sábado) **no se descuenta** de la cuota.
+
+**Migración `db/046_festivos.sql`**: tabla `festivos` (`fecha` DATE PK, `nombre` VARCHAR NULL) + `INSERT IGNORE` con los ~54 festivos de 2026-2028 (calculados con el mismo algoritmo de `festivosColombia()`, verificado que coinciden byte a byte con un test antes de generar el `INSERT`).
+
+**Backend**:
+- `backend/lib/festivos.php` (nuevo): `festivosColombia($anio)` calcula los festivos de un año (algoritmo completo, reutilizable); `festivosEnRango($pdo,$inicio,$fin)` trae el mapa `['Y-m-d'=>nombre]` desde la tabla para lookups O(1); `esFestivo($pdo,$fecha)`.
+- `backend/cron/generar_festivos.php` (nuevo, script de mantenimiento — NO es un cron real): `php generar_festivos.php <anio> [anio2 ...]` inserta (con `INSERT IGNORE`) los festivos de los años pedidos. Para cuando haga falta extender más allá de 2028.
+- `backend/api/festivos.php` (nuevo): `GET` con sesión válida (no requiere admin — es reference data), `?anio=` opcional. Usado por el frontend para la vista previa del cálculo de días.
+- `backend/api/ausencias.php` — `calcularDiasAusencia()` reescrita: ahora recibe `$festivos` (mapa ya armado, así queda testeable sin PDO) y tiene lógica separada por tipo (vacaciones: lun-sáb sin festivo; permiso no remunerado: activación semanal descrita arriba; resto: igual que antes, lun-vie sin cambios). Antes de llamarla en el POST, se arma el mapa con `festivosEnRango()`. Probado con 12 casos (`php -r`) cubriendo vacaciones con/sin sábado, con festivo, permiso de un solo día, parcial, dos semanas, y los demás tipos sin cambios — todos pasaron. El mismo espejo se probó en JS (Node) contra los mismos 12 casos — coinciden exactamente.
+
+**Frontend**:
+- `assets/js/ausencias.js` (`?v=20260917c`): `renderAusenciasView()` ahora también trae `GET /festivos.php` (en paralelo con usuarios/ausencias) y arma `_festivosSet`. `_amCalcularDiasLocal()` reescrita para espejar exactamente la nueva lógica del backend (vacaciones lun-sáb sin festivo; permiso no remunerado con activación semanal).
+
+**Archivos**: `db/046_festivos.sql` (nuevo) · `backend/lib/festivos.php` (nuevo) · `backend/cron/generar_festivos.php` (nuevo) · `backend/api/festivos.php` (nuevo) · `backend/api/ausencias.php` · `assets/js/ausencias.js`.
+
+**PDF actualizado**: `Ginno_Manual_Vacaciones_Permisos.pdf` (en la raíz de GESTIONAPP) se regeneró con la sección "Cómo se calculan los días" corregida.
+
 ## Estado actual (última actualización: 2026-09-17 — nuevo módulo: Vacaciones, permisos y faltas)
 
 ### feat: módulo "🏖️ Vacaciones y permisos" (dentro de ⚙️ Configuración, solo admin)
@@ -41,6 +72,14 @@ Carlos pidió un módulo para que el encargado lleve el control de vacaciones/pe
 - `assets/js/configuracion.js` (`?v=20260917b`): `abrirSettings()` ya NO llama `renderAusenciasView()` (vuelve a solo Usuarios + Avisos a técnicos).
 
 **Archivos de este ajuste**: `tareas-equipo.html` · `assets/js/tareas.js` · `assets/js/auth.js` · `assets/js/ausencias.js` · `assets/js/configuracion.js`.
+
+**🔧 Segundo ajuste (mismo día): el desplegable "Más" pasó a llamarse "Administrativo"**. Carlos pidió otro nombre para "🗂️ Más ▾" por ser poco descriptivo; para evitar choque con la pestaña kanban ya existente que se llamaba "Administrativo" (`data-area="admin"`), esa pestaña se abrevió a **"ADM"** y la de al lado, "Comercial" (`data-area="comercial"`), a **"COM"**. Con esto los 4 primeros botones de la barra (IT, IF, ADM, COM) quedan como bloque de tableros kanban, y el resto vive en desplegables (💰 Finanzas, 🗂️ Administrativo, …).
+
+- `tareas-equipo.html`: `📁 Administrativo` → `📁 ADM` y `💼 Comercial` → `💼 COM` (solo el texto visible de esos dos botones — `data-area="admin"`/`data-area="comercial"` no cambiaron, así que no hay que tocar lógica en ningún otro archivo). El grupo `id="area-tab-group-mas"` → `id="area-tab-group-administrativo"`, botón `🗂️ Más` → `🗂️ Administrativo`, `toggleAreaDropdown('mas')` → `toggleAreaDropdown('administrativo')`. Los `<option>` de "Administrativo"/"Comercial" del selector "Área" del modal de tarea (línea ~729, otro contexto) se dejaron con el nombre completo — ahí no compite por espacio en la barra ni genera ambigüedad.
+- `assets/js/auth.js` (`?v=20260917b`): `grupoMas`/`#area-tab-group-mas` → `grupoAdministrativo`/`#area-tab-group-administrativo`.
+- `assets/js/tareas.js` (`?v=20260917b`): mismo rename en `setArea()` (`grupoMas` → `grupoAdministrativo`).
+
+**Archivos de este segundo ajuste**: `tareas-equipo.html` · `assets/js/tareas.js` · `assets/js/auth.js`.
 
 ## Estado actual (última actualización: 2026-09-14 — corrección: Anticipos ahora detecta la aplicación real en Alegra; menú "💰 Finanzas" con desplegable)
 
