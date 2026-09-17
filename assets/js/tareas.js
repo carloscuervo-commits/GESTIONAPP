@@ -1121,12 +1121,33 @@ function toggleAreaDropdown(nombre) {
   if (!grupo) return;
   const yaAbierto = grupo.classList.contains('open');
   document.querySelectorAll('.area-tab-group.open').forEach(g => g.classList.remove('open'));
-  if (!yaAbierto) grupo.classList.add('open');
+  if (!yaAbierto) {
+    grupo.classList.add('open');
+    // .area-tab-dropdown es position:fixed (ver app.css) — hay que ubicarlo a mano
+    // pegado al botón, porque .area-tabs tiene overflow-x:auto y eso recorta
+    // verticalmente cualquier hijo que no escape con fixed (era el bug reportado:
+    // el desplegable quedaba invisible, solo aparecía moviendo el scroll horizontal).
+    const btn = grupo.querySelector('.area-tab-group-btn');
+    const dropdown = grupo.querySelector('.area-tab-dropdown');
+    if (btn && dropdown) {
+      const r = btn.getBoundingClientRect();
+      dropdown.style.top = `${r.bottom + 4}px`;
+      let left = r.left;
+      const maxLeft = window.innerWidth - dropdown.offsetWidth - 12;
+      if (left > maxLeft) left = Math.max(12, maxLeft);
+      dropdown.style.left = `${left}px`;
+    }
+  }
 }
 document.addEventListener('click', (e) => {
   if (e.target.closest('.area-tab-group')) return;
   document.querySelectorAll('.area-tab-group.open').forEach(g => g.classList.remove('open'));
 });
+// Con position:fixed el desplegable no se mueve solo si la página hace scroll
+// después de abrirlo (no sigue al botón) — más simple cerrarlo que reubicarlo.
+document.addEventListener('scroll', () => {
+  document.querySelectorAll('.area-tab-group.open').forEach(g => g.classList.remove('open'));
+}, true);
 
 function setArea(a) {
   if (currentUser && currentUser.perfil === 'tecnico' && !['it','if','agenda'].includes(a)) return; // técnicos solo ven IT/IF/Agenda

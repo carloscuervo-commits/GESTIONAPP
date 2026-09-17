@@ -51,7 +51,11 @@
   .area-tab-group.group-active .area-tab-group-btn { color: white; background: #0e7a8a; }
   .area-tab-group-caret { font-size: 10px; transition: transform .15s; }
   .area-tab-group.open .area-tab-group-caret { transform: rotate(180deg); }
-  .area-tab-dropdown { position: absolute; top: calc(100% + 4px); left: 0; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 150; min-width: 210px; max-width: calc(100vw - 40px); padding: 6px; display: none; flex-direction: column; gap: 2px; }
+  /* position:fixed (no absolute) + top/left puestos por JS al abrir (toggleAreaDropdown en
+     tareas.js): .area-tabs tiene overflow-x:auto, y eso recorta cualquier hijo absolute que
+     se salga verticalmente — con fixed y coordenadas calculadas en base al botón, el
+     desplegable escapa ese recorte sin importar scroll ni la barra sticky. */
+  .area-tab-dropdown { position: fixed; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 150; min-width: 210px; max-width: calc(100vw - 40px); padding: 6px; display: none; flex-direction: column; gap: 2px; }
   .area-tab-group.open .area-tab-dropdown { display: flex; }
   .area-tab-dropdown .area-tab { border-radius: 7px; border-bottom: none; text-align: left; width: 100%; }
   .area-tab:not(.active) .tab-count { background: var(--border); color: var(--text-muted); }

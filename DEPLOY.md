@@ -74,15 +74,18 @@ No requiere migración adicional (ya cubierta arriba). Carlos pidió una barra d
 
 **Archivos modificados:**
 - `tareas-equipo.html` — las 4 pestañas quedaron dentro de `<div class="area-tab-group" id="area-tab-group-finanzas">`.
-- `assets/css/app.css` — estilos del desplegable + corrección de un bug latente (color `.active` faltante en las pestañas de anticipos). `?v=20260914a`.
-- `assets/js/tareas.js` — `toggleAreaDropdown()` + ajustes en `setArea()`. `?v=20260914b`.
+- `assets/css/app.css` — estilos del desplegable (`position:fixed`, no `absolute` — ver fix abajo) + corrección de un bug latente (color `.active` faltante en las pestañas de anticipos). `?v=20260914b`.
+- `assets/js/tareas.js` — `toggleAreaDropdown()` + ajustes en `setArea()`. `?v=20260914c`.
 - `assets/js/auth.js` — oculta el grupo completo para usuarios técnico. `?v=20260914a`.
 
+**🔧 Fix aplicado el mismo día**: Carlos probó y el desplegable no se veía al hacer clic (solo aparecía moviendo el scroll horizontal de la barra de pestañas) — `.area-tabs` tiene `overflow-x:auto`, que recorta verticalmente los hijos `position:absolute`. Se cambió `.area-tab-dropdown` a `position:fixed` con coordenadas puestas por JS al abrir.
+
 **Prueba manual sugerida:**
-1. Clic en "💰 Finanzas" → se despliegan Cartera/Anticipos recibidos/Anticipos entregados/Facturación.
+1. Clic en "💰 Finanzas" → se despliegan Cartera/Anticipos recibidos/Anticipos entregados/Facturación, pegado justo debajo del botón (no debe hacer falta mover ningún scroll para verlo).
 2. Elegir una → el desplegable se cierra, carga la vista correcta, y el botón "💰 Finanzas" queda resaltado mientras esa área siga activa.
 3. Clic afuera del menú (sin elegir nada) → se cierra sin cambiar de pestaña.
 4. Con un usuario técnico, confirmar que el botón "💰 Finanzas" no aparece.
+5. Probar también en celular / ventana angosta (donde la barra de pestañas sí necesita scroll horizontal) — el desplegable debe seguir viéndose bien pegado al botón.
 
 ## Cambios pendientes de deploy (2026-09-14 — nuevo módulo: Anticipos recibidos / entregados)
 
