@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-17 — fix: "Visita completada" tapaba "Iniciar visita" en tarjeta reprogramada)
+
+### fix: tarjeta de 1 día reprogramada quedaba trabada en "✅ Visita completada"
+
+Carlos reportó: tarjeta operativa de un solo día, el técnico ejecutó parte del trabajo y envió reporte, pero no terminó y pidió reprogramar (`por_reprogramar`). Al ponerle Carlos una fecha nueva (pasa a `programado`), la tarjeta mostraba inmediatamente "✅ Visita completada" en vez de "🚀 Iniciar visita" — sin dar forma de registrar la visita nueva. Workaround que encontró él mismo (subir "días" de la tarjeta a 2) confirmó que el bug vivía en la rama de código exclusiva de tarjetas de 1 día.
+
+**Causa**: en `assets/js/reportes.js` → `renderVisitaBoton()`, la regla `if ((t.diasProg||1)<=1 && reportesTodosEnviados.has(t.id))` no mira el `estado` actual de la tarjeta — `reportesTodosEnviados` es un set de "esta tarea alguna vez tuvo un reporte enviado" (sin fecha, para siempre), poblado por `GET reportes.php?tarea_ids_con_reporte=1` (`SELECT DISTINCT tarea_id FROM reportes WHERE estado='enviado'`, sin filtro de fecha — a propósito, para casos como el botón "🧾 Registrar factura"). Esa regla se escribió en julio (fix "Iniciar visita no reaparece tras enviar el reporte") pensando solo en el caso de una tarjeta que YA quedó en `realizado`/Por facturar — no contempló que la misma tarjeta pudiera volver a `por_reprogramar` → `programado` pidiendo una visita nueva, con el reporte viejo todavía en el set.
+
+**Fix**: se agregó `&& t.estado === 'realizado'` a la condición — así "Visita completada" solo tapa el botón cuando la tarjeta de verdad ya terminó su ciclo (queda igual el caso de julio), y una tarjeta en `por_reprogramar`/`programado` cae al botón normal "🚀 Iniciar visita", sin importar que haya un reporte viejo de una visita anterior.
+
+**Archivos**: `assets/js/reportes.js` (`?v=20260917a`).
+
+**Nota para Carlos**: la tarjeta de prueba que quedó con "días"=2 como workaround puede devolverse a 1 ahora que está arreglado — ese campo también entra en el cálculo de fecha estimada de fin, horas de contrato y alertas de exceso en tarjetas tipo Proyecto.
+
 ## Estado actual (última actualización: 2026-09-17 — corrección: reglas de días de Vacaciones/Permisos + festivos colombianos)
 
 ### fix: reglas de cálculo de días del módulo de Ausencias + tabla de festivos

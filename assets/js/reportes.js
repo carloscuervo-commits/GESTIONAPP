@@ -278,8 +278,15 @@ function renderVisitaBoton(t) {
     }
     return html;
   }
-  // Tarea de un solo día cuyo reporte ya fue enviado → no ofrecer nueva visita
-  if ((t.diasProg || 1) <= 1 && reportesTodosEnviados.has(t.id)) {
+  // Tarea de un solo día YA FINALIZADA (estado='realizado') cuyo reporte ya
+  // fue enviado → no ofrecer nueva visita. El chequeo de estado es clave:
+  // sin él, una tarjeta reprogramada (por_reprogramar → programado con fecha
+  // nueva) seguía viendo el reporte de la visita anterior en
+  // reportesTodosEnviados (ese set no tiene fecha, es "alguna vez, para
+  // siempre") y tapaba "Iniciar visita" con "Visita completada" aunque la
+  // tarjeta estuviera pidiendo una visita nueva. Con el estado exigido, una
+  // tarjeta en por_reprogramar/programado cae al botón normal de abajo.
+  if ((t.diasProg || 1) <= 1 && t.estado === 'realizado' && reportesTodosEnviados.has(t.id)) {
     return `<div class="task-date" style="color:#16a34a;font-weight:600;font-size:12px">✅ Visita completada</div>`;
   }
   // Nota: ya no se calculan horas de contrato al renderizar esta tarjeta

@@ -42,6 +42,20 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-17 — fix: "Visita completada" tapaba "Iniciar visita" en tarjeta reprogramada)
+
+Sin pasos manuales — solo código, deploy normal.
+
+**Qué se arregló**: una tarjeta operativa de 1 día que ya tuvo un reporte enviado, y luego se reprogramó (`por_reprogramar` → `programado` con fecha nueva), quedaba trabada mostrando "✅ Visita completada" en vez de "🚀 Iniciar visita" — porque el chequeo solo miraba "¿alguna vez hubo un reporte enviado para esta tarjeta?" sin mirar el estado actual.
+
+**Archivo modificado:**
+- `assets/js/reportes.js` — `renderVisitaBoton()`: se agregó `&& t.estado === 'realizado'` a la condición que oculta el botón de iniciar visita. `?v=20260917a`.
+
+**Prueba manual sugerida:**
+1. Tomar (o simular) una tarjeta IT/IF de 1 día con un reporte ya enviado y estado `realizado` → debe seguir mostrando "✅ Visita completada" (sin cambio).
+2. Esa misma tarjeta (o una similar), pasarla a `por_reprogramar` y luego asignarle una fecha nueva (pasa a `programado`) → ahora debe mostrar "🚀 Iniciar visita" en vez de "Visita completada".
+3. Confirmar que se puede hacer check-in normalmente en esa visita nueva.
+
 ## Cambios pendientes de deploy (2026-09-17 — corrección: reglas de días de Vacaciones/Permisos + tabla de festivos)
 
 ⚠️ Este deploy trae UN paso manual además del deploy normal:
