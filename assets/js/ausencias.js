@@ -122,6 +122,8 @@ function _renderAusencias() {
   }
 
   cont.innerHTML = `
+   <div style="max-width:900px">
+    <div style="font-weight:700;font-size:16px;margin-bottom:14px">🏖️ Vacaciones y permisos</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
       <select id="aus-select-anio" onchange="_ausCambiarAnio(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:13px">
         ${opcionesAnio}
@@ -149,7 +151,8 @@ function _renderAusencias() {
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${archivadas.length ? archivadas.map(filaAusencia).join('') : '<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Ninguna archivada todavía.</div>'}
-    </div>`;
+    </div>
+   </div>`;
 }
 
 function _ausCambiarAnio(valor) {

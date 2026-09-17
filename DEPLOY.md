@@ -46,29 +46,33 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 
 ⚠️ Este deploy trae UN paso manual además del deploy normal:
 
-1. **Correr la migración `db/045_ausencias.sql` en phpMyAdmin** antes (o justo después) del deploy — agrega `fecha_inicio_contrato` y `dias_vacaciones_anual` a `usuarios`, y crea la tabla `ausencias`. Sin esto, la nueva sección "🏖️ Vacaciones y permisos" (dentro de ⚙️ Configuración) da error al abrirse.
+1. **Correr la migración `db/045_ausencias.sql` en phpMyAdmin** antes (o justo después) del deploy — agrega `fecha_inicio_contrato` y `dias_vacaciones_anual` a `usuarios`, y crea la tabla `ausencias`. Sin esto, la pestaña nueva "🏖️ Vacaciones y permisos" da error al abrirse. Usa la pestaña **"Importar"** de phpMyAdmin (subir el archivo tal cual, no copiar/pegar el texto) para evitar problemas de saltos de línea.
 
-**Qué es**: módulo para que el encargado (Carlos) lleve el control de vacaciones/permisos/faltas de cada técnico, con control anual contra la cuota de vacaciones que le corresponde a cada uno (asignada manualmente en la ficha técnico). No hay autogestión de técnicos — solo el admin registra. Detalle completo del diseño en `CONTEXTO.md` (sección de esta misma fecha).
+**Qué es**: módulo para que el encargado (Carlos) lleve el control de vacaciones/permisos/faltas de cada técnico, con control anual contra la cuota de vacaciones que le corresponde a cada uno (asignada manualmente en la ficha técnico). No hay autogestión de técnicos — solo el admin registra. Es una pestaña propia (no vive dentro de ⚙️ Configuración), agrupada con Clientes y Transportes bajo un desplegable nuevo "🗂️ Más ▾" en la barra de pestañas (mismo patrón que "💰 Finanzas ▾"). Detalle completo del diseño en `CONTEXTO.md` (sección de esta misma fecha, incluye el ajuste de navegación).
 
 **Archivos nuevos:**
 - `db/045_ausencias.sql` — migración (ejecutar manualmente, ver arriba).
 - `backend/api/ausencias.php` — GET/POST/PUT/DELETE, todo admin-only.
-- `assets/js/ausencias.js` — vista dentro del panel de Configuración. `?v=20260917a`.
+- `assets/js/ausencias.js` — vista de la pestaña. `?v=20260917b`.
 
 **Archivos modificados:**
 - `backend/api/usuarios.php` — GET/POST/PUT ahora incluyen `fecha_inicio_contrato`/`dias_vacaciones_anual`.
 - `assets/js/usuarios.js` — ficha técnico con los dos campos nuevos. `?v=20260917a`.
-- `assets/js/configuracion.js` — `abrirSettings()` ahora también renderiza la vista de ausencias. `?v=20260917a`.
-- `tareas-equipo.html` — nueva sección dentro de `#settings-panel`, dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`), `?v=` de `usuarios.js`/`ausencias.js`/`configuracion.js` actualizados.
+- `assets/js/tareas.js` — `setArea()` conoce la nueva área `ausencias` y el grupo "🗂️ Más". `?v=20260917a`.
+- `assets/js/auth.js` — oculta el grupo "🗂️ Más" completo para usuarios técnico. `?v=20260917a`.
+- `assets/js/configuracion.js` — ya no renderiza ausencias (volvió a ser solo Usuarios + Avisos). `?v=20260917b`.
+- `tareas-equipo.html` — nuevo grupo desplegable "🗂️ Más" (Vacaciones y permisos / Clientes / Transportes) en la barra de pestañas, `#ausencias-view` como view-container normal, dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`), `?v=` de los JS de arriba actualizados.
 
 **Prueba manual sugerida:**
-1. Correr la migración 045 en phpMyAdmin.
-2. Entrar como admin → ⚙️ Configuración → sección "👥 Usuarios" → editar un técnico → confirmar que aparecen "Fecha inicio de contrato" y "Días de vacaciones al año", guardar un valor (ej. 15) y confirmar que se guarda al volver a abrir la ficha.
-3. Bajar a la sección "🏖️ Vacaciones y permisos" → debe aparecer el resumen del técnico con esa cuota (Tomados: 0, Saldo: 15).
-4. "+ Registrar ausencia" → elegir ese técnico, tipo "Vacaciones", un rango lunes a viernes → el campo Días debe calcularse solo en 5 → Guardar → debe aparecer en "Pendientes de gestión" y el resumen debe bajar el saldo a 10.
-5. Probar tipo "Permiso no remunerado" con el mismo rango lunes a viernes completo → Días debe calcularse en 7 (suma sábado y domingo) — y con un rango parcial (ej. martes a jueves) → Días debe quedar en 3 (sin sumar fin de semana).
-6. "🗄️ Marcar gestionada" sobre el registro de vacaciones → debe pedir la nota sugerida ("Carta firmada del trabajador recibida") → al guardar, pasa a "Archivadas" y el saldo del resumen NO debe cambiar (la vacación ya restaba desde que se registró, esté o no gestionada).
-7. Con un usuario técnico (no admin), confirmar que no ve nada de esto (el botón ⚙️ ya está oculto para técnicos desde antes).
+1. Correr la migración 045 en phpMyAdmin (pestaña Importar).
+2. Clic en "🗂️ Más" en la barra de pestañas → debe desplegarse "🏖️ Vacaciones y permisos", "🏢 Clientes" y "🚗 Transportes", pegado justo debajo del botón. Elegir "Vacaciones y permisos" → carga la vista y el botón "🗂️ Más" queda resaltado.
+3. Entrar a la ficha de un técnico (pestaña "🗂️ Más" → Clientes no aplica; la ficha técnico sigue en ⚙️ Configuración → Usuarios) → confirmar que aparecen "Fecha inicio de contrato" y "Días de vacaciones al año", guardar un valor (ej. 15) y confirmar que se guarda al volver a abrir la ficha.
+4. Volver a "🏖️ Vacaciones y permisos" → debe aparecer el resumen del técnico con esa cuota (Tomados: 0, Saldo: 15).
+5. "+ Registrar ausencia" → elegir ese técnico, tipo "Vacaciones", un rango lunes a viernes → el campo Días debe calcularse solo en 5 → Guardar → debe aparecer en "Pendientes de gestión" y el resumen debe bajar el saldo a 10.
+6. Probar tipo "Permiso no remunerado" con el mismo rango lunes a viernes completo → Días debe calcularse en 7 (suma sábado y domingo) — y con un rango parcial (ej. martes a jueves) → Días debe quedar en 3 (sin sumar fin de semana).
+7. "🗄️ Marcar gestionada" sobre el registro de vacaciones → debe pedir la nota sugerida ("Carta firmada del trabajador recibida") → al guardar, pasa a "Archivadas" y el saldo del resumen NO debe cambiar (la vacación ya restaba desde que se registró, esté o no gestionada).
+8. Con un usuario técnico (no admin), confirmar que no ve el botón "🗂️ Más" en absoluto.
+9. Confirmar que "🏢 Clientes" y "🚗 Transportes" siguen funcionando igual que antes desde su nueva ubicación dentro del desplegable.
 
 ## Cambios pendientes de deploy (2026-09-14 — corrección: Anticipos detecta la aplicación real en Alegra; menú "💰 Finanzas")
 

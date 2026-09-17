@@ -174,16 +174,15 @@ function aplicarPermisosUI() {
   if (esTecnico && !['it', 'if'].includes(currentArea)) currentArea = 'it';
 
   // Tabs solo visibles para administradores
-  const tabClientes = document.getElementById('tab-clientes');
-  if (tabClientes) tabClientes.style.display = esTecnico ? 'none' : '';
-  const tabTransportes = document.getElementById('tab-transportes');
-  if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
-  // Grupo "💰 Finanzas" (Cartera/Anticipos/Facturación en un desplegable):
-  // no es un .area-tab, así que el loop genérico de arriba no lo cubre.
+  // Grupos desplegables ("💰 Finanzas", "🗂️ Más"): no son .area-tab, así
+  // que el loop genérico de arriba no cubre el botón que los abre (sí
+  // cubre las pestañas de adentro, por su data-area).
   const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
   if (grupoFinanzas) grupoFinanzas.style.display = esTecnico ? 'none' : '';
+  const grupoMas = document.getElementById('area-tab-group-mas');
+  if (grupoMas) grupoMas.style.display = esTecnico ? 'none' : '';
   // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
   const btnSettings = document.getElementById('btn-settings');
   if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';

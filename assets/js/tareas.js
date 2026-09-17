@@ -494,6 +494,7 @@ function setView(v) {
     document.getElementById('agenda-view').style.display = 'none';
     document.getElementById('transportes-view').style.display = 'none';
     document.getElementById('bitacora-view').style.display = 'none';
+    document.getElementById('ausencias-view').style.display = 'none';
     document.querySelector('.filters').style.display = 'none';
     document.querySelector('.btn-add').style.display = 'inline-flex';
     document.getElementById('btn-kanban').style.display = '';
@@ -1161,6 +1162,9 @@ function setArea(a) {
   document.querySelectorAll('.area-tab-group').forEach(g => g.classList.remove('open'));
   const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
   if (grupoFinanzas) grupoFinanzas.classList.toggle('group-active', ['cartera','anticipos-recibidos','anticipos-entregados','facturacion'].includes(a));
+  // Grupo "🗂️ Más" (Vacaciones y permisos / Clientes / Transportes).
+  const grupoMas = document.getElementById('area-tab-group-mas');
+  if (grupoMas) grupoMas.classList.toggle('group-active', ['ausencias','clientes','transportes'].includes(a));
   const isCartera    = a === 'cartera';
   const isAnticiposRecibidos  = a === 'anticipos-recibidos';
   const isAnticiposEntregados = a === 'anticipos-entregados';
@@ -1170,7 +1174,8 @@ function setArea(a) {
   const isAgenda      = a === 'agenda';
   const isTransportes = a === 'transportes';
   const isBitacora       = a === 'bitacora';
-  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora;
+  const isAusencias      = a === 'ausencias';
+  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora || isAusencias;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -1184,6 +1189,7 @@ function setArea(a) {
   document.getElementById('agenda-view').style.display      = isAgenda      ? 'block' : 'none';
   document.getElementById('transportes-view').style.display = isTransportes  ? 'block' : 'none';
   document.getElementById('bitacora-view').style.display       = isBitacora       ? 'block' : 'none';
+  document.getElementById('ausencias-view').style.display      = isAusencias      ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -1200,6 +1206,7 @@ function setArea(a) {
   else if (isAgenda)       { iniciarAgenda(); }
   else if (isTransportes) { iniciarTransportes(); }
   else if (isBitacora)       { if (typeof renderBitacoraView    === 'function') renderBitacoraView(); }
+  else if (isAusencias)   { if (typeof renderAusenciasView === 'function') renderAusenciasView(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.

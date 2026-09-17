@@ -27,12 +27,20 @@ Carlos pidió un módulo para que el encargado lleve el control de vacaciones/pe
 - `backend/api/usuarios.php`: GET/POST/PUT ahora incluyen `fecha_inicio_contrato`/`dias_vacaciones_anual`.
 
 **Frontend**:
-- `assets/js/ausencias.js` (nuevo, `?v=20260917a`): vive dentro del panel de ⚙️ Configuración (no es una pestaña nueva — Usuarios y Avisos a técnicos ya vivían ahí, así que se agregó como tercera sección, entre las dos). Resumen por técnico (cuota/tomados/saldo del año, con selector de año), dos listas (pendientes de gestión / archivadas) filtrables por técnico, modal para registrar/editar (con cálculo de días en vivo al elegir fechas — espejo en JS de `calcularDiasAusencia()`, editable) y modal para marcar como gestionada (con la nota sugerida según el tipo).
+- `assets/js/ausencias.js` (nuevo, `?v=20260917b`): pestaña propia "🏖️ Vacaciones y permisos" (ver ajuste de navegación abajo — no vive dentro de ⚙️ Configuración). Resumen por técnico (cuota/tomados/saldo del año, con selector de año), dos listas (pendientes de gestión / archivadas) filtrables por técnico, modal para registrar/editar (con cálculo de días en vivo al elegir fechas — espejo en JS de `calcularDiasAusencia()`, editable) y modal para marcar como gestionada (con la nota sugerida según el tipo).
 - `assets/js/usuarios.js` (`?v=20260917a`): la ficha técnico (modal de usuario) ahora tiene los campos "Fecha inicio de contrato" y "Días de vacaciones al año".
-- `assets/js/configuracion.js` (`?v=20260917a`): `abrirSettings()` ahora también llama `renderAusenciasView()`.
-- `tareas-equipo.html`: nueva sección "🏖️ Vacaciones y permisos" dentro de `#settings-panel` (entre Usuarios y Avisos), dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`).
+- `tareas-equipo.html`: dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`).
 
-**Archivos**: `db/045_ausencias.sql` (nuevo) · `backend/api/ausencias.php` (nuevo) · `backend/api/usuarios.php` · `assets/js/ausencias.js` (nuevo) · `assets/js/usuarios.js` · `assets/js/configuracion.js` · `tareas-equipo.html`.
+**Archivos**: `db/045_ausencias.sql` (nuevo) · `backend/api/ausencias.php` (nuevo) · `backend/api/usuarios.php` · `assets/js/ausencias.js` (nuevo) · `assets/js/usuarios.js` · `tareas-equipo.html`.
+
+**🔧 Ajuste de navegación (mismo día)**: el primer lanzamiento metió "Vacaciones y permisos" como una tercera sección dentro del panel de ⚙️ Configuración, junto a Usuarios. Carlos pidió que fuera una pestaña propia, y de paso agrupar Clientes y Transportes (sueltas en la barra hasta ahora) junto con ella bajo un desplegable nuevo — mismo patrón que "💰 Finanzas ▾" (`toggleAreaDropdown()`, ya existente).
+
+- `tareas-equipo.html`: nuevo `<div class="area-tab-group" id="area-tab-group-mas">` con botón "🗂️ Más ▾" y las 3 pestañas adentro (`ausencias`, `clientes`, `transportes`). `#ausencias-view` salió de `#settings-panel` y ahora es un view-container normal (`display:none;padding:16px 20px 30px`) igual a `clientes-view`/`transportes-view`. Se quitaron los botones sueltos `#tab-clientes`/`#tab-transportes` de la barra (sus `data-area` siguen intactos, ahora dentro del desplegable).
+- `assets/js/tareas.js` (`?v=20260917a`): `setArea()` — nuevo `isAusencias`, agregado a `isOther` y al toggle de `ausencias-view`; nuevo `group-active` para `#area-tab-group-mas` (se resalta si el área activa es `ausencias`/`clientes`/`transportes`); dispatcher llama `renderAusenciasView()`. `setView('dashboard')` también oculta `ausencias-view` al volver al tablero.
+- `assets/js/auth.js` (`?v=20260917a`): se quitó el ocultamiento individual de `#tab-clientes`/`#tab-transportes` (ya redundante — el loop genérico por `data-area` los cubre) y se agregó el ocultamiento del grupo completo `#area-tab-group-mas` para técnicos, igual que `#area-tab-group-finanzas`.
+- `assets/js/configuracion.js` (`?v=20260917b`): `abrirSettings()` ya NO llama `renderAusenciasView()` (vuelve a solo Usuarios + Avisos a técnicos).
+
+**Archivos de este ajuste**: `tareas-equipo.html` · `assets/js/tareas.js` · `assets/js/auth.js` · `assets/js/ausencias.js` · `assets/js/configuracion.js`.
 
 ## Estado actual (última actualización: 2026-09-14 — corrección: Anticipos ahora detecta la aplicación real en Alegra; menú "💰 Finanzas" con desplegable)
 

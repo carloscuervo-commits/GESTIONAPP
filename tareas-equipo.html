@@ -70,9 +70,15 @@
     </div>
   </div>
   <button class="area-tab" data-area="informes" onclick="setArea('informes')">📊 Informes</button>
-  <button class="area-tab" data-area="clientes" id="tab-clientes" onclick="setArea('clientes')" style="display:none">🏢 Clientes</button>
   <button class="area-tab" data-area="agenda" id="tab-agenda" onclick="setArea('agenda')">📅 Agenda</button>
-  <button class="area-tab" data-area="transportes" id="tab-transportes" onclick="setArea('transportes')" style="display:none">🚗 Transportes</button>
+  <div class="area-tab-group" id="area-tab-group-mas">
+    <button type="button" class="area-tab-group-btn" onclick="toggleAreaDropdown('mas')">🗂️ Más <span class="area-tab-group-caret">▾</span></button>
+    <div class="area-tab-dropdown">
+      <button class="area-tab" data-area="ausencias" onclick="setArea('ausencias')">🏖️ Vacaciones y permisos</button>
+      <button class="area-tab" data-area="clientes" onclick="setArea('clientes')">🏢 Clientes</button>
+      <button class="area-tab" data-area="transportes" onclick="setArea('transportes')">🚗 Transportes</button>
+    </div>
+  </div>
   <button class="area-tab" data-area="bitacora" id="tab-bitacora" onclick="setArea('bitacora')" style="display:none">📋 Bitácora</button>
 </div>
 
@@ -189,6 +195,7 @@
 <div id="agenda-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="transportes-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="bitacora-view" style="display:none;padding:16px 20px 30px"></div>
+<div id="ausencias-view" style="display:none;padding:16px 20px 30px"></div>
 <!-- SETTINGS PANEL — accesible solo para admins desde el botón ⚙️ del header -->
 <div id="settings-panel" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto">
   <div style="position:sticky;top:0;z-index:1;background:var(--bg);border-bottom:2px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
@@ -198,9 +205,6 @@
   <div style="padding:20px 20px 40px;max-width:900px">
     <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">👥 Usuarios</div>
     <div id="usuarios-view"></div>
-    <hr style="border:none;border-top:1px solid var(--border);margin:28px 0">
-    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">🏖️ Vacaciones y permisos</div>
-    <div id="ausencias-view"></div>
     <hr style="border:none;border-top:1px solid var(--border);margin:28px 0">
     <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">🔔 Avisos a técnicos</div>
     <div id="configuracion-view"></div>
@@ -1034,8 +1038,8 @@
 
 
 <script src="assets/js/core.js?v=20260909a"></script>
-<script src="assets/js/auth.js?v=20260914a"></script>
-<script src="assets/js/tareas.js?v=20260914c"></script>
+<script src="assets/js/auth.js?v=20260917a"></script>
+<script src="assets/js/tareas.js?v=20260917a"></script>
 <script src="assets/js/cartera.js?v=20260913b"></script>
 <script src="assets/js/anticipos.js?v=20260914d"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
@@ -1044,14 +1048,14 @@
 <script src="assets/js/informes.js?v=20260909a"></script>
 <script src="assets/js/alarma.js?v=20260827a"></script>
 <script src="assets/js/usuarios.js?v=20260917a"></script>
-<script src="assets/js/ausencias.js?v=20260917a"></script>
+<script src="assets/js/ausencias.js?v=20260917b"></script>
 <script src="assets/js/clientes.js?v=20260822b"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
 <script src="assets/js/imagenes.js?v=20260909a"></script>
 <script src="assets/js/transportes.js?v=20260704e"></script>
 <script src="assets/js/bitacora.js?v=20260807b"></script>
-<script src="assets/js/configuracion.js?v=20260917a"></script>
+<script src="assets/js/configuracion.js?v=20260917b"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
 <script src="assets/js/app.js?v=20260909a"></script>
 </body>
