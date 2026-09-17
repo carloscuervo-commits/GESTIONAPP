@@ -4,6 +4,36 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-17 — nuevo módulo: Vacaciones, permisos y faltas)
+
+### feat: módulo "🏖️ Vacaciones y permisos" (dentro de ⚙️ Configuración, solo admin)
+
+Carlos pidió un módulo para que el encargado lleve el control de vacaciones/permisos/faltas de cada técnico, con control anual contra la cuota de vacaciones que le corresponde a cada uno. Se definió el diseño con Carlos en varias rondas de preguntas — decisiones clave:
+
+- **La cuota de vacaciones es manual** (no se calcula automático según ley colombiana): un campo nuevo en la ficha técnico, `dias_vacaciones_anual`, que Carlos asigna y puede cambiar cuando quiera. También se agregó `fecha_inicio_contrato` (informativa).
+- **Solo el encargado registra** — no hay autogestión de técnicos (ellos no ven ni solicitan nada desde la app). Es una herramienta de registro y control, no de solicitud/aprobación.
+- **Cálculo de días**: cuenta lunes a viernes dentro del rango para todos los tipos (todos los técnicos trabajan de lunes a viernes). La suma de sábado/domingo de la semana completa aplica **solo** a `permiso_no_remunerado` (Carlos: "si alguien no trabajó todos los días pierde sábado, domingo y festivo si lo hubo esa semana" — festivos no se detectan automáticamente, no existe hoy un calendario de festivos colombianos en Ginno; el campo queda siempre editable a mano para ajustar por festivo). El valor calculado siempre es editable antes de guardar.
+- **Tipos de ausencia fijos en código** (ENUM, no catálogo editable) — Carlos lo confirmó explícitamente al preguntarle, para mantener consistencia con el resto de Ginno (`direccion` en Anticipos, `perfil` en Usuarios, etc.): `vacaciones`, `permiso_remunerado`, `permiso_no_remunerado`, `incapacidad`, `falta`, `otro`.
+- **Gestión y archivado**: cada ausencia queda "pendiente de gestión" hasta que el admin la marca como gestionada (con una nota) — pasa a "archivada". El trámite es distinto según el tipo, y el campo de nota se lo sugiere al admin: vacaciones → carta firmada del trabajador recibida; permiso remunerado → aprobación de gerencia; permiso no remunerado → descuento en nómina; incapacidad → reclamo ante la EPS; falta/otro → nota libre. **El estado de gestión es solo administrativo — no afecta el saldo de vacaciones**, que cuenta los días de tipo `vacaciones` del año esté o no ya gestionada la carta.
+- Para la carta de vacaciones, Carlos prefirió solo nota de texto por ahora (sin adjuntar el archivo escaneado) — se puede agregar después si hace falta.
+
+**Migración `db/045_ausencias.sql`**:
+- `usuarios` +`fecha_inicio_contrato` (DATE), +`dias_vacaciones_anual` (DECIMAL(5,2)).
+- Tabla nueva `ausencias`: `usuario_id`, `tipo` (ENUM), `fecha_inicio`/`fecha_fin`, `dias`, `nota`, `estado` (`pendiente`/`gestionado`), `nota_gestion`, `gestionado_por`, `gestionado_en`, `creado_por`, `creado_en`. FKs a `usuarios` con `COLLATE=utf8mb4_general_ci` (consistente con `044_anticipos_saldo_tercero.sql`, evita el problema de choque de collation en los JOIN).
+
+**Backend**:
+- `backend/api/ausencias.php` (nuevo): GET (lista + resumen anual por técnico: cuota/tomados/saldo, filtros `anio`/`usuario_id`/`estado`), POST (crear), PUT `?id=` (editar, o `{action:'gestionar', nota_gestion}` para archivar, o `{action:'reabrir'}`), DELETE `?id=` (borrar un registro mal cargado). Todo requiere perfil admin (mismo patrón `requireAdmin()` de `usuarios.php`, duplicado localmente — no hay un lib compartido para esto en Ginno todavía).
+- `calcularDiasAusencia($tipo, $inicio, $fin)`: lun-vie del rango + sáb/dom de cada semana completa solo si `permiso_no_remunerado`. Probado con varios casos (semana completa, parcial, dos semanas, un solo día) antes de integrar — sin poder probarlo contra datos reales, pero es lógica autocontenida (no depende de Alegra ni de nada externo) así que el riesgo es bajo.
+- `backend/api/usuarios.php`: GET/POST/PUT ahora incluyen `fecha_inicio_contrato`/`dias_vacaciones_anual`.
+
+**Frontend**:
+- `assets/js/ausencias.js` (nuevo, `?v=20260917a`): vive dentro del panel de ⚙️ Configuración (no es una pestaña nueva — Usuarios y Avisos a técnicos ya vivían ahí, así que se agregó como tercera sección, entre las dos). Resumen por técnico (cuota/tomados/saldo del año, con selector de año), dos listas (pendientes de gestión / archivadas) filtrables por técnico, modal para registrar/editar (con cálculo de días en vivo al elegir fechas — espejo en JS de `calcularDiasAusencia()`, editable) y modal para marcar como gestionada (con la nota sugerida según el tipo).
+- `assets/js/usuarios.js` (`?v=20260917a`): la ficha técnico (modal de usuario) ahora tiene los campos "Fecha inicio de contrato" y "Días de vacaciones al año".
+- `assets/js/configuracion.js` (`?v=20260917a`): `abrirSettings()` ahora también llama `renderAusenciasView()`.
+- `tareas-equipo.html`: nueva sección "🏖️ Vacaciones y permisos" dentro de `#settings-panel` (entre Usuarios y Avisos), dos campos nuevos en el modal de usuario, dos modales nuevos (`ausencia-modal`, `ausencia-gestion-modal`).
+
+**Archivos**: `db/045_ausencias.sql` (nuevo) · `backend/api/ausencias.php` (nuevo) · `backend/api/usuarios.php` · `assets/js/ausencias.js` (nuevo) · `assets/js/usuarios.js` · `assets/js/configuracion.js` · `tareas-equipo.html`.
+
 ## Estado actual (última actualización: 2026-09-14 — corrección: Anticipos ahora detecta la aplicación real en Alegra; menú "💰 Finanzas" con desplegable)
 
 ### fix: Anticipos mostraba TODOS los históricos, no solo los pendientes

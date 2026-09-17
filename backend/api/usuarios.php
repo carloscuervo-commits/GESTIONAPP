@@ -34,6 +34,7 @@ if ($method === 'GET') {
   $stmt = $pdo->query(
     "SELECT id, nombre, iniciales, color, rol, email, cedula, foto, perfil, activo,
             telegram_chat_id, celular, notif_menciones_correo, notif_menciones_tg,
+            fecha_inicio_contrato, dias_vacaciones_anual,
             (pin_hash IS NOT NULL) AS tiene_pin
      FROM usuarios
      ORDER BY activo DESC, nombre ASC"
@@ -79,10 +80,13 @@ if ($method === 'POST') {
   $celular        = ($d['celular'] ?? '') ?: null;
   $notifCorreo    = isset($d['notif_menciones_correo']) ? (int)!!$d['notif_menciones_correo'] : 1;
   $notifTg        = isset($d['notif_menciones_tg'])     ? (int)!!$d['notif_menciones_tg']     : 1;
+  $fechaInicioContrato = ($d['fecha_inicio_contrato'] ?? '') ?: null;
+  $diasVacacionesAnual = isset($d['dias_vacaciones_anual']) && $d['dias_vacaciones_anual'] !== ''
+    ? round((float)$d['dias_vacaciones_anual'], 2) : null;
 
   $stmt = $pdo->prepare(
-    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo, telegram_chat_id, celular, notif_menciones_correo, notif_menciones_tg)
-     VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)"
+    "INSERT INTO usuarios (id, nombre, iniciales, color, rol, email, cedula, perfil, pin_hash, activo, telegram_chat_id, celular, notif_menciones_correo, notif_menciones_tg, fecha_inicio_contrato, dias_vacaciones_anual)
+     VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?)"
   );
   $stmt->execute([
     $id,
@@ -98,6 +102,8 @@ if ($method === 'POST') {
     $celular,
     $notifCorreo,
     $notifTg,
+    $fechaInicioContrato,
+    $diasVacacionesAnual,
   ]);
 
   jsonOut(['ok' => true, 'id' => $id], 201);
@@ -145,16 +151,21 @@ if ($method === 'PUT') {
   $notifTg        = isset($d['notif_menciones_tg'])     ? (int)!!$d['notif_menciones_tg']     : (int)$prev['notif_menciones_tg'];
   $perfil         = in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : $prev['perfil'];
   $activo         = isset($d['activo']) ? (int)$d['activo'] : (int)$prev['activo'];
+  $fechaInicioContrato = array_key_exists('fecha_inicio_contrato', $d) ? (($d['fecha_inicio_contrato'] ?? '') ?: null) : $prev['fecha_inicio_contrato'];
+  $diasVacacionesAnual = array_key_exists('dias_vacaciones_anual', $d)
+    ? (($d['dias_vacaciones_anual'] !== '' && $d['dias_vacaciones_anual'] !== null) ? round((float)$d['dias_vacaciones_anual'], 2) : null)
+    : $prev['dias_vacaciones_anual'];
 
   if (!$nombre)    jsonOut(['error' => 'El campo nombre no puede quedar vacío'], 400);
   if (!$iniciales) jsonOut(['error' => 'El campo iniciales no puede quedar vacío'], 400);
 
   $stmt = $pdo->prepare(
     "UPDATE usuarios
-     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?, telegram_chat_id=?, celular=?, notif_menciones_correo=?, notif_menciones_tg=?
+     SET nombre=?, iniciales=?, color=?, rol=?, email=?, cedula=?, perfil=?, pin_hash=?, activo=?, telegram_chat_id=?, celular=?, notif_menciones_correo=?, notif_menciones_tg=?,
+         fecha_inicio_contrato=?, dias_vacaciones_anual=?
      WHERE id=?"
   );
-  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $telegramChatId, $celular, $notifCorreo, $notifTg, $id]);
+  $stmt->execute([$nombre, $iniciales, $color, $rol, $email, $cedula, $perfil, $pin_hash, $activo, $telegramChatId, $celular, $notifCorreo, $notifTg, $fechaInicioContrato, $diasVacacionesAnual, $id]);
 
   jsonOut(['ok' => true]);
 }

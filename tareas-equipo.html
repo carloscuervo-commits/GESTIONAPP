@@ -199,6 +199,9 @@
     <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">👥 Usuarios</div>
     <div id="usuarios-view"></div>
     <hr style="border:none;border-top:1px solid var(--border);margin:28px 0">
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">🏖️ Vacaciones y permisos</div>
+    <div id="ausencias-view"></div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:28px 0">
     <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">🔔 Avisos a técnicos</div>
     <div id="configuracion-view"></div>
   </div>
@@ -359,6 +362,16 @@
         <label>Cédula</label>
         <input type="text" id="um-cedula" placeholder="ej: 1234567890" autocomplete="off">
       </div>
+      <!-- Datos de contrato (para el control de vacaciones) -->
+      <div class="form-group">
+        <label>Fecha inicio de contrato</label>
+        <input type="date" id="um-fecha-inicio-contrato">
+      </div>
+      <div class="form-group">
+        <label>Días de vacaciones al año</label>
+        <input type="number" id="um-dias-vacaciones-anual" min="0" step="0.5" placeholder="ej: 15">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Cuota anual asignada a este técnico — usada en 🏖️ Vacaciones y permisos.</div>
+      </div>
       <!-- Foto del técnico -->
       <div class="form-group full">
         <label>Foto del técnico</label>
@@ -443,6 +456,77 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="cerrarModalUsuario()">Cancelar</button>
       <button class="btn-save" id="btn-guardar-usuario" onclick="guardarUsuario()">Guardar usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR/EDITAR AUSENCIA -->
+<div class="modal-overlay" id="ausencia-modal" style="z-index:460">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">
+      <span id="am-titulo">Registrar ausencia</span>
+      <button class="modal-close" onclick="cerrarModalAusencia()">✕</button>
+    </div>
+    <input type="hidden" id="am-id">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Técnico *</label>
+        <select id="am-usuario"></select>
+      </div>
+      <div class="form-group full">
+        <label>Tipo de ausencia *</label>
+        <select id="am-tipo" onchange="_amRecalcularDias()">
+          <option value="vacaciones">🏖️ Vacaciones</option>
+          <option value="permiso_remunerado">✅ Permiso remunerado</option>
+          <option value="permiso_no_remunerado">🚫 Permiso no remunerado</option>
+          <option value="incapacidad">🩺 Incapacidad</option>
+          <option value="falta">⚠️ Falta</option>
+          <option value="otro">📌 Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Fecha inicio *</label>
+        <input type="date" id="am-fecha-inicio" onchange="_amRecalcularDias()">
+      </div>
+      <div class="form-group">
+        <label>Fecha fin *</label>
+        <input type="date" id="am-fecha-fin" onchange="_amRecalcularDias()">
+      </div>
+      <div class="form-group">
+        <label>Días</label>
+        <input type="number" id="am-dias" min="0.5" step="0.5">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px" id="am-dias-info">Calculado automáticamente — ajústalo si hace falta.</div>
+      </div>
+      <div class="form-group full">
+        <label>Nota</label>
+        <textarea id="am-nota" placeholder="Detalles del período (opcional)"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModalAusencia()">Cancelar</button>
+      <button class="btn-save" id="btn-guardar-ausencia" onclick="guardarAusencia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MARCAR AUSENCIA COMO GESTIONADA -->
+<div class="modal-overlay" id="ausencia-gestion-modal" style="z-index:460">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title">
+      <span>Marcar como gestionada</span>
+      <button class="modal-close" onclick="cerrarModalGestionAusencia()">✕</button>
+    </div>
+    <input type="hidden" id="ag-id">
+    <div id="ag-info" style="font-size:13px;color:var(--text-muted);margin-bottom:12px"></div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label id="ag-nota-label">Nota de gestión *</label>
+        <textarea id="ag-nota" placeholder=""></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModalGestionAusencia()">Cancelar</button>
+      <button class="btn-save" onclick="guardarGestionAusencia()">Archivar</button>
     </div>
   </div>
 </div>
@@ -959,14 +1043,15 @@
 <script src="assets/js/comentarios.js?v=20260910a"></script>
 <script src="assets/js/informes.js?v=20260909a"></script>
 <script src="assets/js/alarma.js?v=20260827a"></script>
-<script src="assets/js/usuarios.js?v=20260820a"></script>
+<script src="assets/js/usuarios.js?v=20260917a"></script>
+<script src="assets/js/ausencias.js?v=20260917a"></script>
 <script src="assets/js/clientes.js?v=20260822b"></script>
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
 <script src="assets/js/imagenes.js?v=20260909a"></script>
 <script src="assets/js/transportes.js?v=20260704e"></script>
 <script src="assets/js/bitacora.js?v=20260807b"></script>
-<script src="assets/js/configuracion.js?v=20260912c"></script>
+<script src="assets/js/configuracion.js?v=20260917a"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
 <script src="assets/js/app.js?v=20260909a"></script>
 </body>

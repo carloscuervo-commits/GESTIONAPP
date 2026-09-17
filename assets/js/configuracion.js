@@ -362,9 +362,10 @@ function abrirSettings() {
   const panel = document.getElementById('settings-panel');
   if (!panel) return;
   panel.style.display = 'block';
-  // Renderizar ambas secciones
+  // Renderizar las secciones
   if (typeof renderConfiguracion === 'function') renderConfiguracion();
   if (typeof renderUsuariosView  === 'function') renderUsuariosView();
+  if (typeof renderAusenciasView === 'function') renderAusenciasView();
 }
 
 function cerrarSettings() {
