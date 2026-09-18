@@ -38,11 +38,12 @@ function requireAdmin($pdo) {
 //     festivos que caigan ahí (así se cuentan en Colombia: domingo y
 //     festivo no descuentan de la cuota de vacaciones).
 //   - Permiso no remunerado: si el técnico falta aunque sea un solo
-//     día hábil (lunes a viernes) de una semana, esa semana completa
-//     queda sin pagar — se pierden también sábado, domingo y
-//     cualquier festivo de esa semana. Los días que sí trabajó esa
-//     semana (lunes a viernes, no festivo, fuera del rango del
-//     permiso) no se cuentan.
+//     día hábil (lunes a viernes) de una semana, además de ese día se
+//     descuentan el domingo de esa semana y cualquier festivo que
+//     caiga esa semana. El sábado YA NO se descuenta automáticamente
+//     (solo cuenta si el sábado mismo es festivo). Los días que sí
+//     trabajó esa semana (lunes a viernes, no festivo, fuera del
+//     rango del permiso) no se cuentan.
 //   - El resto de tipos: cuenta lunes a viernes del rango, igual que
 //     antes (sin lógica de fin de semana ni de festivos).
 //
@@ -91,8 +92,12 @@ function calcularDiasAusencia(string $tipo, string $fechaInicio, string $fechaFi
             // es festivo (ese día tampoco se trabajaba de todas formas).
             $dentroDelPermiso = $dia >= $d0 && $dia <= $d1;
             if ($dentroDelPermiso || $esFestivo) $total++;
+          } elseif ($i === 5) {
+            // sábado: ya no se descuenta automáticamente — solo cuenta
+            // si el sábado mismo es festivo.
+            if ($esFestivo) $total++;
           } else {
-            // sábado y domingo: se pierden completos, la semana ya se activó
+            // domingo: se pierde completo, la semana ya se activó.
             $total++;
           }
         }

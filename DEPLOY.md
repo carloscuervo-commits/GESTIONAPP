@@ -42,6 +42,21 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-18 — corrección: permiso no remunerado ya no descuenta el sábado)
+
+Sin pasos manuales — solo código, deploy normal. No requiere migración ni afecta ausencias ya registradas (el campo `dias` queda editable a mano, esto solo cambia el valor que se sugiere al calcular una nueva).
+
+**Qué se ajustó**: en el cálculo de días de "permiso no remunerado", el sábado de la semana en la que el técnico faltó ya NO se descuenta automáticamente. Se sigue descontando el/los día(s) hábil(es) que faltó, el domingo de esa semana, y cualquier festivo de esa semana (incluido un festivo que caiga en sábado — ese cuenta por ser festivo, no por ser sábado).
+
+**Archivos modificados:**
+- `backend/api/ausencias.php` — `calcularDiasAusencia()`, bloque `permiso_no_remunerado`: separado el caso sábado (solo cuenta si es festivo) del caso domingo (siempre cuenta si la semana está activada).
+- `assets/js/ausencias.js` — `_amCalcularDiasLocal()`, mismo ajuste espejo. `?v=20260918a`.
+
+**Prueba manual sugerida:**
+1. Registrar un permiso no remunerado de 1 día (un miércoles cualquiera, en una semana sin festivos) → debe sugerir 2 días (el miércoles + el domingo), ya no 3.
+2. Registrar un permiso que incluya un día donde esa semana tenga un festivo entre semana → el festivo debe seguir sumando aparte.
+3. Si hay a mano una semana donde el festivo caiga justo en sábado, confirmar que ese sábado sí cuenta (por festivo, no por regla de fin de semana).
+
 ## Cambios pendientes de deploy (2026-09-17 — fix: "Visita completada" tapaba "Iniciar visita" en tarjeta reprogramada)
 
 Sin pasos manuales — solo código, deploy normal.

@@ -4,6 +4,16 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-18 — corrección: permiso no remunerado ya no descuenta el sábado)
+
+### ajuste: regla de "permiso no remunerado" — ya no se pierde el sábado
+
+Segundo ajuste de Carlos a la regla implementada el día anterior (ver sección de abajo, 2026-09-17). Antes: si el técnico faltaba un día hábil de la semana, se perdían también sábado, domingo y festivos de esa semana. Ahora: **el sábado ya no se descuenta automáticamente** — solo se descuentan el/los día(s) hábil(es) que efectivamente faltó, el domingo de esa semana, y cualquier festivo que caiga esa semana (incluido un festivo que caiga justo en sábado, ese sí sigue contando, pero por ser festivo, no por ser sábado).
+
+**Fix**: en `calcularDiasAusencia()` (PHP) y `_amCalcularDiasLocal()` (JS), dentro del bloque `permiso_no_remunerado`, se separó el caso sábado (`i === 5`) del caso domingo (`i === 6`): sábado ahora solo suma si `esFestivo`; domingo sigue sumando siempre que la semana esté activada. Probado con 4 casos nuevos (semana sin festivo con 1 y 2 días de falta, festivo entre semana, festivo cayendo en sábado) en PHP y en JS (Node) — coinciden exactamente.
+
+**Archivos**: `backend/api/ausencias.php` · `assets/js/ausencias.js` (`?v=20260918a`).
+
 ## Estado actual (última actualización: 2026-09-17 — fix: "Visita completada" tapaba "Iniciar visita" en tarjeta reprogramada)
 
 ### fix: tarjeta de 1 día reprogramada quedaba trabada en "✅ Visita completada"

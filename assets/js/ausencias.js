@@ -217,9 +217,10 @@ function cerrarModalAusencia() {
 //
 //   - vacaciones: lunes a SÁBADO del rango, sin contar festivos.
 //   - permiso_no_remunerado: si falta al menos un día hábil (lun-vie)
-//     de una semana, se pierde también sábado, domingo y cualquier
-//     festivo de esa semana; los días que sí trabajó esa semana no
-//     se cuentan.
+//     de una semana, además de ese día se pierden el domingo de esa
+//     semana y cualquier festivo que caiga esa semana. El sábado ya
+//     NO se descuenta automáticamente (solo cuenta si el sábado mismo
+//     es festivo); los días que sí trabajó esa semana no se cuentan.
 //   - el resto: lunes a viernes del rango, igual que antes.
 function _fechaYmd(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -263,7 +264,11 @@ function _amCalcularDiasLocal(tipo, inicioStr, finStr) {
           if (i <= 4) {
             const dentroDelPermiso = dia >= d0 && dia <= d1;
             if (dentroDelPermiso || esFestivo) total++;
+          } else if (i === 5) {
+            // sábado: ya no se descuenta automáticamente — solo si es festivo.
+            if (esFestivo) total++;
           } else {
+            // domingo: se pierde completo, la semana ya se activó.
             total++;
           }
         });
