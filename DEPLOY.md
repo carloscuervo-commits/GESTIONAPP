@@ -42,6 +42,21 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-18 — red de seguridad: checkout automático también corrige reportes 'enviado' con checkout atrasado)
+
+Sin pasos manuales — solo código, deploy normal. **Importante**: en el primer corte de las 6:30pm después de este deploy, el cron va a auto-corregir la tarjeta `#MU5HGW` (y cualquier otro caso viejo similar que exista) — cada corrección genera el correo interno normal de "🔴 Visita finalizada" a administrativo (no al cliente; ese correo al cliente ya había salido antes, cuando ocurrió el problema original). Revisa el correo/Telegram de admin ese día para confirmar qué se corrigió.
+
+**Qué se agregó**: el cron `checkout_automatico.php` (corre todos los días hábiles a las 6:30pm) ahora también revisa reportes que ya quedaron `estado='enviado'` pero con algún participante sin `check_out` — no solo las visitas que siguen `activo` hoy, como hacía antes. Usa la hora real de envío del correo (`enviado_en`) como hora de checkout, y corre la misma lógica de un checkout normal (transportes, horas de contrato, aviso a administrativo).
+
+**Archivos modificados:**
+- `backend/cron/checkout_automatico.php`.
+
+**Prueba manual sugerida:**
+1. Confirmar en phpMyAdmin, antes del próximo corte, que la tarjeta `#MU5HGW` sigue con `check_out` en `NULL` (para tener un "antes" con qué comparar).
+2. Después de las 6:30pm del primer día hábil tras el deploy (o corriendo el cron a mano por SSH: `php backend/cron/checkout_automatico.php`), revisar que `#MU5HGW` ya quedó con `check_out` no nulo en `visita_participantes`.
+3. Confirmar que llegó el correo/Telegram a administrativo con el asunto "🩹 Checkout atrasado corregido".
+4. Si el cliente Turquesa B es tipo contrato, revisar que las horas de esa visita quedaron sumadas en `visita_participantes.horas_contrato`.
+
 ## Cambios pendientes de deploy (2026-09-18 — fix: checkout de visita ya no depende de una segunda llamada de red después de enviar el reporte)
 
 Sin pasos manuales de base de datos — solo código, deploy normal. Confirmar que `backend/lib/checkout_visita.php` (archivo nuevo) llegue al servidor — va dentro de `backend/lib/*`, que ya se copia completo por `.cpanel.yml`, así que no hace falta tocar ese archivo.

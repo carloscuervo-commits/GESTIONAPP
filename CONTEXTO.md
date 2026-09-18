@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-18 — red de seguridad: el checkout automático de las 6:30pm también corrige reportes 'enviado' con checkout atrasado)
+
+### mejora: checkout_automatico.php ahora también cubre reportes ya enviados
+
+Segunda parte del mismo tema del fix anterior (ver sección de abajo). Carlos pidió, entre dos opciones que se le presentaron, hacer también la opción A como respaldo adicional a la B (que ya se hizo): ampliar el cron de las 6:30pm (`backend/cron/checkout_automatico.php`) para que, además de forzar el cierre de visitas que siguen `activo` hoy, también revise reportes que YA quedaron `estado='enviado'` pero con algún participante sin `check_out` — el síntoma exacto del caso `#MU5HGW`.
+
+Con el fix de la sección de abajo ya desplegado, este escenario no debería volver a producirse desde el flujo normal (si el checkout falla, la transacción revierte a `activo`, que el cron YA cubría). Esta pasada adicional sirve como respaldo para: registros viejos de antes del fix (como `#MU5HGW` mismo — se autocorregirá en el próximo corte de las 6:30pm sin necesitar SQL manual), y cualquier otro camino no contemplado que deje esa misma combinación.
+
+**Cómo funciona**: busca `visita_participantes` con `check_out IS NULL` cuyo reporte ya esté `enviado` (sin restringir por fecha, para que un caso viejo se corrija apenas se detecte). Por cada uno, reutiliza la misma función `ejecutarCheckoutParticipante()` del fix anterior — o sea que también corre transportes, horas de contrato y el aviso normal de "Visita finalizada" — pero usando `enviado_en` (la hora real en que salió el correo) como hora de checkout, en vez de `check_in + 1h` como en el caso de visitas que siguen activas. Además manda un resumen aparte a los administradores (correo + Telegram) etiquetado como "🩹 Checkout atrasado corregido", distinto del resumen normal "🤖 Checkout automático", para que quede claro que son casos atrasados y no visitas del día.
+
+**Archivos**: `backend/cron/checkout_automatico.php`.
+
+**Nota para Carlos**: con esto, la tarjeta `#MU5HGW` se va a autocorregir sola en el próximo corte de las 6:30pm (o antes, si corres el cron a mano) — ya no hace falta el SQL manual que te ofrecí antes, a menos que quieras verificarla o cerrarla ya mismo sin esperar al corte.
+
 ## Estado actual (última actualización: 2026-09-18 — fix: checkout de visita ya no depende de una segunda llamada de red después de enviar el reporte)
 
 ### fix: checkout "fantasma" cuando la conexión se cortaba justo después de enviar el reporte

@@ -17,10 +17,19 @@
  * El técnico sigue pudiendo entrar después y usar "Completar reporte" si
  * quiere diligenciarlo — este proceso solo protege la hora de nómina.
  *
- * Si hubo al menos un checkout forzado, envía un resumen a TODOS los
- * administradores con email/Telegram configurado (correo + Telegram,
- * siempre activo, no depende de un toggle en Configuración). Si no hubo
- * ninguno ese día, no envía nada.
+ * Pasada adicional (2026-09-18): también revisa reportes que YA quedaron
+ * 'enviado' pero con algún participante sin check_out — red de seguridad
+ * para cuando el checkout se queda a medias (ver backend/lib/checkout_visita.php,
+ * llamado desde reporte_enviar_correo.php). No debería pasar casi nunca
+ * desde ese fix, pero cubre registros viejos y cualquier otro camino que
+ * deje esa combinación. Usa enviado_en como hora de checkout y corre la
+ * misma lógica de un checkout normal (transportes, horas de contrato,
+ * aviso a administrativo).
+ *
+ * Si hubo al menos un checkout forzado o corregido, envía un resumen a
+ * TODOS los administradores con email/Telegram configurado (correo +
+ * Telegram, siempre activo, no depende de un toggle en Configuración). Si
+ * no hubo ninguno ese día, no envía nada.
  *
  * Ejecutar en días laborales, a la hora de corte (ej. 6:30pm hora Colombia,
  * debe coincidir con config.checkout_auto_hora): 30 18 * * 1-5
@@ -33,6 +42,7 @@ define('CRON_RUN', true);
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/avisos_tecnicos.php';
 require_once __DIR__ . '/../lib/telegram.php';
+require_once __DIR__ . '/../lib/checkout_visita.php';
 
 @ini_set('display_errors', '0');
 error_reporting(0);
@@ -66,10 +76,6 @@ try {
   ");
   $stmt->execute([$hoy]);
   $pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-  if (empty($pendientes)) {
-    exit;
-  }
 
   $forzados = []; // para el resumen a admin
   $reportesTocados = []; // reporte_id => true, para revisar cuáles quedan cerrados
@@ -108,6 +114,58 @@ try {
       $pdo->prepare("UPDATE reportes SET estado='sin_reporte', cerrado_automatico=1, check_out=? WHERE id=?")
         ->execute([$ultimoCheckout, $repId]);
     }
+  }
+
+  // ── Reportes ya 'enviado' pero con algún participante sin checkout ──────
+  // Red de seguridad adicional (2026-09-18): desde que el checkout va en la
+  // misma transacción que el envío del reporte (ver backend/lib/checkout_visita.php
+  // y CONTEXTO.md), esto no debería volver a pasar casi nunca — pero cubre
+  // registros viejos de antes de ese fix (ej. tarjeta #MU5HGW) y cualquier
+  // otro camino que deje un reporte 'enviado' con un participante sin cerrar.
+  // No se restringe por fecha de check-in: si se coló uno viejo, se corrige
+  // en el primer corte que corra después de detectarlo. Usa enviado_en como
+  // hora de checkout (la hora real en que salió el reporte, más precisa que
+  // check_in+1h).
+  $corregidos = []; // para el resumen a admin — distinto de $forzados
+
+  $stmtEnv = $pdo->prepare("
+    SELECT vp.id AS participante_id, vp.reporte_id, vp.tecnico_id,
+           r.enviado_en, t.titulo, t.cliente,
+           u.nombre AS tecnico_nombre
+    FROM visita_participantes vp
+    JOIN reportes r ON r.id = vp.reporte_id COLLATE utf8mb4_general_ci
+    JOIN tareas t   ON t.id = r.tarea_id
+    LEFT JOIN usuarios u ON u.id = vp.tecnico_id COLLATE utf8mb4_general_ci
+    WHERE r.estado = 'enviado'
+      AND vp.check_out IS NULL
+  ");
+  $stmtEnv->execute();
+  $atrasados = $stmtEnv->fetchAll(PDO::FETCH_ASSOC);
+
+  foreach ($atrasados as $a) {
+    try {
+      $checkoutAt = !empty($a['enviado_en']) ? $a['enviado_en'] : date('Y-m-d H:i:s');
+
+      $stmtRep = $pdo->prepare("SELECT * FROM reportes WHERE id = ?");
+      $stmtRep->execute([$a['reporte_id']]);
+      $repRow = $stmtRep->fetch();
+      if (!$repRow) continue;
+
+      // Reutiliza la misma lógica de un checkout normal (transportes, horas
+      // de contrato, aviso a administrativo) — solo que la hora de salida es
+      // enviado_en en vez de la hora del clic en "Finalizar".
+      ejecutarCheckoutParticipante($pdo, $a['reporte_id'], $repRow, $a['participante_id'], $a['tecnico_id'], null, null, $checkoutAt);
+
+      $pdo->prepare("UPDATE visita_participantes SET checkout_automatico = 1 WHERE id = ?")
+        ->execute([$a['participante_id']]);
+
+      $corregidos[] = [
+        'tecnico'  => $a['tecnico_nombre'] ?: $a['tecnico_id'],
+        'cliente'  => $a['cliente'] ?: '-',
+        'titulo'   => $a['titulo'] ?: '-',
+        'checkOut' => (new DateTime($checkoutAt, $tz))->format('d/m H:i'),
+      ];
+    } catch (Throwable $e) { /* si falla, se reintenta en el próximo corte */ }
   }
 
   // ── Resumen a administradores (siempre activo, no depende de config) ───
@@ -150,6 +208,54 @@ try {
         if (sendTelegramMsg($adm['telegram_chat_id'], $msgAdmin)) $enviadoAlgunAdminTg = true;
       }
       if ($enviadoAlgunAdminTg) registrarAvisoEnviado($pdo, 'checkout_auto_admin_tg', 'admin', 'digest', $hoy);
+    }
+  }
+
+  // ── Resumen a administradores: reportes 'enviado' con checkout atrasado ──
+  // Aparte del resumen de arriba (visitas que seguían activas al corte),
+  // esto es distinto: reportes que YA se habían enviado al cliente pero cuyo
+  // checkout se quedó sin registrar — la red de seguridad de la sección
+  // anterior. Cada uno ya generó también su aviso normal de "Visita
+  // finalizada" (ver ejecutarCheckoutParticipante); este es un resumen aparte
+  // para que quede claro que fueron casos atrasados, no visitas de hoy.
+  if (!empty($corregidos)) {
+    $totalC = count($corregidos);
+    $pluralC = $totalC === 1 ? '1 visita' : "{$totalC} visitas";
+
+    $fmtLineaC = function (array $f): string {
+      return "🩹 👤 {$f['tecnico']} · 🏢 {$f['cliente']} · 📋 {$f['titulo']} · 🕐 salida {$f['checkOut']}";
+    };
+
+    if (!avisoYaEnviado($pdo, 'checkout_atrasado_admin', 'admin', 'digest', $hoy)) {
+      $filasC = '';
+      foreach ($corregidos as $f) {
+        $filasC .= '<p style="margin:6px 0">' . htmlspecialchars($fmtLineaC($f), ENT_QUOTES, 'UTF-8') . '</p>';
+      }
+      $enviadoAlgunAdminC = false;
+      foreach (adminsConEmail($pdo) as $adm) {
+        $cuerpo = htmlAvisoTecnico(
+          $adm['nombre'],
+          'encontré ' . $pluralC . ' que ya se había(n) enviado al cliente pero cuyo checkout se había quedado sin registrar — lo corregí automáticamente.',
+          $filasC . '<p style="margin:12px 0 0;color:#64748b;font-size:12px">La hora de salida usada es la del envío real del correo. Esto no debería pasar seguido — si ves esto muy seguido, avísale a quien mantiene Ginno.</p>'
+        );
+        if (enviarAvisoTecnico($adm['email'], $adm['nombre'], "🩹 Checkout atrasado corregido — {$pluralC}", $cuerpo)) {
+          $enviadoAlgunAdminC = true;
+        }
+      }
+      if ($enviadoAlgunAdminC) registrarAvisoEnviado($pdo, 'checkout_atrasado_admin', 'admin', 'digest', $hoy);
+    }
+
+    if (!avisoYaEnviado($pdo, 'checkout_atrasado_admin_tg', 'admin', 'digest', $hoy)) {
+      $lineasC = array_map($fmtLineaC, $corregidos);
+      $msgAdminC = "🩹 <b>Checkout atrasado corregido — {$pluralC}</b>\n\n"
+                 . "Encontré {$pluralC} que ya se había(n) enviado al cliente pero cuyo checkout se había quedado sin registrar. Lo corregí automáticamente:\n\n"
+                 . htmlspecialchars(implode("\n", $lineasC), ENT_QUOTES, 'UTF-8') . "\n\n"
+                 . "🔗 <a href='https://grupoinnovate.com/ginno/tareas-equipo.html'>Ver en Ginno</a>";
+      $enviadoAlgunAdminCTg = false;
+      foreach (adminsConTelegram($pdo) as $adm) {
+        if (sendTelegramMsg($adm['telegram_chat_id'], $msgAdminC)) $enviadoAlgunAdminCTg = true;
+      }
+      if ($enviadoAlgunAdminCTg) registrarAvisoEnviado($pdo, 'checkout_atrasado_admin_tg', 'admin', 'digest', $hoy);
     }
   }
 
