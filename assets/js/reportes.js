@@ -624,77 +624,151 @@ async function finalizarVisitaParticipante(tareaId, participanteId, event) {
   if (!visita) { alert('No hay una visita en curso para esta tarea.'); return; }
 
   const ejecutar = async (tecnicoId) => {
-    // Geofencing solo para técnicos (no admin: ellos registran manualmente)
-    let geoLat = null, geoLng = null;
-    if (!currentUser || currentUser.perfil !== 'admin') {
-      const geo = await _geofenceCheck(tareaId, 'checkout');
-      if (geo === null) return; // técnico canceló
-      if (geo.lat !== null) { geoLat = geo.lat; geoLng = geo.lng; }
-    }
-
-    if (!navigator.onLine && typeof offlineEnqueue === 'function') {
-      // Sin conexión: encolar checkout y actualizar estado local
-      const checkoutBody = { accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng };
-      await offlineEnqueue(`${API_BASE}/reportes.php?id=${visita.id}`, 'PUT', checkoutBody);
-      const ahora = _ahoraBogotaSQL();
-      const partOffline = (visita.participantes || []).find(p => p.id === participanteId);
-      if (partOffline) partOffline.check_out = ahora;
-      const todosTerminaron = (visita.participantes || []).every(p => p.check_out);
-      if (todosTerminaron) {
-        delete visitasActivas[tareaId];
-        if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
-        borradoresActivos[tareaId].push(Object.assign({}, visita, { estado: 'activo', _offline: true }));
-        _reporteSoloEdicion = false;
-      }
-      render();
+    // ¿Este participante tiene una pausa sin cerrar? Si cerráramos esa
+    // pausa automáticamente con la hora del checkout (que puede ser
+    // bastante después, sobre todo si el checkout queda diferido hasta
+    // "Enviar"), las horas en que el técnico ya había terminado la pausa
+    // pero se le olvidó darle "Reanudar" en Ginno quedarían descontadas
+    // como si siguiera en pausa. Se le pregunta la hora real primero.
+    const part = (visita.participantes || []).find(p => p.id === participanteId);
+    const pausaActiva = (part?.pausas || []).find(p => !p.pausa_fin);
+    if (pausaActiva) {
+      abrirCerrarPausaModal(pausaActiva, (horaFin) => {
+        if (horaFin === undefined) return; // técnico canceló: no finalizar la visita
+        _continuarFinalizarVisita(tareaId, participanteId, visita, tecnicoId, horaFin);
+      });
       return;
     }
-
-    // ¿Es este el último participante sin checkout?
-    const otrosActivos = (visita.participantes || []).filter(p => p.id !== participanteId && !p.check_out);
-    const esUltimo = otrosActivos.length === 0;
-
-    if (esUltimo) {
-      // Último participante: diferir checkout hasta que el técnico envíe el reporte.
-      // Mover visita a borradoresActivos localmente para que el UI refleje fin de visita.
-      _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, checkoutAt: _ahoraBogotaSQL() };
-      sessionStorage.setItem('_pendingCheckout', JSON.stringify(_pendingCheckout));
-      delete visitasActivas[tareaId];
-      if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
-      // Marcar localmente el participante como terminado (sin hora real aún).
-      // _checkoutLocalPendiente queda como marca explícita de "esto es un
-      // estado fabricado en el navegador, el servidor todavía no tiene el
-      // checkout real" — no se puede usar `estado` para esto porque ambos
-      // casos (pendiente vs. ya confirmado) terminan mostrando 'enviado'.
-      const visitaLocal = Object.assign({}, visita, {
-        estado: 'enviado',
-        _checkoutLocalPendiente: true,
-        participantes: (visita.participantes || []).map(p =>
-          p.id === participanteId ? Object.assign({}, p, { check_out: _ahoraBogotaSQL() }) : p
-        )
-      });
-      borradoresActivos[tareaId].push(visitaLocal);
-      _reporteSoloEdicion = false;
-      render();
-      abrirFormularioReporte(visitaLocal);
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
-      });
-      const data = await res.json();
-      if (data.error) { alert(data.error); return; }
-      // Aún hay otros técnicos en sitio — actualizar estado sin abrir formulario
-      visitasActivas[tareaId] = data;
-      render();
-    } catch (e) { console.error(e); alert('No se pudo finalizar la visita. Revisa tu conexión.'); }
+    _continuarFinalizarVisita(tareaId, participanteId, visita, tecnicoId, null);
   };
 
   if (currentUser && currentUser.id) ejecutar(currentUser.id);
   else abrirSelectorTecnico(tareaId, '🏁 ¿Quién finaliza la visita?', ejecutar);
+}
+
+// Continúa el "Finalizar visita" ya resuelta la pregunta de la pausa activa
+// (pausaFin = "HH:MM" elegida por el técnico, o null si no había pausa
+// activa). Es el mismo código que antes vivía directo dentro de
+// finalizarVisitaParticipante(), solo separado para poder esperar la
+// respuesta del pop de la pausa antes de continuar.
+async function _continuarFinalizarVisita(tareaId, participanteId, visita, tecnicoId, pausaFin) {
+  // Geofencing solo para técnicos (no admin: ellos registran manualmente)
+  let geoLat = null, geoLng = null;
+  if (!currentUser || currentUser.perfil !== 'admin') {
+    const geo = await _geofenceCheck(tareaId, 'checkout');
+    if (geo === null) return; // técnico canceló
+    if (geo.lat !== null) { geoLat = geo.lat; geoLng = geo.lng; }
+  }
+
+  if (!navigator.onLine && typeof offlineEnqueue === 'function') {
+    // Sin conexión: encolar checkout y actualizar estado local
+    const checkoutBody = { accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng };
+    if (pausaFin) checkoutBody.pausaFin = pausaFin;
+    await offlineEnqueue(`${API_BASE}/reportes.php?id=${visita.id}`, 'PUT', checkoutBody);
+    const ahora = _ahoraBogotaSQL();
+    const partOffline = (visita.participantes || []).find(p => p.id === participanteId);
+    if (partOffline) partOffline.check_out = ahora;
+    const todosTerminaron = (visita.participantes || []).every(p => p.check_out);
+    if (todosTerminaron) {
+      delete visitasActivas[tareaId];
+      if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
+      borradoresActivos[tareaId].push(Object.assign({}, visita, { estado: 'activo', _offline: true }));
+      _reporteSoloEdicion = false;
+    }
+    render();
+    return;
+  }
+
+  // ¿Es este el último participante sin checkout?
+  const otrosActivos = (visita.participantes || []).filter(p => p.id !== participanteId && !p.check_out);
+  const esUltimo = otrosActivos.length === 0;
+
+  if (esUltimo) {
+    // Último participante: diferir checkout hasta que el técnico envíe el reporte.
+    // Mover visita a borradoresActivos localmente para que el UI refleje fin de visita.
+    _pendingCheckout = { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, pausaFin, checkoutAt: _ahoraBogotaSQL() };
+    sessionStorage.setItem('_pendingCheckout', JSON.stringify(_pendingCheckout));
+    delete visitasActivas[tareaId];
+    if (!borradoresActivos[tareaId]) borradoresActivos[tareaId] = [];
+    // Marcar localmente el participante como terminado (sin hora real aún).
+    // _checkoutLocalPendiente queda como marca explícita de "esto es un
+    // estado fabricado en el navegador, el servidor todavía no tiene el
+    // checkout real" — no se puede usar `estado` para esto porque ambos
+    // casos (pendiente vs. ya confirmado) terminan mostrando 'enviado'.
+    const visitaLocal = Object.assign({}, visita, {
+      estado: 'enviado',
+      _checkoutLocalPendiente: true,
+      participantes: (visita.participantes || []).map(p =>
+        p.id === participanteId ? Object.assign({}, p, { check_out: _ahoraBogotaSQL() }) : p
+      )
+    });
+    borradoresActivos[tareaId].push(visitaLocal);
+    _reporteSoloEdicion = false;
+    render();
+    abrirFormularioReporte(visitaLocal);
+    return;
+  }
+
+  try {
+    const body = { accion: 'checkout', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng };
+    if (pausaFin) body.pausaFin = pausaFin;
+    const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    // Aún hay otros técnicos en sitio — actualizar estado sin abrir formulario
+    visitasActivas[tareaId] = data;
+    render();
+  } catch (e) { console.error(e); alert('No se pudo finalizar la visita. Revisa tu conexión.'); }
+}
+
+// ----------------- Pop: "Finalizar" con una pausa activa -----------------
+// Se muestra cuando el técnico le da "Finalizar visita" y todavía tiene una
+// pausa sin cerrar (se le olvidó darle "Reanudar"). En vez de cerrar la
+// pausa automáticamente con la hora del checkout, le preguntamos a qué hora
+// terminó realmente — ver _continuarFinalizarVisita() y
+// backend/lib/checkout_visita.php:_cerrarPausaActiva().
+let _cerrarPausaInfo = null;     // pausa activa que se está por cerrar
+let _cerrarPausaCallback = null; // (horaFin: "HH:MM"|undefined) => void — undefined = canceló
+
+function abrirCerrarPausaModal(pausaActiva, onResuelto) {
+  _cerrarPausaInfo = pausaActiva;
+  _cerrarPausaCallback = onResuelto;
+  const horaInicio = pausaActiva.pausa_inicio ? pausaActiva.pausa_inicio.substring(11, 16) : '--:--';
+  const infoDiv = document.getElementById('cerrar-pausa-info');
+  if (infoDiv) {
+    infoDiv.textContent = `⏸️ Pausa activa desde las ${horaInicio}` + (pausaActiva.justificacion ? ` · ${pausaActiva.justificacion}` : '');
+  }
+  const horaInput = document.getElementById('cerrar-pausa-hora');
+  if (horaInput) horaInput.value = _ahoraBogotaSQL().substring(11, 16);
+  document.getElementById('cerrar-pausa-modal').classList.add('open');
+}
+
+function cancelarCerrarPausa() {
+  document.getElementById('cerrar-pausa-modal').classList.remove('open');
+  const cb = _cerrarPausaCallback;
+  _cerrarPausaCallback = null;
+  _cerrarPausaInfo = null;
+  if (cb) cb(undefined);
+}
+
+function confirmarCerrarPausa() {
+  const hora = document.getElementById('cerrar-pausa-hora').value;
+  if (!hora) { alert('Ingresa la hora en que terminó la pausa.'); return; }
+  const horaInicio = _cerrarPausaInfo?.pausa_inicio ? _cerrarPausaInfo.pausa_inicio.substring(11, 16) : null;
+  if (horaInicio && hora <= horaInicio) {
+    alert(`La hora de cierre debe ser posterior al inicio de la pausa (${horaInicio}).`);
+    return;
+  }
+  const horaActual = _ahoraBogotaSQL().substring(11, 16);
+  if (hora > horaActual) { alert('La hora no puede ser futura.'); return; }
+  document.getElementById('cerrar-pausa-modal').classList.remove('open');
+  const cb = _cerrarPausaCallback;
+  _cerrarPausaCallback = null;
+  _cerrarPausaInfo = null;
+  if (cb) cb(hora);
 }
 
 // Alias legacy por si queda alguna referencia directa
@@ -797,15 +871,19 @@ async function confirmarSinReporte() {
     cargarVisitasActivas();
     return;
   }
-  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng } = _pendingCheckout;
+  const { tareaId, visita, participanteId, tecnicoId, geoLat, geoLng, pausaFin } = _pendingCheckout;
   _pendingCheckout = null;
   sessionStorage.removeItem('_pendingCheckout');
   try {
     // Sin checkoutAt: el servidor usa NOW(), la hora real en que se confirma
-    // "continuar sin reporte" (no la del clic en "Finalizar").
+    // "continuar sin reporte" (no la del clic en "Finalizar"). pausaFin sí
+    // viaja desde el clic en "Finalizar" (ver abrirCerrarPausaModal): la
+    // pausa se cierra con la hora que indicó el técnico, no con NOW().
+    const sinReporteBody = { accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng };
+    if (pausaFin) sinReporteBody.pausaFin = pausaFin;
     const res = await fetch(`${API_BASE}/reportes.php?id=${visita.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'sin_reporte', participanteId, tecnicoCheckoutId: tecnicoId, lat: geoLat, lng: geoLng }),
+      body: JSON.stringify(sinReporteBody),
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
@@ -1484,6 +1562,7 @@ async function enviarCorreoReporte(btn) {
       body.tecnicoCheckoutId = _pendienteDeEstaVisita.tecnicoId;
       body.lat = _pendienteDeEstaVisita.geoLat;
       body.lng = _pendienteDeEstaVisita.geoLng;
+      if (_pendienteDeEstaVisita.pausaFin) body.pausaFin = _pendienteDeEstaVisita.pausaFin;
     }
     const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

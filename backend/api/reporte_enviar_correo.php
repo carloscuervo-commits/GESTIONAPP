@@ -112,6 +112,10 @@ if ($method === 'POST') {
   $tecnicoCheckoutId = $d['tecnicoCheckoutId'] ?? null;
   $checkoutLat       = isset($d['lat']) ? (float)$d['lat'] : null;
   $checkoutLng       = isset($d['lng']) ? (float)$d['lng'] : null;
+  // Hora ("HH:MM") en que el técnico dice que realmente terminó la pausa
+  // activa, si el frontend le mostró el pop al darle "Finalizar" con una
+  // pausa sin cerrar — ver _cerrarPausaActiva() en checkout_visita.php.
+  $pausaFin          = !empty($d['pausaFin']) ? $d['pausaFin'] : null;
 
   $pdo->beginTransaction();
   try {
@@ -122,7 +126,7 @@ if ($method === 'POST') {
       // Checkout diferido de la visita (flujo normal: el técnico le dio
       // "Finalizar" y quedó pendiente hasta enviar el reporte). Incluye
       // transportes, horas de contrato y el aviso a administrativo.
-      ejecutarCheckoutParticipante($pdo, $reporteId, $rep, $participanteId, $tecnicoCheckoutId, $checkoutLat, $checkoutLng, null);
+      ejecutarCheckoutParticipante($pdo, $reporteId, $rep, $participanteId, $tecnicoCheckoutId, $checkoutLat, $checkoutLng, null, $pausaFin);
     } else {
       // No hay checkout diferido (ya se había cerrado por otra vía, o es un
       // reenvío de un reporte ya completado): solo registrar transportes,

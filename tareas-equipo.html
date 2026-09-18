@@ -855,6 +855,23 @@
   </div>
 </div>
 
+<!-- MODAL: pausa activa al darle "Finalizar visita" -->
+<div class="modal-overlay" id="cerrar-pausa-modal" style="z-index:316">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">⏸️ Tienes una pausa activa</div>
+    <p id="cerrar-pausa-info" style="margin:0 0 10px;font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px"></p>
+    <p style="margin:0 0 12px;font-size:13px;color:var(--text-muted)">
+      ¿A qué hora terminaste realmente la pausa? Si no la cerraste a tiempo en Ginno, indícalo aquí para que esas horas no se descuenten como si siguieras en pausa.
+    </p>
+    <input type="time" id="cerrar-pausa-hora"
+      style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;background:var(--card);color:var(--text);margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <button class="btn-cancel" style="flex:1" onclick="cancelarCerrarPausa()">Cancelar</button>
+      <button class="btn-save" style="flex:2;background:#16a34a" onclick="confirmarCerrarPausa()">✅ Confirmar y finalizar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: formulario de reporte de visita (mobile-first) -->
 <div class="modal-overlay" id="reporte-modal" style="z-index:350">
   <div class="modal" style="max-width:560px">
@@ -1043,7 +1060,7 @@
 <script src="assets/js/cartera.js?v=20260913b"></script>
 <script src="assets/js/anticipos.js?v=20260914d"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
-<script src="assets/js/reportes.js?v=20260918a"></script>
+<script src="assets/js/reportes.js?v=20260918b"></script>
 <script src="assets/js/comentarios.js?v=20260910a"></script>
 <script src="assets/js/informes.js?v=20260909a"></script>
 <script src="assets/js/alarma.js?v=20260827a"></script>

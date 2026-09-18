@@ -42,6 +42,27 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-18 — nuevo: al finalizar visita con pausa activa, se pregunta la hora real de cierre)
+
+Solo código y un `?v=` nuevo — deploy normal.
+
+**Qué se agregó**: si un técnico le da "Finalizar visita" (o "Finalizar sin reporte") con una pausa sin cerrar, ahora aparece un pop pidiendo la hora en que realmente terminó esa pausa, en vez de cerrarla automáticamente con la hora del checkout (que puede ser bastante después si el checkout queda diferido hasta enviar el reporte). Se puede cancelar el pop para ir a darle "Reanudar" a mano y volver a intentar "Finalizar" después.
+
+**Archivos modificados:**
+- `backend/lib/checkout_visita.php` — nueva función `_cerrarPausaActiva()`, reutilizada también desde el flujo "sin_reporte".
+- `backend/api/reportes.php` — el checkout inmediato y el flujo "sin_reporte" ahora leen `pausaFin` del body.
+- `backend/api/reporte_enviar_correo.php` — igual, para el checkout diferido que viaja junto con el envío del correo.
+- `assets/js/reportes.js` (`?v=20260918b`) — nuevo pop y su lógica; `pausaFin` viaja en los tres caminos que pueden cerrar la visita (checkout inmediato, envío de reporte, sin reporte) y también en el encolado offline.
+- `tareas-equipo.html` — nuevo modal `cerrar-pausa-modal` y bump del `?v=` de `reportes.js`.
+
+**Prueba manual sugerida:**
+1. Iniciar una visita de prueba, dar "Pausar" con cualquier justificación, y sin darle "Reanudar", darle "Finalizar visita" (o "Finalizar sin reporte").
+2. Verificar que aparece el pop "Tienes una pausa activa" con la hora actual prellenada, y que muestra la hora de inicio de la pausa y la justificación.
+3. Probar "Cancelar": debe volver sin finalizar la visita (la tarjeta sigue en curso, con la pausa todavía activa).
+4. Volver a "Finalizar", esta vez cambiar la hora a una anterior a la actual (pero posterior al inicio de la pausa) y confirmar — revisar en phpMyAdmin que `visita_pausas.pausa_fin` quedó con esa hora exacta, no con la hora en que se dio clic.
+5. Probar el caso de error: poner una hora anterior al inicio de la pausa (debe rechazar) y una hora futura (debe rechazar).
+6. Repetir con una visita de varios técnicos donde el que finaliza NO es el último en sitio (checkout inmediato) para confirmar que también funciona ahí.
+
 ## Cambios pendientes de deploy (2026-09-18 — red de seguridad: checkout automático también corrige reportes 'enviado' con checkout atrasado)
 
 Sin pasos manuales — solo código, deploy normal. **Importante**: en el primer corte de las 6:30pm después de este deploy, el cron va a auto-corregir la tarjeta `#MU5HGW` (y cualquier otro caso viejo similar que exista) — cada corrección genera el correo interno normal de "🔴 Visita finalizada" a administrativo (no al cliente; ese correo al cliente ya había salido antes, cuando ocurrió el problema original). Revisa el correo/Telegram de admin ese día para confirmar qué se corrigió.

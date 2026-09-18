@@ -30,6 +30,32 @@ function _nombreTecnico($pdo, $tecnicoId) {
   return $row['nombre'] ?? $tecnicoId;
 }
 
+// Cierra la pausa activa (si hay) de un participante. Si $horaFin viene
+// ("HH:MM", elegida por el técnico en el pop que se muestra al darle
+// "Finalizar visita" con una pausa sin cerrar), se usa esa hora combinada
+// con la fecha de pausa_inicio en vez de NOW() — así, si el técnico terminó
+// la pausa en la vida real pero se le olvidó darle "Reanudar" en Ginno, esas
+// horas de trabajo real no quedan descontadas como si siguiera en pausa. Si
+// la hora indicada resulta inválida (antes del inicio de la pausa, o no
+// llegó ninguna), se cae de vuelta a NOW() — el comportamiento de siempre.
+// Reutilizada desde ejecutarCheckoutParticipante() y desde el flujo
+// "Finalizar sin reporte" en reportes.php.
+function _cerrarPausaActiva($pdo, ?string $partId, ?string $horaFin = null): void {
+  if (!$partId) return;
+  $stmt = $pdo->prepare("SELECT id, pausa_inicio FROM visita_pausas WHERE participante_id = ? AND pausa_fin IS NULL");
+  $stmt->execute([$partId]);
+  $pausa = $stmt->fetch();
+  if (!$pausa) return;
+
+  $pausaFinAt = date('Y-m-d H:i:s');
+  if ($horaFin) {
+    $fechaBase = substr($pausa['pausa_inicio'], 0, 10);
+    $candidato = $fechaBase . ' ' . $horaFin . ':00';
+    if ($candidato > $pausa['pausa_inicio']) $pausaFinAt = $candidato;
+  }
+  $pdo->prepare("UPDATE visita_pausas SET pausa_fin = ? WHERE id = ?")->execute([$pausaFinAt, $pausa['id']]);
+}
+
 // Ejecuta el checkout de un participante (o el legacy sin participanteId):
 // cierra la pausa activa si la hay, marca check_out, sincroniza el estado
 // del reporte cuando ya no queda nadie pendiente, registra transportes,
@@ -45,16 +71,15 @@ function ejecutarCheckoutParticipante(
   ?string $tecnicoOut,
   ?float $checkoutLat,
   ?float $checkoutLng,
-  ?string $checkoutAt = null
+  ?string $checkoutAt = null,
+  ?string $pausaFin = null
 ): array {
   $quedoEnviado = false;
   $coAt = $checkoutAt ?: date('Y-m-d H:i:s');
 
   if ($partId) {
     // ── Multi-tech: actualizar participante específico ──────────
-    // Auto-cerrar pausa activa si el técnico finaliza estando en pausa
-    $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
-      ->execute([$partId]);
+    _cerrarPausaActiva($pdo, $partId, $pausaFin);
     $pdo->prepare("UPDATE visita_participantes SET check_out = ?, checkout_lat = ?, checkout_lng = ? WHERE id = ?")
       ->execute([$coAt, $checkoutLat, $checkoutLng, $partId]);
     // ¿Quedan participantes sin checkout?

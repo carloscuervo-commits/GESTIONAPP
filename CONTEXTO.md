@@ -4,6 +4,18 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-18 — nuevo: al finalizar visita con pausa activa, se pregunta la hora real de cierre)
+
+### mejora: pop de "¿a qué hora terminaste la pausa?" al darle "Finalizar visita"
+
+Carlos preguntó por qué, en el caso `#MU5HGW`, no se validó que hubiera una pausa activa al darle "Finalizar visita" — la respuesta fue que el cierre de pausa sí existía (dentro del checkout), pero el checkout mismo nunca llegó a correr en ese caso (ver fix de abajo). Al revisar el código junto con eso, apareció otro problema real y distinto: el cierre automático de la pausa SIEMPRE usaba `NOW()` (la hora en que corre el checkout), sin importar si el técnico había terminado la pausa en la vida real mucho antes y solo se le olvidó darle "Reanudar" en Ginno. Como el checkout de la visita puede quedar diferido hasta que se envía el reporte (a veces minutos u horas después de "Finalizar"), esas horas de trabajo real quedaban descontadas del reporte como si el técnico siguiera en pausa.
+
+**Fix**: si el técnico le da "Finalizar visita" (o "Finalizar sin reporte") y todavía tiene una pausa sin cerrar, aparece un pop pidiendo la hora real en que terminó esa pausa (prellenado con la hora actual, editable). Esa hora — no `NOW()` — es la que se usa para cerrar la pausa en el servidor. El pop permite "Cancelar" (por si el técnico prefiere primero darle "Reanudar" manualmente y volver a intentar "Finalizar" después) o "Confirmar y finalizar" con la hora indicada.
+
+**Cómo viaja el dato**: la hora elegida (`pausaFin`, formato `HH:MM`) se guarda junto con el resto del checkout diferido (`_pendingCheckout`) y se manda al servidor en cualquiera de los tres caminos que pueden terminar cerrando esa pausa: el checkout inmediato (`PUT reportes.php?accion=checkout`, cuando no es el último participante en sitio), el envío del reporte (`POST reporte_enviar_correo.php`, checkout diferido) y "Finalizar sin reporte" (`PUT reportes.php?accion=sin_reporte`). En el servidor, la lógica de cierre de pausa se centralizó en una función nueva `_cerrarPausaActiva()` en `backend/lib/checkout_visita.php`, reutilizada desde `ejecutarCheckoutParticipante()` y desde el bloque de "sin_reporte" en `reportes.php` — antes cada uno tenía su propio `UPDATE ... pausa_fin = NOW()` por separado. Si la hora recibida resulta inválida (anterior al inicio de la pausa, o no llega ninguna — ej. checkout offline sin este dato), se cae de vuelta a `NOW()`, el comportamiento de siempre.
+
+**Archivos**: `backend/lib/checkout_visita.php` · `backend/api/reportes.php` · `backend/api/reporte_enviar_correo.php` · `assets/js/reportes.js` (`?v=20260918b`) · `tareas-equipo.html` (nuevo modal `cerrar-pausa-modal`).
+
 ## Estado actual (última actualización: 2026-09-18 — red de seguridad: el checkout automático de las 6:30pm también corrige reportes 'enviado' con checkout atrasado)
 
 ### mejora: checkout_automatico.php ahora también cubre reportes ya enviados

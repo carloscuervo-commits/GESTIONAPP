@@ -582,9 +582,11 @@ if ($method === 'PUT') {
     $checkoutAt  = !empty($d['checkoutAt']) ? $d['checkoutAt'] : null;
 
     if ($partId) {
-      // Cerrar pausa activa si existe
-      $pdo->prepare("UPDATE visita_pausas SET pausa_fin = NOW() WHERE participante_id = ? AND pausa_fin IS NULL")
-        ->execute([$partId]);
+      // Cerrar pausa activa si existe — usando la hora que el técnico haya
+      // indicado en el pop de "Finalizar con pausa activa", si aplica (ver
+      // _cerrarPausaActiva() en checkout_visita.php).
+      $pausaFin = !empty($d['pausaFin']) ? $d['pausaFin'] : null;
+      _cerrarPausaActiva($pdo, $partId, $pausaFin);
       // Registrar checkout (usar hora real si el frontend la envía)
       $coAt = $checkoutAt ?: date('Y-m-d H:i:s');
       $pdo->prepare("UPDATE visita_participantes SET check_out = ?, checkout_lat = ?, checkout_lng = ? WHERE id = ?")
@@ -652,11 +654,15 @@ if ($method === 'PUT') {
     $checkoutLat = isset($d['lat']) ? (float)$d['lat'] : null;
     $checkoutLng = isset($d['lng']) ? (float)$d['lng'] : null;
     $checkoutAt  = !empty($d['checkoutAt']) ? $d['checkoutAt'] : null;
+    // Hora ("HH:MM") en que el técnico dice que realmente terminó la pausa
+    // activa, si el frontend le mostró el pop de "Finalizar con pausa
+    // activa" — ver _cerrarPausaActiva() en checkout_visita.php.
+    $pausaFin    = !empty($d['pausaFin']) ? $d['pausaFin'] : null;
 
     // La lógica completa (checkout, transportes, horas de contrato, aviso a
     // administrativo) vive en lib/checkout_visita.php — reutilizada también
     // desde reporte_enviar_correo.php (ver esa función para el detalle).
-    $repRow = ejecutarCheckoutParticipante($pdo, $id, $prev, $partId, $tecnicoOut, $checkoutLat, $checkoutLng, $checkoutAt);
+    $repRow = ejecutarCheckoutParticipante($pdo, $id, $prev, $partId, $tecnicoOut, $checkoutLat, $checkoutLng, $checkoutAt, $pausaFin);
     jsonOut(reporteConFotos($pdo, $repRow));
   }
 
