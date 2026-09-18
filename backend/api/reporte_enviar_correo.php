@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/db.php';
 applyCors();
 require_once __DIR__ . '/../lib/mailer.php';
 require_once __DIR__ . '/../lib/transportes.php';
+require_once __DIR__ . '/../lib/checkout_visita.php';
 
 $pdo = getDB();
 requireSesion($pdo);
@@ -98,14 +99,51 @@ if ($method === 'POST') {
   $ok = enviarCorreoConAdjunto($correos, $asunto, $cuerpo, $rutaPdf, $rep['pdf_archivo']);
   if (!$ok) jsonOut(['error' => 'No se pudo enviar el correo (revisa la configuración de correo del servidor)'], 500);
 
-  $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW() WHERE id=?")
-    ->execute([implode(', ', $correos), $reporteId]);
+  // El correo YA salió en este punto — eso no se puede deshacer. A partir de
+  // aquí, marcar el reporte como enviado y (si el checkout venía diferido,
+  // ver reportes.js:_pendingCheckout) cerrar la visita del técnico quedan en
+  // UNA sola transacción: antes esto eran dos llamadas de red separadas desde
+  // el navegador (enviar correo, y luego un PUT aparte para el checkout), y
+  // si la segunda se cortaba (mala señal, app cerrada) el reporte quedaba
+  // 'enviado' con check_out sin escribir — sin ninguna forma automática de
+  // corregirse (caso real: tarjeta #MU5HGW, 2026-09-17). Ahora el checkout se
+  // hace aquí mismo, en el servidor, en el mismo request.
+  $participanteId    = $d['participanteId']    ?? null;
+  $tecnicoCheckoutId = $d['tecnicoCheckoutId'] ?? null;
+  $checkoutLat       = isset($d['lat']) ? (float)$d['lat'] : null;
+  $checkoutLng       = isset($d['lng']) ? (float)$d['lng'] : null;
 
-  // Transporte: si el checkout ya estaba hecho, registrar automáticamente
-  // (no bloqueante — un fallo aquí no debe afectar el envío del reporte).
+  $pdo->beginTransaction();
   try {
-    if (!empty($rep['tarea_id'])) crearTransportesTarea($pdo, $rep['tarea_id']);
-  } catch (Throwable $e) { /* silencioso */ }
+    $pdo->prepare("UPDATE reportes SET estado='enviado', enviado_a=?, enviado_en=NOW() WHERE id=?")
+      ->execute([implode(', ', $correos), $reporteId]);
+
+    if ($participanteId) {
+      // Checkout diferido de la visita (flujo normal: el técnico le dio
+      // "Finalizar" y quedó pendiente hasta enviar el reporte). Incluye
+      // transportes, horas de contrato y el aviso a administrativo.
+      ejecutarCheckoutParticipante($pdo, $reporteId, $rep, $participanteId, $tecnicoCheckoutId, $checkoutLat, $checkoutLng, null);
+    } else {
+      // No hay checkout diferido (ya se había cerrado por otra vía, o es un
+      // reenvío de un reporte ya completado): solo registrar transportes,
+      // igual que antes — no bloqueante, un fallo aquí no debe tumbar la
+      // confirmación de envío ya lograda.
+      try {
+        if (!empty($rep['tarea_id'])) crearTransportesTarea($pdo, $rep['tarea_id']);
+      } catch (Throwable $e) { /* silencioso */ }
+    }
+
+    $pdo->commit();
+  } catch (Throwable $e) {
+    // El correo ya salió y no se puede deshacer, pero si algo falla al
+    // cerrar la visita preferimos revertir el estado del reporte (queda
+    // como estaba, normalmente 'activo') en vez de dejarlo a medias como
+    // 'enviado' sin checkout: así el checkout automático de las 6:30pm lo
+    // recoge esta misma tarde como red de seguridad. Si el técnico reintenta
+    // "Enviar", el freno de 20s de arriba evita un duplicado inmediato.
+    $pdo->rollBack();
+    jsonOut(['error' => 'El correo se envió, pero no se pudo registrar el cierre de la visita. Intenta enviar de nuevo en un momento.'], 500);
+  }
 
   jsonOut(['ok' => true, 'enviado_a' => $correos]);
 }

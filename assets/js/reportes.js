@@ -780,36 +780,12 @@ function cerrarFormularioReporte() {
   document.getElementById('popup-tarea-terminada').classList.add('open');
 }
 
-// Llamado cuando el técnico envía el reporte: escribe el checkout real en el servidor.
-// Devuelve true en éxito, false en fallo (restaura _pendingCheckout para reintentar).
-// OJO: no se envía checkoutAt — el servidor usa su hora actual (NOW()), que es
-// la hora real de envío del correo, no la del clic en "Finalizar". El tiempo
-// que toma diligenciar el reporte queda así cargado al cliente.
-async function _completarCheckout() {
-  if (!_pendingCheckout) return true;
-  const pending = _pendingCheckout;
-  _pendingCheckout = null;
-  sessionStorage.removeItem('_pendingCheckout');
-  try {
-    const res = await fetch(`${API_BASE}/reportes.php?id=${pending.visita.id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'checkout', participanteId: pending.participanteId, tecnicoCheckoutId: pending.tecnicoId, lat: pending.geoLat, lng: pending.geoLng }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    if (borradoresActivos[pending.tareaId]) {
-      const idx = borradoresActivos[pending.tareaId].findIndex(b => b.id === pending.visita.id);
-      if (idx >= 0) borradoresActivos[pending.tareaId][idx] = data;
-    }
-    return true;
-  } catch (e) {
-    console.error('_completarCheckout:', e);
-    _pendingCheckout = pending; // restaurar para reintentar
-    sessionStorage.setItem('_pendingCheckout', JSON.stringify(pending));
-    return false;
-  }
-}
+// El checkout real (cuando había uno diferido, ver _pendingCheckout más abajo)
+// ahora se resuelve del lado del servidor, dentro del mismo POST que envía el
+// correo — ver enviarCorreoReporte() y backend/api/reporte_enviar_correo.php.
+// Antes era una segunda llamada aparte desde el navegador (_completarCheckout,
+// ya no existe) que podía quedar a medias si se cortaba la conexión justo
+// después de que el correo salía (caso real: tarjeta #MU5HGW, 2026-09-17).
 
 // Llamado cuando el técnico confirma que no completará el reporte.
 async function confirmarSinReporte() {
@@ -1495,30 +1471,31 @@ async function enviarCorreoReporte(btn) {
     botonEl.innerHTML = '⏳ Enviando...';
   }
   statusEl.innerHTML = '⏳ Enviando correo...';
+  // ¿Hay un checkout diferido pendiente de esta misma visita? Si lo hay, se
+  // manda junto con el correo — el servidor hace las dos cosas (marcar
+  // 'enviado' + cerrar la visita) en una sola operación, así nunca queda un
+  // reporte enviado con el checkout a medias (ver reporte_enviar_correo.php).
+  const _pendienteDeEstaVisita = _pendingCheckout && _pendingCheckout.visita.id === reporteActual.id
+    ? _pendingCheckout : null;
   try {
-    // El correo con buena traza es lo único que cierra el ciclo de la visita:
-    // primero se intenta el envío real; el checkout (y estado='enviado') solo
-    // se confirma en el servidor si el correo efectivamente salió. Así la hora
-    // de checkout que se factura al cliente es la del envío real, no la del
-    // clic en "Finalizar", y nunca queda un checkout "fantasma" sin correo enviado.
+    const body = { reporteId: reporteActual.id, correos: correoCliente ? [correoCliente] : [] };
+    if (_pendienteDeEstaVisita) {
+      body.participanteId = _pendienteDeEstaVisita.participanteId;
+      body.tecnicoCheckoutId = _pendienteDeEstaVisita.tecnicoId;
+      body.lat = _pendienteDeEstaVisita.geoLat;
+      body.lng = _pendienteDeEstaVisita.geoLng;
+    }
     const res = await fetch(`${API_BASE}/reporte_enviar_correo.php`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reporteId: reporteActual.id, correos: correoCliente ? [correoCliente] : [] }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.error) { statusEl.innerHTML = `<span style="color:#ef4444">⚠️ ${esc(data.error)}</span>`; return; }
 
-    if (_pendingCheckout) {
-      statusEl.innerHTML = '⏳ Registrando salida...';
-      const _coOk = await _completarCheckout();
-      if (!_coOk) {
-        // El correo ya salió pero el checkout falló (ej. caída de red justo
-        // después): no perder el envío, solo avisar para que se reintente el cierre.
-        statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))} — <span style="color:#ef4444">⚠️ no se pudo registrar la hora de salida, se reintentará.</span>`;
-        reporteActual.estado = 'enviado';
-        if (reporteActual.tarea_id) { reportesEnviados.add(reporteActual.tarea_id); reportesTodosEnviados.add(reporteActual.tarea_id); }
-        return;
-      }
+    // Éxito: el servidor ya confirmó correo + checkout juntos (si había uno pendiente).
+    if (_pendienteDeEstaVisita) {
+      _pendingCheckout = null;
+      sessionStorage.removeItem('_pendingCheckout');
     }
 
     statusEl.innerHTML = `✅ Enviado a: ${esc(data.enviado_a.join(', '))}`;

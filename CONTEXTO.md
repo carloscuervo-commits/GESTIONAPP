@@ -4,6 +4,26 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-18 — fix: checkout de visita ya no depende de una segunda llamada de red después de enviar el reporte)
+
+### fix: checkout "fantasma" cuando la conexión se cortaba justo después de enviar el reporte
+
+Carlos reportó una tarjeta (`#MU5HGW`) que en el kanban aparecía como "✅ Visita completada" pero el PDF mostraba un check-in "(En curso)" y una pausa de Almuerzo "activa" — es decir, el reporte se había enviado al cliente pero el técnico nunca quedó con checkout registrado. Diagnóstico con SQL confirmó exactamente eso: `reportes.estado='enviado'` pero `visita_participantes.check_out` y la `visita_pausas.pausa_fin` en `NULL`.
+
+**Causa raíz**: cuando el técnico le da "Enviar" al reporte con un checkout diferido pendiente (flujo normal: "Finalizar visita" abre el formulario de reporte y deja el checkout en espera hasta que se envía), el navegador hacía **dos llamadas de red separadas**: primero `POST reporte_enviar_correo.php` (envía el correo y marca `estado='enviado'` de una vez), y solo si esa tenía éxito, una segunda llamada `PUT reportes.php?accion=checkout` que era la que realmente escribía `check_out`. Si la conexión se cortaba entre esas dos llamadas (mala señal, la app se cierra), el correo ya había salido pero el checkout se quedaba sin escribir — y sin ninguna red de seguridad, porque el cron de checkout automático de las 6:30pm (`checkout_automatico.php`) solo revisa reportes en `estado='activo'`, no los que ya están `enviado`.
+
+**Fix** (aprobado por Carlos, opción B de dos que se le presentaron — la otra, ampliar el cron para que también cubra este caso, queda pendiente como posible mejora futura):
+
+- Se extrajo toda la lógica de checkout (cerrar pausa, marcar `check_out`, sincronizar `reportes.estado`, registrar transportes, calcular horas de contrato, avisar a administrativo) del `PUT /reportes.php` (`accion:'checkout'`) a una función reutilizable: `ejecutarCheckoutParticipante()` en el nuevo `backend/lib/checkout_visita.php`. El endpoint `PUT /reportes.php` sigue funcionando exactamente igual (ahora solo delega a esa función) — sin cambios de comportamiento para los casos que no pasan por el envío de reporte (ej. "Finalizar mi visita" cuando no es el último participante).
+- `backend/api/reporte_enviar_correo.php`: ahora acepta opcionalmente `participanteId`, `tecnicoCheckoutId`, `lat`, `lng` en el body. Si el correo sale bien, el `UPDATE reportes SET estado='enviado'...` y el checkout (`ejecutarCheckoutParticipante()`) quedan dentro de **una sola transacción de base de datos**, en el mismo request — ya no hay una segunda llamada aparte desde el navegador.
+- Si el checkout falla dentro de esa transacción (muy poco probable — ya no depende de la señal del celular, solo de que el propio servidor falle), se hace `rollBack()` a propósito: el reporte queda como si el envío no se hubiera confirmado (normalmente `estado='activo'`), y el cron de las 6:30pm lo recoge esa misma tarde como red de seguridad. Si el técnico reintenta "Enviar", puede llegar un correo duplicado al cliente — se prefirió ese riesgo menor sobre dejar el registro trabado sin ninguna forma de corregirse solo (decisión explícita de Carlos).
+- `assets/js/reportes.js` (`enviarCorreoReporte()`): cuando hay un checkout diferido de la misma visita, ahora se manda junto con el correo en el mismo `POST`. Se eliminó `_completarCheckout()` (la segunda llamada aparte) — ya no hace falta.
+- De paso, se corrigió un bug preexistente y menor en la rama "legacy" (reportes sin `visita_participantes`, ya poco usada): usaba una variable `$coAt` que no estaba definida en ese camino — ahora se calcula antes de la rama `if`.
+
+**Archivos**: `backend/lib/checkout_visita.php` (nuevo) · `backend/api/reportes.php` · `backend/api/reporte_enviar_correo.php` · `assets/js/reportes.js` (`?v=20260918a`).
+
+**Nota para Carlos**: sigue pendiente la tarjeta `#MU5HGW` en sí — el registro viejo de esa visita sigue con `check_out` en `NULL` en la base de datos (esto solo evita que se repita hacia adelante, no corrige lo que ya pasó). Cuando quieras, te doy el SQL para cerrarlo a mano.
+
 ## Estado actual (última actualización: 2026-09-18 — corrección: permiso no remunerado ya no descuenta el sábado)
 
 ### ajuste: regla de "permiso no remunerado" — ya no se pierde el sábado

@@ -42,6 +42,26 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-18 — fix: checkout de visita ya no depende de una segunda llamada de red después de enviar el reporte)
+
+Sin pasos manuales de base de datos — solo código, deploy normal. Confirmar que `backend/lib/checkout_visita.php` (archivo nuevo) llegue al servidor — va dentro de `backend/lib/*`, que ya se copia completo por `.cpanel.yml`, así que no hace falta tocar ese archivo.
+
+**Qué se arregló**: cuando el técnico enviaba el reporte con un checkout diferido pendiente (flujo normal de "Finalizar visita"), el correo y el checkout eran dos llamadas de red separadas desde el navegador. Si la conexión se cortaba justo entre las dos (mala señal, la app se cierra), el reporte quedaba marcado `enviado` pero el técnico nunca quedaba con checkout registrado — sin ninguna forma automática de corregirse (así fue el caso real de la tarjeta `#MU5HGW`). Ahora el correo y el checkout se resuelven juntos, en el mismo request del servidor, dentro de una transacción de base de datos.
+
+**Archivos modificados:**
+- `backend/lib/checkout_visita.php` (nuevo) — lógica de checkout extraída de `reportes.php`, reutilizable.
+- `backend/api/reportes.php` — el `PUT` (`accion:'checkout'`) ahora delega a la función nueva (mismo comportamiento).
+- `backend/api/reporte_enviar_correo.php` — hace el checkout en el mismo request que marca el reporte como enviado, dentro de una transacción.
+- `assets/js/reportes.js` — `enviarCorreoReporte()` manda el checkout junto con el correo; se eliminó la segunda llamada aparte (`_completarCheckout`). `?v=20260918a`.
+
+**Prueba manual sugerida:**
+1. Un técnico hace check-in en una tarjeta IT/IF de 1 solo participante, le da "Finalizar visita", completa el formulario y le da "Enviar" con buena conexión → debe salir "✅ Enviado a: ..." normal, y la tarjeta debe quedar con checkout registrado (verificar que ya no aparece "🟢 en sitio").
+2. Si es posible probar con mala señal (o simulando, cortando la red del navegador justo después de dar "Enviar" y antes de que responda): confirmar que el reporte NO queda enviado a medias — o sale el correo con checkout completo, o sale un error y el reporte se queda como estaba (no debería quedar "enviado" con checkout sin cerrar).
+3. Confirmar que un reporte con varios técnicos (multi-participante) sigue funcionando igual que antes al finalizar cada uno.
+4. Confirmar que las horas de contrato y el aviso a administrativo por correo ("🔴 Visita finalizada") se siguen generando normalmente.
+
+**Nota**: la tarjeta `#MU5HGW` en sí sigue con el registro viejo abierto en la base de datos — este fix solo evita que se repita hacia adelante. Pendiente darte el SQL para cerrar ese registro puntual cuando quieras.
+
 ## Cambios pendientes de deploy (2026-09-18 — corrección: permiso no remunerado ya no descuenta el sábado)
 
 Sin pasos manuales — solo código, deploy normal. No requiere migración ni afecta ausencias ya registradas (el campo `dias` queda editable a mano, esto solo cambia el valor que se sugiere al calcular una nueva).
