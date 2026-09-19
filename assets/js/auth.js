@@ -168,21 +168,24 @@ function aplicarPermisosUI() {
     tab.style.display = (!esTecnico || ['it', 'if'].includes(area)) ? '' : 'none';
   });
 
+  // El desplegable "💰 Finanzas" (Cartera, Anticipos, Facturación) queda sin
+  // ninguna opción visible para técnicos una vez ocultas las de arriba —
+  // ocultar también el botón para que no abra un menú vacío.
+  const grupoFinanzasBtn = document.getElementById('area-tab-group-finanzas');
+  if (grupoFinanzasBtn) grupoFinanzasBtn.style.display = esTecnico ? 'none' : '';
+
   const btnDash = document.getElementById('btn-dashboard');
   if (btnDash) btnDash.style.display = esTecnico ? 'none' : '';
 
   if (esTecnico && !['it', 'if'].includes(currentArea)) currentArea = 'it';
 
   // Tabs solo visibles para administradores
+  const tabClientes = document.getElementById('tab-clientes');
+  if (tabClientes) tabClientes.style.display = esTecnico ? 'none' : '';
+  const tabTransportes = document.getElementById('tab-transportes');
+  if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
-  // Grupos desplegables ("💰 Finanzas", "🗂️ Administrativo"): no son .area-tab,
-  // así que el loop genérico de arriba no cubre el botón que los abre (sí
-  // cubre las pestañas de adentro, por su data-area).
-  const grupoFinanzas = document.getElementById('area-tab-group-finanzas');
-  if (grupoFinanzas) grupoFinanzas.style.display = esTecnico ? 'none' : '';
-  const grupoAdministrativo = document.getElementById('area-tab-group-administrativo');
-  if (grupoAdministrativo) grupoAdministrativo.style.display = esTecnico ? 'none' : '';
   // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
   const btnSettings = document.getElementById('btn-settings');
   if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';

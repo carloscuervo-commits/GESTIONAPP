@@ -1916,6 +1916,9 @@ async function _verificarCarteraVencidaCliente(alegraId, nombre) {
   if (!el) return;
   el.style.display = 'none';
   el.textContent = '';
+  // Info de cartera del cliente: solo para admin. Un técnico puede abrir la
+  // tarjeta de una visita con cliente sin necesidad de ver si debe dinero.
+  if (!currentUser || currentUser.perfil !== 'admin') return;
   if (!API_BASE || (!alegraId && !nombre)) return;
   try {
     const qs = alegraId ? `alegra_id=${encodeURIComponent(alegraId)}` : `cliente=${encodeURIComponent(nombre)}`;
