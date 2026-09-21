@@ -700,14 +700,21 @@
         <label>Notas / Bloqueantes</label>
         <textarea id="f-notas" placeholder="Dependencias, bloqueos, comentarios..." style="min-height:55px"></textarea>
       </div>
-      <div class="form-group full" id="grupo-factura" style="display:none">
+      <div class="form-group full" id="grupo-factura" style="display:none;position:relative">
         <label>📄 Número de factura Alegra *</label>
         <div style="display:flex;gap:6px">
           <input type="text" id="f-factura" placeholder="ej: FE1752" style="flex:1" autocomplete="off" onchange="_facturaCampoCambio()">
           <button type="button" class="btn-cancel" onclick="buscarFacturasAlegraCliente()">🔍 Buscar en Alegra</button>
         </div>
         <div id="facturas-alegra-info" style="margin-top:4px;font-size:.85em;color:var(--text-muted)"></div>
-        <div id="facturas-alegra-lista" class="cliente-suggestions" style="display:none;position:relative"></div>
+        <!-- .cliente-suggestions es position:absolute (ver app.css) — así flota
+             sobre el resto del formulario sin empujarlo hacia abajo, igual que
+             #cliente-suggestions más arriba. Antes este div traía un
+             "position:relative" en línea que anulaba eso: el resultado se
+             renderizaba dos veces desplazado (una vez en su lugar normal,
+             vacío, y otra 100% más abajo), dejando un hueco en blanco y
+             obligando a hacer scroll para ver las facturas encontradas. -->
+        <div id="facturas-alegra-lista" class="cliente-suggestions" style="display:none"></div>
         <button type="button" id="btn-marcar-facturado" onclick="_marcarFacturadoDesdeModal()" style="display:none;width:100%;margin-top:10px;padding:10px;border-radius:8px;border:none;cursor:pointer;background:#169BBC;color:#fff;font-weight:600;font-size:14px">
           ✓ Marcar como Facturado
         </button>
