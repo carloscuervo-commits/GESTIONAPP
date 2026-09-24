@@ -4,6 +4,23 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-24 — nuevo: buscador en Cartera, Anticipos recibidos/entregados, Facturación y Transportes)
+
+### feat: buscador en las pestañas que no lo tenían
+
+Carlos pidió agregar un buscador en Cartera y, de paso, en el resto de pestañas de Ginno que no tuvieran uno. Revisión de las 13 pestañas: IT/IF/Admin/Comercial ya comparten la barra de búsqueda global (`#search`), y Clientes ya tiene la suya (`#cli-search`). De las que faltaban, Carlos confirmó agregarlo a Cartera, Anticipos recibidos, Anticipos entregados, Facturación (facturas pendientes por crear) y Transportes por pagar — dejando Bitácora y Vacaciones/permisos como están (ya filtran por técnico + fechas) y sin tocar Agenda (calendario en grilla), Usuarios (equipo interno, 6-8 personas) ni Informes (menú de reportes, no una lista).
+
+**Patrón usado en las 5 pestañas**: el `<input type="search">` vive siempre en el HTML estático, FUERA del contenedor que cada vista reconstruye con `innerHTML` al filtrar — si el input estuviera dentro de ese contenedor, cada letra tecleada lo destruiría y recrearía, perdiendo el foco a mitad de escritura. El filtro es solo del lado del navegador (sobre los datos ya cargados, sin golpear el servidor otra vez) y es "vivo" — no hace falta Enter ni un botón "Buscar".
+
+- **Cartera** (`cartera.js`): nuevo `carteraBusqueda`, filtra `sortedCartera()` por nombre de cliente antes de repartir en columnas.
+- **Anticipos recibidos/entregados** (`anticipos.js`): un buscador por cada pestaña (`anticiposBusqueda.recibido`/`.entregado`), filtra por `contactoNombre`. Ojo: se filtra preservando el índice original de `anticiposCache[direccion]` en cada tarjeta — `anticiposGuardarNota()` depende de ese índice para saber a qué anticipo le está guardando la nota, y se habría desincronizado si el índice hubiera sido el de la lista ya filtrada.
+- **Facturación** (`facturacion.js`): nuevo `facturasPendientesBusqueda`, filtra la lista de "Facturas pendientes por crear" por `cliente_nombre`. El total "(${filtradas} de ${todas})" y el botón "Crear todas las pendientes" siguen reflejando/operando sobre TODAS las pendientes, no solo las que coinciden con la búsqueda.
+- **Transportes por pagar** (`transportes.js`): nuevo `_transpBusqueda`, filtra por cliente o título de tarea antes de agrupar por técnico. El total "Pendiente por pagar" de arriba sigue siendo el de todo el período (sin filtrar), solo las filas de abajo se filtran.
+
+En los 4 casos donde el total/contador general se mantiene sin filtrar (Anticipos, Facturación, Transportes), es a propósito: la cifra "cuánto hay/debo" no debe cambiar solo porque alguien está buscando un cliente puntual.
+
+**Archivos**: `assets/js/cartera.js` (`?v=20260924b`) · `assets/js/anticipos.js` (`?v=20260924a`) · `assets/js/facturacion.js` (`?v=20260924a`) · `assets/js/transportes.js` (`?v=20260924a`) · `tareas-equipo.html` (los 4 `?v=` de arriba, más los `<input>` nuevos).
+
 ## Estado actual (última actualización: 2026-09-24 — mejora: los comentarios de una tarjeta se refrescan solos cada 30s mientras el modal está abierto)
 
 ### mejora: comentarios en vivo dentro de una tarjeta abierta

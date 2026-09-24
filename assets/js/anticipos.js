@@ -20,6 +20,12 @@
 const ANTICIPOS_LABEL = { recibido: 'recibidos', entregado: 'entregados' };
 let anticiposCache = { recibido: [], entregado: [] };
 let anticiposMeta  = { recibido: {}, entregado: {} };
+let anticiposBusqueda = { recibido: '', entregado: '' }; // texto del buscador de cada pestaña (ya en minúsculas)
+
+function setAnticiposBusqueda(direccion, val) {
+  anticiposBusqueda[direccion] = (val || '').trim().toLowerCase();
+  renderAnticipos(direccion);
+}
 
 // Link directo al pago en Alegra, para abrirlo y resolver el anticipo allá.
 // Confirmado con Carlos: "recibido" -> https://app.alegra.com/income-payments/view/id/27392
@@ -53,13 +59,16 @@ async function fetchAnticipos(direccion) {
 function renderAnticipos(direccion) {
   const lista = document.getElementById(`anticipos-${direccion}-lista`);
   if (!lista) return;
-  const items = anticiposCache[direccion] || [];
+  const todos = anticiposCache[direccion] || [];
 
+  // El total y "última actualización" siempre reflejan TODO lo pendiente,
+  // no solo lo que coincide con el buscador (el buscador solo filtra la
+  // lista de tarjetas de abajo).
   const totalEl = document.getElementById(`anticipos-${direccion}-total`);
   if (totalEl) {
-    const total = items.reduce((s, it) => s + (Number(it.saldoPendiente) || 0), 0);
-    totalEl.innerHTML = items.length
-      ? `${items.length} cliente${items.length === 1 ? '' : 's'}/proveedor${items.length === 1 ? '' : 'es'} con anticipo ${ANTICIPOS_LABEL[direccion]} pendiente — <strong>${formatCOP(total)}</strong>`
+    const total = todos.reduce((s, it) => s + (Number(it.saldoPendiente) || 0), 0);
+    totalEl.innerHTML = todos.length
+      ? `${todos.length} cliente${todos.length === 1 ? '' : 's'}/proveedor${todos.length === 1 ? '' : 'es'} con anticipo ${ANTICIPOS_LABEL[direccion]} pendiente — <strong>${formatCOP(total)}</strong>`
       : `✅ Sin anticipos ${ANTICIPOS_LABEL[direccion]} pendientes`;
   }
 
@@ -71,12 +80,26 @@ function renderAnticipos(direccion) {
       : 'nunca';
   }
 
-  if (!items.length) {
+  if (!todos.length) {
     lista.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">✅ No hay anticipos ${ANTICIPOS_LABEL[direccion]} pendientes.</div>`;
     return;
   }
 
-  lista.innerHTML = items.map((it, idx) => {
+  // Se filtra manteniendo el índice ORIGINAL de anticiposCache[direccion] en
+  // cada item (idx) — anticiposGuardarNota() y _anticiposClave() dependen de
+  // que ese índice siga apuntando al item correcto dentro del arreglo
+  // completo, no al de la lista ya filtrada por el buscador.
+  const busq = anticiposBusqueda[direccion];
+  const items = todos
+    .map((it, idx) => ({ it, idx }))
+    .filter(({ it }) => !busq || (it.contactoNombre || '').toLowerCase().includes(busq));
+
+  if (!items.length) {
+    lista.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Sin resultados para "${esc(anticiposBusqueda[direccion])}".</div>`;
+    return;
+  }
+
+  lista.innerHTML = items.map(({ it, idx }) => {
     const clave = _anticiposClave(direccion, idx);
     const dias = diasDesde(it.fechaMasAntigua);
     const urgente = dias > 60;

@@ -435,6 +435,13 @@ async function dejarFacturaPendiente() {
   }
 }
 
+let facturasPendientesBusqueda = ''; // texto del buscador (ya en minúsculas)
+
+function setFacturasPendientesBusqueda(val) {
+  facturasPendientesBusqueda = (val || '').trim().toLowerCase();
+  renderFacturasPendientesList();
+}
+
 async function cargarFacturasPendientes() {
   const el = document.getElementById('fact-pendientes-section');
   if (!el || !API_BASE) return;
@@ -449,8 +456,11 @@ async function cargarFacturasPendientes() {
 function renderFacturasPendientesList() {
   const el = document.getElementById('fact-pendientes-section');
   if (!el) return;
-  const pendientes = _facturasPendientesData.filter(f => f.estado === 'pendiente');
-  const creadas = _facturasPendientesData.filter(f => f.estado === 'creada');
+  const busq = facturasPendientesBusqueda;
+  const coincide = f => !busq || (f.cliente_nombre || '').toLowerCase().includes(busq);
+  const pendientesTodas = _facturasPendientesData.filter(f => f.estado === 'pendiente');
+  const pendientes = pendientesTodas.filter(coincide);
+  const creadas = _facturasPendientesData.filter(f => f.estado === 'creada').filter(coincide);
 
   const filaPendiente = f => {
     const totalTxt = f.total_estimado != null ? formatCOP(f.total_estimado) : '-';
@@ -479,11 +489,11 @@ function renderFacturasPendientesList() {
 
   el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-top:18px;max-width:760px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-      <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40)">📋 Facturas pendientes por crear (${pendientes.length})</div>
-      ${pendientes.length ? `<button class="btn-save" style="font-size:12px;padding:6px 12px" onclick="crearTodasFacturasPendientes()">✅ Crear todas las pendientes</button>` : ''}
+      <div style="font-weight:700;font-size:15px;color:var(--teal,#0D3B40)">📋 Facturas pendientes por crear (${busq ? `${pendientes.length} de ${pendientesTodas.length}` : pendientes.length})</div>
+      ${pendientesTodas.length ? `<button class="btn-save" style="font-size:12px;padding:6px 12px" onclick="crearTodasFacturasPendientes()">✅ Crear todas las pendientes</button>` : ''}
     </div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Facturas dejadas listas mientras el límite mensual de Alegra estaba agotado.</div>
-    ${pendientes.map(filaPendiente).join('') || '<div style="font-size:13px;color:var(--text-muted)">No hay ninguna pendiente ahora mismo.</div>'}
+    ${pendientes.map(filaPendiente).join('') || (busq ? `<div style="font-size:13px;color:var(--text-muted)">Sin resultados para "${esc(busq)}".</div>` : '<div style="font-size:13px;color:var(--text-muted)">No hay ninguna pendiente ahora mismo.</div>')}
     ${creadas.length ? `<div style="font-weight:600;font-size:12px;color:var(--text-muted);margin:14px 0 6px">Creadas recientemente desde esta cola</div>${creadas.map(filaCreada).join('')}` : ''}
     <div id="fact-pendientes-status" style="margin-top:10px;font-size:13px"></div>
   </div>`;

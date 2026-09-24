@@ -42,6 +42,25 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-24 — nuevo: buscador en Cartera, Anticipos recibidos/entregados, Facturación y Transportes)
+
+Solo código y `?v=` nuevos — deploy normal.
+
+**Qué se agregó**: buscador de texto libre (filtro en vivo, sin golpear el servidor) en las 5 pestañas que no lo tenían y donde tenía sentido: Cartera (por cliente), Anticipos recibidos y entregados (por cliente/proveedor), Facturación → facturas pendientes por crear (por cliente) y Transportes por pagar (por cliente o tarea). Bitácora y Vacaciones/permisos se dejaron igual (ya filtran por técnico); Agenda, Usuarios e Informes no aplicaban.
+
+**Archivos modificados:**
+- `assets/js/cartera.js` (`?v=20260924b`) — `carteraBusqueda` + `setCarteraBusqueda()`, filtro en `sortedCartera()`.
+- `assets/js/anticipos.js` (`?v=20260924a`) — `anticiposBusqueda` (por dirección) + `setAnticiposBusqueda()`, filtro en `renderAnticipos()` preservando el índice original del arreglo (lo usa `anticiposGuardarNota()`).
+- `assets/js/facturacion.js` (`?v=20260924a`) — `facturasPendientesBusqueda` + `setFacturasPendientesBusqueda()`, filtro en `renderFacturasPendientesList()`.
+- `assets/js/transportes.js` (`?v=20260924a`) — `_transpBusqueda` + `_transpFiltroTexto()`, filtro en `_transpRender()`.
+- `tareas-equipo.html` — un `<input type="search" class="search-box">` nuevo por pestaña (siempre fuera del contenedor que cada vista reconstruye, para no perder el foco al escribir); `?v=` subido en los 4 archivos de arriba.
+
+**Prueba manual sugerida:**
+1. Como admin, entrar a Cartera → escribir parte del nombre de un cliente conocido → debe quedar solo esa tarjeta (en la columna que corresponda), sin perder el foco del campo entre letra y letra.
+2. Repetir en Anticipos recibidos y Anticipos entregados → buscar, y de paso confirmar que "Guardar" en la nota de un anticipo filtrado sigue guardando en el anticipo correcto (no en otro por el índice).
+3. En Facturación, con al menos 2-3 facturas pendientes, buscar por cliente → confirmar que el encabezado muestra "X de Y" y que "Crear todas las pendientes" sigue ofreciendo crear TODAS (no solo las filtradas).
+4. En Transportes por pagar, buscar por cliente o por parte del título de una tarea → confirmar que el total "Pendiente por pagar" de arriba no cambia con la búsqueda, solo las filas de abajo.
+
 ## Cambios pendientes de deploy (2026-09-24 — mejora: los comentarios de una tarjeta se refrescan solos cada 30s mientras el modal está abierto)
 
 Solo código y `?v=` nuevo — deploy normal.

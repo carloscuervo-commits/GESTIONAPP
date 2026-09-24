@@ -128,6 +128,7 @@
     <button class="sort-btn active" id="sort-valor" onclick="setCarteraSort('valor')">💰 Mayor deuda</button>
     <button class="sort-btn" id="sort-antiguedad" onclick="setCarteraSort('antiguedad')">📅 Antigüedad</button>
     <button class="sort-btn" onclick="fetchCartera()" title="Volver a consultar Alegra">🔄 Actualizar</button>
+    <input type="search" id="cartera-search" class="search-box" placeholder="🔍 Buscar cliente..." oninput="setCarteraBusqueda(this.value)" style="max-width:200px" autocomplete="off">
     <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Actualizado: <strong id="cartera-actualizado">-</strong></span>
   </div>
   <div id="cartera-total-general" class="cartera-total-general">💰 Total cartera vencida: <strong>-</strong></div>
@@ -151,6 +152,7 @@
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
     <button class="sort-btn" id="anticipos-recibido-btn-actualizar" onclick="anticiposActualizar('recibido', false)">🔄 Actualizar ahora</button>
     <button class="sort-btn" onclick="anticiposActualizar('recibido', true)" title="Recorre todo el historial de Alegra en vez de solo lo nuevo — más lento, úsalo si crees que quedó algo viejo sin detectar">⚙️ Escaneo completo</button>
+    <input type="search" id="anticipos-recibido-search" class="search-box" placeholder="🔍 Buscar cliente..." oninput="setAnticiposBusqueda('recibido', this.value)" style="max-width:220px" autocomplete="off">
     <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Última actualización: <strong id="anticipos-recibido-actualizado">-</strong></span>
   </div>
   <div id="anticipos-recibido-total" class="cartera-total-general">-</div>
@@ -165,6 +167,7 @@
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
     <button class="sort-btn" id="anticipos-entregado-btn-actualizar" onclick="anticiposActualizar('entregado', false)">🔄 Actualizar ahora</button>
     <button class="sort-btn" onclick="anticiposActualizar('entregado', true)" title="Recorre todo el historial de Alegra en vez de solo lo nuevo — más lento, úsalo si crees que quedó algo viejo sin detectar">⚙️ Escaneo completo</button>
+    <input type="search" id="anticipos-entregado-search" class="search-box" placeholder="🔍 Buscar cliente..." oninput="setAnticiposBusqueda('entregado', this.value)" style="max-width:220px" autocomplete="off">
     <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">📅 Última actualización: <strong id="anticipos-entregado-actualizado">-</strong></span>
   </div>
   <div id="anticipos-entregado-total" class="cartera-total-general">-</div>
@@ -194,6 +197,9 @@
     <button class="btn-cancel" style="margin-top:12px" onclick="iniciarFacturaManual()">🧾 Crear factura manual (sin cotización)</button>
     <div id="fact-status" style="margin-top:14px;font-size:13px"></div>
     <div id="fact-resultado" style="margin-top:18px;display:none"></div>
+  </div>
+  <div style="max-width:760px;margin:16px auto 0">
+    <input type="search" id="fact-pendientes-search" class="search-box" placeholder="🔍 Buscar cliente..." oninput="setFacturasPendientesBusqueda(this.value)" style="width:100%;max-width:280px" autocomplete="off">
   </div>
   <div id="fact-pendientes-section" style="margin:0 auto"></div>
 </div>
@@ -1075,9 +1081,9 @@
 <script src="assets/js/core.js?v=20260924a"></script>
 <script src="assets/js/auth.js?v=20260924a"></script>
 <script src="assets/js/tareas.js?v=20260919a"></script>
-<script src="assets/js/cartera.js?v=20260924a"></script>
-<script src="assets/js/anticipos.js?v=20260914d"></script>
-<script src="assets/js/facturacion.js?v=20260903a"></script>
+<script src="assets/js/cartera.js?v=20260924b"></script>
+<script src="assets/js/anticipos.js?v=20260924a"></script>
+<script src="assets/js/facturacion.js?v=20260924a"></script>
 <script src="assets/js/reportes.js?v=20260918b"></script>
 <script src="assets/js/comentarios.js?v=20260924a"></script>
 <script src="assets/js/informes.js?v=20260909a"></script>
@@ -1088,7 +1094,7 @@
 <script src="assets/js/agenda.js?v=20260629b"></script>
 <script src="assets/js/push.js?v=20260629b"></script>
 <script src="assets/js/imagenes.js?v=20260909a"></script>
-<script src="assets/js/transportes.js?v=20260704e"></script>
+<script src="assets/js/transportes.js?v=20260924a"></script>
 <script src="assets/js/bitacora.js?v=20260807b"></script>
 <script src="assets/js/configuracion.js?v=20260917b"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>

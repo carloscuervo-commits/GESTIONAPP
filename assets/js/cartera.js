@@ -31,6 +31,7 @@ let carteraSort = 'valor';
 let editingCarteraId = null;
 let carteraMensajeActual = null; // {asunto} del último mensaje previsualizado (el texto vive en el textarea)
 let carteraArchivadosAbierto = false;
+let carteraBusqueda = ''; // texto del buscador de la pestaña Cartera (ya en minúsculas)
 
 const CARTERA_COLS = [
   {id:'por-contactar', label:'Por contactar 📋'},
@@ -121,8 +122,14 @@ function setCarteraSort(s) {
   renderCartera();
 }
 
+function setCarteraBusqueda(val) {
+  carteraBusqueda = (val || '').trim().toLowerCase();
+  renderCartera();
+}
+
 function sortedCartera(colId) {
-  const items = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) === colId);
+  let items = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) === colId);
+  if (carteraBusqueda) items = items.filter(c => (c.clienteNombre || '').toLowerCase().includes(carteraBusqueda));
   if (carteraSort==='valor') return items.sort((a,b)=>b.totalDeuda-a.totalDeuda);
   return items.sort((a,b)=>new Date(a.fechaMasAntigua)-new Date(b.fechaMasAntigua));
 }

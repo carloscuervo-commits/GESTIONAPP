@@ -129,6 +129,13 @@ let _transpFiltros = {
   estado     : 'pendiente',
 };
 let _transpData = [];
+let _transpBusqueda = ''; // texto del buscador (cliente/tarea), ya en minúsculas
+
+function _transpFiltroTexto(val) {
+  _transpBusqueda = (val || '').trim().toLowerCase();
+  const el = document.getElementById('tr-contenido');
+  if (el) _transpRender(el);
+}
 
 function _transpFechaOffset(dias) {
   const d = new Date();
@@ -169,6 +176,10 @@ function renderTransportesView() {
         <div>
           <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Hasta</label>
           <input type="date" id="tr-f-hasta" class="form-input" value="${_transpFiltros.hasta}" onchange="_transpCargar()">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Buscar</label>
+          <input type="search" id="tr-f-busqueda" class="form-input" placeholder="🔍 Cliente o tarea..." oninput="_transpFiltroTexto(this.value)" style="min-width:180px" autocomplete="off">
         </div>
         <div>
           <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Vista</label>
@@ -237,11 +248,23 @@ function _transpRender(el) {
     return;
   }
 
+  // El buscador filtra por cliente o título de tarea. El "Total pendiente por
+  // pagar" de arriba siempre refleja TODO el período (no solo lo filtrado);
+  // solo las filas de abajo se filtran.
+  const datosFiltrados = _transpBusqueda
+    ? _transpData.filter(r => (r.cliente || '').toLowerCase().includes(_transpBusqueda) || (r.tarea_titulo || '').toLowerCase().includes(_transpBusqueda))
+    : _transpData;
+
+  if (!datosFiltrados.length) {
+    el.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted);font-size:15px">Sin resultados para "${esc(_transpBusqueda)}".</div>`;
+    return;
+  }
+
   const esPendiente = _transpFiltros.estado === 'pendiente';
 
   // Agrupar por técnico y calcular totales (trayectos × valor)
   const porTecnico = {};
-  for (const r of _transpData) {
+  for (const r of datosFiltrados) {
     const key  = r.tecnico_id;
     const tot  = (r.trayectos || 0) * (r.valor || 0);
     if (!porTecnico[key]) {
