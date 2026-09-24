@@ -41,10 +41,20 @@ const ANTICIPOS_CUENTAS = [
 
 /**
  * Consulta en vivo a Alegra. NO toca la base de datos.
- * Devuelve ['items' => [...], 'fechaMasAntigua' => 'YYYY-MM-DD'|null, 'escaneoCompleto' => bool].
+ * Devuelve ['items' => [...], 'fechaMasAntigua' => 'YYYY-MM-DD'|null,
+ * 'escaneoCompleto' => bool, 'siguientePagina' => int|null].
  * Lanza RuntimeException si no se pudo consultar Alegra.
+ *
+ * $paginaInicio / $maxPaginasPorLote: para escaneos completos, que pueden
+ * necesitar recorrer ~200 páginas de Alegra (todo el historial de pagos) —
+ * demasiado para una sola petición HTTP en hosting compartido (el proceso
+ * PHP se corta por tiempo máximo de ejecución antes de terminar, dejando la
+ * caché a medias). Si $maxPaginasPorLote no es null, la función para después
+ * de recorrer esa cantidad de páginas y devuelve en 'siguientePagina' desde
+ * dónde seguir — quien llama (anticiposActualizarCache) va guardando lo ya
+ * encontrado y el navegador pide el siguiente lote hasta terminar.
  */
-function alegraAnticiposEscanear(string $direccion, ?string $desde): array {
+function alegraAnticiposEscanear(string $direccion, ?string $desde, int $paginaInicio = 0, ?int $maxPaginasPorLote = null): array {
   if (!isset(ANTICIPOS_CUENTAS[$direccion])) {
     throw new InvalidArgumentException('Dirección inválida: ' . $direccion);
   }
@@ -62,7 +72,6 @@ function alegraAnticiposEscanear(string $direccion, ?string $desde): array {
 
   $items = [];
   $fechaMasAntigua = null;
-  $start = 0;
   $limitPorPagina = 30;
   // Tope de seguridad: 300 páginas (9.000 pagos) — de sobra para un escaneo
   // completo de todo el historial (~5.900 pagos recibidos hoy), y muy por
@@ -70,21 +79,34 @@ function alegraAnticiposEscanear(string $direccion, ?string $desde): array {
   $topeSeguridad = 300;
   $huboRespuestaValida = false;
   $llegoAlFinal = false;
+  $paginasRecorridas = 0;
 
-  for ($pagina = 0; $pagina < $topeSeguridad; $pagina++) {
+  for ($pagina = $paginaInicio; $pagina < $topeSeguridad; $pagina++) {
+    if ($maxPaginasPorLote !== null && $paginasRecorridas >= $maxPaginasPorLote) {
+      // Tope del lote alcanzado sin llegar al final — hay que seguir en la
+      // próxima llamada, desde esta misma página.
+      return [
+        'items'           => $items,
+        'fechaMasAntigua' => $fechaMasAntigua,
+        'escaneoCompleto' => false,
+        'siguientePagina' => $pagina,
+      ];
+    }
+
     $pagos = _aaGet('https://api.alegra.com/api/v1/payments?' . http_build_query([
       'type'            => $tipoAlegra,
       'order_field'     => 'date',
       'order_direction' => 'DESC',
       'limit'           => $limitPorPagina,
-      'start'           => $start,
+      'start'           => $pagina * $limitPorPagina,
     ]), $authHeader);
 
     if (!is_array($pagos)) {
-      if ($pagina === 0) throw new RuntimeException('No se pudo consultar Alegra');
+      if ($pagina === $paginaInicio) throw new RuntimeException('No se pudo consultar Alegra');
       break; // ya habíamos tenido al menos una página válida, cortamos aquí
     }
     $huboRespuestaValida = true;
+    $paginasRecorridas++;
     if (empty($pagos)) { $llegoAlFinal = true; break; }
 
     $paginaTieneFechaMenorQueDesde = false;
@@ -121,7 +143,6 @@ function alegraAnticiposEscanear(string $direccion, ?string $desde): array {
 
     if (count($pagos) < $limitPorPagina) { $llegoAlFinal = true; break; } // última página de Alegra
     if ($desde !== null && $paginaTieneFechaMenorQueDesde) break; // ya cubrimos todo lo que hacía falta desde el cursor
-    $start += $limitPorPagina;
   }
 
   if (!$huboRespuestaValida) throw new RuntimeException('No se pudo consultar Alegra');
@@ -130,6 +151,7 @@ function alegraAnticiposEscanear(string $direccion, ?string $desde): array {
     'items'           => $items,
     'fechaMasAntigua' => $fechaMasAntigua,
     'escaneoCompleto' => $desde === null && $llegoAlFinal,
+    'siguientePagina' => null, // este lote sí llegó al final
   ];
 }
 
@@ -138,26 +160,48 @@ function alegraAnticiposEscanear(string $direccion, ?string $desde): array {
  * $completo=true) y guarda el resultado en anticipos_cache, actualizando el
  * cursor en anticipos_scan_estado. Devuelve un resumen; lanza excepción si
  * Alegra no respondió (no deja la BD a medias — todo en una transacción).
+ *
+ * $paginaInicio / $maxPaginasPorLote: ver alegraAnticiposEscanear() — permite
+ * partir un escaneo completo en varias llamadas ("lotes") en vez de una sola
+ * petición que recorra ~200 páginas de Alegra (eso era lo que hacía que
+ * "Escaneo completo" se quedara colgado varios minutos y terminara en un 500
+ * del hosting). Mientras queden lotes por recorrer (siguientePagina !== null
+ * en el resultado), esta función NO toca el cursor ni dispara la
+ * verificación de saldo por contacto — eso solo pasa cuando el escaneo (de
+ * este lote o de todos los lotes) realmente terminó.
  */
-function anticiposActualizarCache(PDO $pdo, string $direccion, bool $completo = false): array {
+function anticiposActualizarCache(PDO $pdo, string $direccion, bool $completo = false, int $paginaInicio = 0, ?int $maxPaginasPorLote = null): array {
   $estadoStmt = $pdo->prepare("SELECT * FROM anticipos_scan_estado WHERE direccion = ?");
   $estadoStmt->execute([$direccion]);
   $estadoRow = $estadoStmt->fetch();
 
   $desde = $completo ? null : ($estadoRow['cursor_fecha'] ?? null);
-  $r = alegraAnticiposEscanear($direccion, $desde); // puede lanzar RuntimeException
+  $r = alegraAnticiposEscanear($direccion, $desde, $paginaInicio, $maxPaginasPorLote); // puede lanzar RuntimeException
+  $terminoElEscaneo = ($r['siguientePagina'] ?? null) === null;
 
   $pdo->beginTransaction();
   try {
     if ($desde === null) {
-      $pdo->prepare("DELETE FROM anticipos_cache WHERE direccion = ?")->execute([$direccion]);
+      // Escaneo completo: el borrado de lo viejo solo pasa en el primer
+      // lote (paginaInicio=0) — los lotes siguientes solo van agregando.
+      if ($paginaInicio === 0) {
+        $pdo->prepare("DELETE FROM anticipos_cache WHERE direccion = ?")->execute([$direccion]);
+      }
     } else {
       $pdo->prepare("DELETE FROM anticipos_cache WHERE direccion = ? AND fecha >= ?")->execute([$direccion, $desde]);
     }
 
+    // ON DUPLICATE KEY UPDATE (en vez de INSERT simple): entre lotes de un
+    // mismo escaneo completo, o si se reintenta un lote que falló a medias,
+    // un mismo pago puede volver a aparecer — no debe reventar por llave
+    // duplicada (uq_anticipo: alegra_payment_id + direccion).
     $ins = $pdo->prepare("INSERT INTO anticipos_cache
         (alegra_payment_id, direccion, cuenta_id, cuenta_nombre, contacto_id, contacto_nombre, valor, fecha, numero, anotacion)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        cuenta_id = VALUES(cuenta_id), cuenta_nombre = VALUES(cuenta_nombre),
+        contacto_id = VALUES(contacto_id), contacto_nombre = VALUES(contacto_nombre),
+        valor = VALUES(valor), fecha = VALUES(fecha), numero = VALUES(numero), anotacion = VALUES(anotacion)");
     foreach ($r['items'] as $it) {
       $ins->execute([
         $it['id'], $direccion, $it['cuentaId'], $it['cuentaNombre'],
@@ -166,23 +210,26 @@ function anticiposActualizarCache(PDO $pdo, string $direccion, bool $completo = 
       ]);
     }
 
-    $nuevoCursor = $r['fechaMasAntigua'];
-    if ($nuevoCursor === null) {
-      // Nada abierto en el rango escaneado: si queda algo más viejo en
-      // caché (de una corrida anterior que no tocamos), el cursor no puede
-      // adelantarse más allá de eso; si la caché quedó vacía del todo, no
-      // hay nada que vigilar más atrás que hoy.
-      $minStmt = $pdo->prepare("SELECT MIN(fecha) AS f FROM anticipos_cache WHERE direccion = ?");
-      $minStmt->execute([$direccion]);
-      $nuevoCursor = $minStmt->fetch()['f'] ?? (new DateTime('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
+    $nuevoCursor = $estadoRow['cursor_fecha'] ?? null;
+    if ($terminoElEscaneo) {
+      $nuevoCursor = $r['fechaMasAntigua'];
+      if ($nuevoCursor === null) {
+        // Nada abierto en el rango escaneado: si queda algo más viejo en
+        // caché (de una corrida anterior que no tocamos), el cursor no puede
+        // adelantarse más allá de eso; si la caché quedó vacía del todo, no
+        // hay nada que vigilar más atrás que hoy.
+        $minStmt = $pdo->prepare("SELECT MIN(fecha) AS f FROM anticipos_cache WHERE direccion = ?");
+        $minStmt->execute([$direccion]);
+        $nuevoCursor = $minStmt->fetch()['f'] ?? (new DateTime('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
+      }
+
+      $escaneoCompletoHecho = (bool)($estadoRow['escaneo_completo_hecho'] ?? false) || $r['escaneoCompleto'];
+
+      $pdo->prepare("UPDATE anticipos_scan_estado
+          SET cursor_fecha = ?, escaneo_completo_hecho = ?, ultima_corrida_en = NOW()
+        WHERE direccion = ?")
+        ->execute([$nuevoCursor, $escaneoCompletoHecho ? 1 : 0, $direccion]);
     }
-
-    $escaneoCompletoHecho = (bool)($estadoRow['escaneo_completo_hecho'] ?? false) || $r['escaneoCompleto'];
-
-    $pdo->prepare("UPDATE anticipos_scan_estado
-        SET cursor_fecha = ?, escaneo_completo_hecho = ?, ultima_corrida_en = NOW()
-      WHERE direccion = ?")
-      ->execute([$nuevoCursor, $escaneoCompletoHecho ? 1 : 0, $direccion]);
 
     $pdo->commit();
   } catch (Throwable $e) {
@@ -190,32 +237,40 @@ function anticiposActualizarCache(PDO $pdo, string $direccion, bool $completo = 
     throw $e;
   }
 
-  // --- Sincroniza el saldo pendiente por cliente/proveedor ----------------
-  // Aparte de la transacción de arriba: esto sí consulta a Alegra (1 llamada
-  // extra por contacto), así que se limita a quien nunca se ha verificado
-  // (nuevo, o —la primera corrida tras este cambio— todo lo que ya había en
-  // caché) o seguía con saldo abierto la vez pasada. Tope de 40 por corrida
-  // para no demorar el cron; si queda pendiente, sigue en la próxima.
-  $pendientesStmt = $pdo->prepare("
-    SELECT DISTINCT c.contacto_id, c.contacto_nombre
-    FROM anticipos_cache c
-    LEFT JOIN anticipos_saldo_tercero s
-      ON s.direccion = c.direccion AND s.contacto_id = c.contacto_id
-    WHERE c.direccion = ?
-      AND c.contacto_id IS NOT NULL
-      AND (s.contacto_id IS NULL OR s.saldo > 0.5)
-    LIMIT 40
-  ");
-  $pendientesStmt->execute([$direccion]);
-  foreach ($pendientesStmt->fetchAll() as $row) {
-    try {
-      anticiposActualizarSaldoContacto($pdo, $direccion, $row['contacto_id'], $row['contacto_nombre']);
-    } catch (Throwable $e) {
-      // Alegra no respondió para este contacto puntual — se reintenta la próxima corrida.
+  // --- Sincroniza el saldo pendiente por cliente/proveedor -----------------
+  // Solo cuando el escaneo (de este lote o de todos) ya terminó — nunca a
+  // mitad de un escaneo completo por lotes, para no mezclar las dos cosas
+  // pesadas en la misma corrida. Esto es solo una red de seguridad para el
+  // cron nocturno (que no tiene pestaña abierta que dispare la verificación
+  // "perezosa" del navegador — ver anticipos.js): un lote chiquito, y solo
+  // de contactos que llevan más de 12 horas sin verificarse, para no volver
+  // a preguntarle a Alegra por el mismo contacto en cada corrida.
+  if ($terminoElEscaneo) {
+    $pendientesStmt = $pdo->prepare("
+      SELECT DISTINCT c.contacto_id, c.contacto_nombre
+      FROM anticipos_cache c
+      LEFT JOIN anticipos_saldo_tercero s
+        ON s.direccion = c.direccion AND s.contacto_id = c.contacto_id
+      WHERE c.direccion = ?
+        AND c.contacto_id IS NOT NULL
+        AND (s.contacto_id IS NULL OR (s.saldo > 0.5 AND s.consultado_en < DATE_SUB(NOW(), INTERVAL 12 HOUR)))
+      LIMIT 5
+    ");
+    $pendientesStmt->execute([$direccion]);
+    foreach ($pendientesStmt->fetchAll() as $row) {
+      try {
+        anticiposActualizarSaldoContacto($pdo, $direccion, $row['contacto_id'], $row['contacto_nombre']);
+      } catch (Throwable $e) {
+        // Alegra no respondió para este contacto puntual — se reintenta la próxima corrida.
+      }
     }
   }
 
-  return ['encontrados' => count($r['items']), 'fechaMasAntigua' => $nuevoCursor];
+  return [
+    'encontrados'     => count($r['items']),
+    'fechaMasAntigua' => $nuevoCursor,
+    'siguientePagina' => $r['siguientePagina'],
+  ];
 }
 
 /**

@@ -4,6 +4,29 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-24 — fix: Anticipos recibidos/entregados mostraba saldos desactualizados y "Escaneo completo" se colgaba/tiraba 500)
+
+### fix: saldo de anticipos desactualizado (nunca se re-verificaba a tiempo) + "Escaneo completo" colgado varios minutos y terminando en 500
+
+Carlos reportó que "Anticipos recibidos" mostraba datos errados y que el botón "⚙️ Escaneo completo" se quedaba varios minutos en "Consultando Alegra..." hasta terminar en un error 500, con otras peticiones (cargar tareas, sesión) fallando al mismo tiempo. Se verificó en vivo contra Alegra (vía MCP) el caso puntual que mostró: 4 clientes con anticipo "recibido" pendiente en Ginno (Senderos del Parque, Grupo Global Importaciones, Llanuras del Castillo, Disproquín) resultaron con saldo **real $0 en Alegra** (anticipo ya aplicado del todo) — Ginno seguía mostrando montos pendientes de hasta $15 millones.
+
+**Causa de raíz (dos problemas, uno alimentando al otro):**
+
+1. `anticiposActualizarCache()` (en `backend/lib/alegra_anticipos.php`) hacía DOS cosas pesadas en una sola petición HTTP: (a) recorrer TODO el historial de pagos de Alegra en un escaneo completo (hasta ~200 páginas seguidas), y (b) después, verificar contra Alegra el saldo real de hasta 40 clientes/proveedores seguidos (cada uno hasta 20 páginas de comprobantes contables) — en el peor caso, **cientos de llamadas secuenciales a Alegra dentro de una sola petición PHP**. En hosting compartido, eso se pasa del tiempo máximo de ejecución; como ese error es un fatal no capturable con `try/catch`, el proceso se corta a la mitad y el servidor responde 500 — coincide exactamente con lo reportado.
+2. El filtro de "a quién le vuelvo a preguntar el saldo" (`WHERE s.contacto_id IS NULL OR s.saldo > 0.5`) no tenía en cuenta CUÁNDO se había verificado por última vez — si un contacto quedaba con saldo (aunque fuera por error, tras una corrida cortada a la mitad), competía cada corrida por los mismos 40 cupos contra los demás, sin garantía de que le tocara turno, y si un mismo contacto SÍ se alcanzaba a verificar pero con datos incompletos (por el corte del punto 1), quedaba con un saldo incorrecto guardado indefinidamente — nunca se le volvía a preguntar a Alegra si no volvía a caer en esos 40 cupos.
+
+**Fix — tres cambios, todos en la misma dirección que propuso Carlos (verificar cada cliente puntual solo cuando hace falta, no todos de una):**
+
+- **Verificación perezosa por contacto** (`anticipos.js`): la pestaña, al mostrar la lista, verifica sola — uno por uno, espaciados 400ms — el saldo real de cada contacto visible que nunca se ha verificado o lleva más de 12 horas sin hacerlo (antes solo miraba si `saldoVerificadoEn` era `null`, lo cual nunca volvía a marcar como "hay que revisar" a alguien que ya tenía un saldo verificado pero viejo/incorrecto — por eso Grupo Global y Llanuras del Castillo, que sí tenían fecha de verificación, seguían mal indefinidamente). Nuevo endpoint `POST anticipos.php?accion=verificar_saldo&contacto_id=X` hace esa consulta para UN solo contacto. Si el saldo real resulta $0, la tarjeta se quita de la lista al instante, sin esperar a recargar la pestaña. Como es el navegador el que reparte estas llamadas una por una (no el servidor haciendo 40 seguidas), ninguna petición PHP puede volver a colgarse por esto.
+- **El escaneo automático embebido en `anticiposActualizarCache()` (red de seguridad para el cron nocturno, que no tiene pestaña abierta) se redujo de 40 a 5 contactos por corrida, y ahora sí respeta un mínimo de 12 horas desde la última verificación** — ya no vuelve a preguntarle a Alegra por el mismo contacto en cada corrida sin necesidad.
+- **"Escaneo completo" ahora recorre el historial de Alegra en LOTES** (`alegraAnticiposEscanear()` acepta `$paginaInicio`/`$maxPaginasPorLote`; `anticiposActualizarCache()` los pasa a través y solo borra/reconstruye la caché en el primer lote, usando `INSERT ... ON DUPLICATE KEY UPDATE` para que reintentar un lote sea seguro). El endpoint POST acepta `&pagina=N` y devuelve `siguientePagina` (o `null` si terminó); `anticiposActualizar(direccion, true)` en el frontend llama en bucle hasta que el servidor avisa que ya terminó, mostrando el progreso real ("Escaneando Alegra... (lote N)") en vez de un spinner fijo que no decía nada. Ningún lote pasa de ~600 pagos — muy por debajo de cualquier límite de tiempo razonable de hosting compartido.
+
+**Con esto, el dato desactualizado que vio Carlos se corrige solo, sin tocar la base de datos a mano**: en cuanto suba este cambio y abra la pestaña de Anticipos, la verificación perezosa corrige en segundos los 4 casos ya identificados (y cualquier otro en la misma situación) contra el saldo real de Alegra.
+
+**Pendiente/duda abierta**: no quedó claro si el cron nocturno (`backend/cron/anticipos_index.php`, sugerido a las 2am en el comentario del archivo) está realmente configurado en cPanel — si no lo está, la caché nunca se refresca sola de un día para otro y todo depende de abrir la pestaña o del botón "Actualizar ahora". Vale la pena que Carlos confirme si ese cron existe.
+
+**Archivos**: `backend/lib/alegra_anticipos.php` · `backend/api/anticipos.php` · `assets/js/anticipos.js` (`?v=20260924b`) · `tareas-equipo.html` (`?v=` subido).
+
 ## Estado actual (última actualización: 2026-09-24 — nuevo: buscador en Cartera, Anticipos recibidos/entregados, Facturación y Transportes)
 
 ### feat: buscador en las pestañas que no lo tenían

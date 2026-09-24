@@ -22,6 +22,21 @@ let anticiposCache = { recibido: [], entregado: [] };
 let anticiposMeta  = { recibido: {}, entregado: {} };
 let anticiposBusqueda = { recibido: '', entregado: '' }; // texto del buscador de cada pestaña (ya en minúsculas)
 
+// Verificación "perezosa" del saldo por contacto: en vez de que el servidor
+// le pregunte a Alegra por decenas de clientes seguidos en una sola petición
+// (eso era lo que colgaba "Escaneo completo"), el navegador va verificando
+// uno por uno, solo los que se están mostrando y llevan rato sin chequearse
+// — espaciados para no ametrallar ni Alegra ni el servidor.
+const ANTICIPOS_VENCIDO_MS = 12 * 60 * 60 * 1000; // 12 horas
+let _anticiposVerificando = { recibido: false, entregado: false };
+
+function _anticiposSaldoVencido(saldoVerificadoEn) {
+  if (!saldoVerificadoEn) return true;
+  const t = new Date(String(saldoVerificadoEn).replace(' ', 'T')).getTime();
+  if (isNaN(t)) return true;
+  return (Date.now() - t) > ANTICIPOS_VENCIDO_MS;
+}
+
 function setAnticiposBusqueda(direccion, val) {
   anticiposBusqueda[direccion] = (val || '').trim().toLowerCase();
   renderAnticipos(direccion);
@@ -103,7 +118,7 @@ function renderAnticipos(direccion) {
     const clave = _anticiposClave(direccion, idx);
     const dias = diasDesde(it.fechaMasAntigua);
     const urgente = dias > 60;
-    const sinVerificar = it.contactoId && !it.saldoVerificadoEn;
+    const sinVerificar = it.contactoId && _anticiposSaldoVencido(it.saldoVerificadoEn);
     const pagosHtml = it.pagos.map(p => {
       const urlAlegra = _anticiposUrlAlegra(direccion, p.alegra_payment_id);
       return `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--border,#e5e7eb);font-size:12px">
@@ -152,6 +167,49 @@ function renderAnticipos(direccion) {
       </div>
     </div>`;
   }).join('');
+
+  // Dispara (sin esperar) la verificación perezosa de los que se están
+  // mostrando y llevan rato sin chequearse contra Alegra.
+  _anticiposVerificarPendientes(direccion, items);
+}
+
+// Verifica, uno por uno y espaciados, el saldo real en Alegra de los
+// contactos visibles que nunca se han verificado o llevan más de 12 horas
+// sin hacerlo — así el servidor nunca tiene que preguntarle a Alegra por
+// decenas de contactos seguidos en una sola petición (eso era lo que
+// colgaba el escaneo). Si un contacto queda en $0 (ya se aplicó del todo en
+// Alegra), se saca de la lista en caliente, sin esperar a la próxima carga.
+async function _anticiposVerificarPendientes(direccion, items) {
+  if (_anticiposVerificando[direccion]) return; // ya hay una tanda corriendo
+  const pendientes = items
+    .map(({ it }) => it)
+    .filter(it => it.contactoId && _anticiposSaldoVencido(it.saldoVerificadoEn));
+  if (!pendientes.length) return;
+
+  _anticiposVerificando[direccion] = true;
+  try {
+    for (const it of pendientes) {
+      try {
+        const res = await fetch(`${API_BASE}/anticipos.php?accion=verificar_saldo&direccion=${direccion}&contacto_id=${encodeURIComponent(it.contactoId)}`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+        if (data && !data.error && typeof data.saldo === 'number') {
+          if (data.saldo <= 0.5) {
+            const pos = anticiposCache[direccion].indexOf(it);
+            if (pos !== -1) anticiposCache[direccion].splice(pos, 1);
+          } else {
+            it.saldoPendiente = data.saldo;
+            it.saldoVerificadoEn = new Date().toISOString();
+          }
+        }
+      } catch (e) { /* este contacto se reintenta la próxima vez que se muestre */ }
+      await new Promise(r => setTimeout(r, 400)); // espaciado — no ametrallar Alegra ni el servidor
+    }
+    renderAnticipos(direccion); // ya con los saldos verificados reflejados
+  } finally {
+    _anticiposVerificando[direccion] = false;
+  }
 }
 
 async function anticiposGuardarNota(direccion, idx) {
@@ -172,11 +230,34 @@ async function anticiposGuardarNota(direccion, idx) {
 
 async function anticiposActualizar(direccion, completo) {
   const btn = document.getElementById(`anticipos-${direccion}-btn-actualizar`);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Consultando Alegra...'; }
+  if (btn) btn.disabled = true;
   try {
-    await fetch(`${API_BASE}/anticipos.php?accion=${completo ? 'escaneo_completo' : 'actualizar'}&direccion=${direccion}`, {
-      method: 'POST',
-    });
+    if (completo) {
+      // El historial completo de Alegra se recorre en lotes (ver
+      // backend/lib/alegra_anticipos.php) — el navegador va pidiendo el
+      // siguiente lote hasta que el servidor avisa que ya terminó, en vez de
+      // una sola petición gigante que el hosting termina cortando a la
+      // mitad. Mientras tanto se ve el progreso real, no un spinner fijo.
+      let pagina = 0;
+      let lote = 1;
+      while (true) {
+        if (btn) btn.textContent = `⏳ Escaneando Alegra... (lote ${lote})`;
+        const res = await fetch(`${API_BASE}/anticipos.php?accion=escaneo_completo&direccion=${direccion}&pagina=${pagina}`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+        if (data && data.error) break; // silencioso — se reintenta con el botón
+        if (data && data.siguientePagina !== null && data.siguientePagina !== undefined) {
+          pagina = data.siguientePagina;
+          lote++;
+        } else {
+          break; // terminó
+        }
+      }
+    } else {
+      if (btn) btn.textContent = '⏳ Consultando Alegra...';
+      await fetch(`${API_BASE}/anticipos.php?accion=actualizar&direccion=${direccion}`, { method: 'POST' });
+    }
   } catch (e) { /* silencioso */ }
   if (btn) { btn.disabled = false; btn.textContent = '🔄 Actualizar ahora'; }
   await fetchAnticipos(direccion);

@@ -19,11 +19,22 @@
  *      refresca la caché + el saldo pendiente por contacto. Es lo que
  *      dispara el botón "🔄 Actualizar ahora".
  *
- * POST /anticipos.php?accion=escaneo_completo&direccion=recibido|entregado
+ * POST /anticipos.php?accion=escaneo_completo&direccion=recibido|entregado&pagina=0
  *   -> igual, pero recorre TODO el historial desde el inicio (más lento) —
  *      úsalo si sospechas que quedó algo viejo sin detectar (p. ej. un pago
  *      registrado con fecha retroactiva). El escaneo incremental normal no
  *      hace falta correrlo seguido, ya cubre lo nuevo.
+ *      Recorre el historial de Alegra en LOTES (para no colgar el hosting
+ *      con una sola petición gigante): la respuesta trae "siguientePagina"
+ *      — si no es null, hay que volver a llamar con ese valor en &pagina
+ *      hasta que salga null (el frontend ya lo hace solo, ver anticipos.js).
+ *
+ * POST /anticipos.php?accion=verificar_saldo&direccion=recibido|entregado&contacto_id=X
+ *   -> verifica en Alegra el saldo pendiente de UN solo cliente/proveedor
+ *      (cuánto de su anticipo ya se aplicó a facturas allá) y actualiza la
+ *      caché para ese contacto puntual. Mucho más liviano que escanear todos
+ *      a la vez — lo usa la pestaña de Ginno automáticamente, uno por uno,
+ *      cuando muestra un anticipo cuyo saldo lleva rato sin verificarse.
  */
 require_once __DIR__ . '/../lib/db.php';
 applyCors();
@@ -142,15 +153,40 @@ if ($method === 'POST') {
   $accion    = $_GET['accion'] ?? '';
   $direccion = $_GET['direccion'] ?? '';
   if (!_direccionValida($direccion)) jsonOut(['error' => 'direccion inválida (recibido|entregado)'], 400);
-  if (!in_array($accion, ['actualizar', 'escaneo_completo'], true)) jsonOut(['error' => 'accion inválida'], 400);
+  if (!in_array($accion, ['actualizar', 'escaneo_completo', 'verificar_saldo'], true)) jsonOut(['error' => 'accion inválida'], 400);
+
+  if ($accion === 'verificar_saldo') {
+    $contactoId = $_GET['contacto_id'] ?? '';
+    if ($contactoId === '') jsonOut(['error' => 'contacto_id es requerido'], 400);
+
+    $nombreStmt = $pdo->prepare("SELECT contacto_nombre FROM anticipos_cache WHERE direccion = ? AND contacto_id = ? LIMIT 1");
+    $nombreStmt->execute([$direccion, $contactoId]);
+    $contactoNombre = $nombreStmt->fetch()['contacto_nombre'] ?? null;
+
+    try {
+      $saldo = anticiposActualizarSaldoContacto($pdo, $direccion, $contactoId, $contactoNombre);
+    } catch (Throwable $e) {
+      jsonOut(['error' => $e->getMessage()], 502);
+    }
+
+    jsonOut(['contactoId' => $contactoId, 'saldo' => $saldo]);
+  }
+
+  // Lote de un escaneo completo por el que hay que seguir (ver siguientePagina
+  // en la respuesta) — el incremental normal ('actualizar') nunca necesita
+  // más de un lote, así que siempre arranca (y termina) en la página 0.
+  $pagina = isset($_GET['pagina']) ? max(0, (int)$_GET['pagina']) : 0;
+  // ~20 páginas (600 pagos) por lote: liviano de sobra para que el hosting
+  // no corte la petición a la mitad, ni en el peor de los casos.
+  $maxPaginasPorLote = ($accion === 'escaneo_completo') ? 20 : null;
 
   try {
-    $r = anticiposActualizarCache($pdo, $direccion, $accion === 'escaneo_completo');
+    $r = anticiposActualizarCache($pdo, $direccion, $accion === 'escaneo_completo', $pagina, $maxPaginasPorLote);
   } catch (Throwable $e) {
     jsonOut(['error' => $e->getMessage()], 502);
   }
 
-  jsonOut(['actualizado' => $r['encontrados'], 'fechaMasAntigua' => $r['fechaMasAntigua']]);
+  jsonOut(['actualizado' => $r['encontrados'], 'fechaMasAntigua' => $r['fechaMasAntigua'], 'siguientePagina' => $r['siguientePagina']]);
 }
 
 jsonOut(['error' => 'Método no soportado'], 405);

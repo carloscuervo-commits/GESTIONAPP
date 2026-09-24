@@ -42,6 +42,24 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-24 — fix: saldo de Anticipos desactualizado + "Escaneo completo" se colgaba/tiraba 500)
+
+Solo código y `?v=` nuevo — deploy normal. Sin cambios de base de datos (usa las tablas ya existentes de `043_anticipos.sql`/`044_anticipos_saldo_tercero.sql`).
+
+**Qué se agregó**: ver el detalle del diagnóstico en `CONTEXTO.md`. En corto: "Anticipos recibidos" mostraba saldos viejos/incorrectos (confirmado contra Alegra en vivo: varios clientes que Ginno mostraba con saldo pendiente ya estaban en $0 real) y "Escaneo completo" se quedaba varios minutos colgado hasta terminar en 500, tumbando otras peticiones de paso. Se separó la verificación de saldo por cliente (ahora la hace el navegador, uno por uno y espaciada, solo de quien lo necesita) del escaneo de pagos (ahora en lotes chicos, con progreso visible), para que ninguna petición al servidor tenga que hacer cientos de llamadas seguidas a Alegra.
+
+**Archivos modificados:**
+- `backend/lib/alegra_anticipos.php` — `alegraAnticiposEscanear()` acepta `$paginaInicio`/`$maxPaginasPorLote` (escaneo por lotes); `anticiposActualizarCache()` pasa esos parámetros, solo borra la caché en el primer lote, usa `INSERT ... ON DUPLICATE KEY UPDATE`, y el saneo automático de saldos (antes hasta 40 contactos por corrida) bajó a 5 y ahora respeta un mínimo de 12h desde la última verificación.
+- `backend/api/anticipos.php` — nueva acción `verificar_saldo` (verifica UN contacto puntual); `escaneo_completo` acepta `&pagina=N` y devuelve `siguientePagina`.
+- `assets/js/anticipos.js` (`?v=20260924b`) — verificación perezosa automática al mostrar la lista (uno por uno, cada uno que lleve +12h sin chequearse, cada 400ms); `anticiposActualizar(direccion, true)` ahora hace un bucle de lotes con progreso visible en el botón en vez de una sola petición.
+- `tareas-equipo.html` — `?v=` subido en `anticipos.js`.
+
+**Prueba manual sugerida:**
+1. Como admin, entrar a "Anticipos recibidos" — en los primeros segundos, ver si algún saldo cambia solo o alguna tarjeta desaparece (verificación perezosa corrigiendo datos viejos contra Alegra en vivo). Confirmar en particular: Conjunto Residencial Senderos del Parque, Grupo Global Importaciones, Conjunto Residencial Llanuras del Castillo y Disproquín deberían desaparecer de la lista (su saldo real en Alegra es $0).
+2. Clic en "⚙️ Escaneo completo" — el botón debe mostrar progreso ("Escaneando Alegra... (lote N)") en vez de quedarse fijo en "Consultando Alegra...", y debe terminar sin error 500 ni quedarse colgado varios minutos.
+3. Mientras el escaneo completo corre, probar que cargar otra pestaña (Tareas, por ejemplo) siga funcionando normal — ya no debería competir por los mismos recursos del servidor como antes.
+4. Confirmar que "Guardar" en la nota de un anticipo (con o sin buscador activo) sigue guardando en el contacto correcto.
+
 ## Cambios pendientes de deploy (2026-09-24 — nuevo: buscador en Cartera, Anticipos recibidos/entregados, Facturación y Transportes)
 
 Solo código y `?v=` nuevos — deploy normal.
