@@ -1,6 +1,6 @@
 // ============================================================
 // CARTERA — tablero de gestión de cobro (pestaña "💰 Cartera")
-// v20260913b
+// v20260912b
 // ============================================================
 // Los datos de facturas vencidas se consultan en vivo a Alegra
 // (alegra_cartera_resumen.php) cada vez que se abre la pestaña — ya no hay
@@ -31,13 +31,11 @@ let carteraSort = 'valor';
 let editingCarteraId = null;
 let carteraMensajeActual = null; // {asunto} del último mensaje previsualizado (el texto vive en el textarea)
 let carteraArchivadosAbierto = false;
-let _carteraAbrirAlLlegar = null; // clienteId pendiente de abrir en cuanto cargue fetchCartera()
 
 const CARTERA_COLS = [
   {id:'por-contactar', label:'Por contactar 📋'},
-  {id:'etapa1',        label:'Etapa 1 enviada 📧'},
-  {id:'etapa2',        label:'Etapa 2 enviada 💬'},
-  {id:'etapa3',        label:'Etapa 3 enviada ⚠️'},
+  {id:'llamado',       label:'Llamado 📞'},
+  {id:'correo',        label:'Correo/WhatsApp enviado 📨'},
   {id:'acuerdo',       label:'Acuerdo de pago 🤝'},
   {id:'pagado',        label:'Pagado ✅'},
 ];
@@ -47,12 +45,6 @@ const CARTERA_NIVELES = [
   {id:'firme',       label:'😐 Firme — segundo aviso'},
   {id:'prejuridico', label:'⚠️ Prejurídico — última instancia'},
 ];
-
-const CARTERA_NIVEL_A_ETAPA_LABEL = {
-  cordial:     'Etapa 1',
-  firme:       'Etapa 2',
-  prejuridico: 'Etapa 3',
-};
 
 function formatCOP(n) {
   return '$' + Number(n||0).toLocaleString('es-CO');
@@ -67,63 +59,13 @@ function _carteraHoyISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// "Días" para el recordatorio de seguimiento son días HÁBILES colombianos
-// (se saltan sábados, domingos y festivos) — reutiliza esDiaHabil() de
-// core.js, que ya calcula los festivos colombianos (fijos, Ley Emiliani y
-// móviles de Semana Santa) igual que el resto de la app.
-function _carteraFechaMasDias(dias) {
-  const d = new Date();
-  let restantes = parseInt(dias, 10) || 0;
-  while (restantes > 0) {
-    d.setDate(d.getDate() + 1);
-    if (esDiaHabil(d)) restantes--;
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-// Inversa: cuántos días hábiles hay entre hoy y una fecha futura ya guardada
-// (para mostrar el número correcto al reabrir la gestión de un cliente).
-function _carteraDiasHabilesHasta(fechaFinISO) {
-  const fin = new Date(fechaFinISO); fin.setHours(0,0,0,0);
-  const cur = new Date(); cur.setHours(0,0,0,0);
-  let dias = 0;
-  while (cur < fin) {
-    cur.setDate(cur.getDate() + 1);
-    if (esDiaHabil(cur)) dias++;
-  }
-  return dias;
-}
-
-// ── Popup de confirmación al enviar cobro ───────────────────
-// Antes de registrar cualquier envío (correo, WhatsApp o copiar texto) se
-// confirma si la tarjeta debe avanzar de etapa y en cuántos días HÁBILES
-// recordar seguir la gestión (estándar precargado, editable para ese caso
-// puntual). accionCallback(avanzar, dias) hace el envío real y el registro en
-// cartera_gestion — se dispara de forma síncrona desde el clic en
-// "Confirmar" (no desde un await previo) para no perder el gesto del
-// usuario, que window.open (WhatsApp) y el portapapeles necesitan.
-let carteraConfirmarPendiente = null;
-
-function carteraAbrirConfirmacion(accionCallback) {
-  const nivel = document.getElementById('cm-nivel').value;
-  const etapaLabel = CARTERA_NIVEL_A_ETAPA_LABEL[nivel] || 'la siguiente etapa';
-  document.getElementById('cartera-confirmar-avanzar-label').textContent =
-    `Avanzar la tarjeta a "${etapaLabel} enviada"`;
-  document.getElementById('cartera-confirmar-avanzar').checked = true;
-  document.getElementById('cartera-confirmar-dias').value =
-    document.getElementById('cm-dias-seguimiento').value || 7;
-  carteraConfirmarPendiente = accionCallback;
-  document.getElementById('cartera-confirmar-modal').classList.add('open');
-}
-
-function carteraConfirmarEnvioOk() {
-  const avanzar = document.getElementById('cartera-confirmar-avanzar').checked;
-  const dias = parseInt(document.getElementById('cartera-confirmar-dias').value, 10) || 7;
-  document.getElementById('cartera-confirmar-modal').classList.remove('open');
-  document.getElementById('cm-dias-seguimiento').value = dias; // por si después guarda a mano
-  const cb = carteraConfirmarPendiente;
-  carteraConfirmarPendiente = null;
-  if (cb) cb(avanzar, dias);
+// Actualiza el número en la pestaña "💰 Cartera" (área-tabs). Se llama desde
+// fetchCartera() cada vez que se entra o se refresca esa pestaña — Cartera
+// ya no se consulta al arrancar la app, así que el contador se queda en "0"
+// hasta que alguien la abre por primera vez en la sesión.
+function updateCarteraCount() {
+  const el = document.getElementById('cnt-cartera');
+  if (el) el.textContent = carteraClientes.length;
 }
 
 // ── Carga de datos ──────────────────────────────────────────
@@ -155,17 +97,7 @@ async function fetchCartera() {
     if (actEl) actEl.textContent = carteraActualizado || '-';
     renderCartera();
     renderCarteraArchivados();
-
-    // Si se llegó a esta pestaña desde la "Gestión de cartera por realizar"
-    // de la zona de alertas (irACarteraCliente()), abrir directo la gestión
-    // de ese cliente. Si ya no aparece entre los clientes vigentes (por
-    // ejemplo, Alegra ya no lo reporta como vencido), openCarteraModal()
-    // simplemente no hace nada — sin error.
-    if (_carteraAbrirAlLlegar) {
-      const pendienteId = _carteraAbrirAlLlegar;
-      _carteraAbrirAlLlegar = null;
-      openCarteraModal(pendienteId);
-    }
+    updateCarteraCount();
   } catch (e) {
     loadEl.innerHTML = `<div style="font-size:24px;margin-bottom:8px">⚠️</div>
       <strong>No se pudo cargar la cartera</strong><br>
@@ -176,32 +108,8 @@ async function fetchCartera() {
   }
 }
 
-// Ir directo a la pestaña Cartera y abrir la gestión de un cliente puntual
-// — usado desde la "Gestión de cartera por realizar" en la zona de alertas
-// del dashboard (tareas.js, cargarAlertasCarteraSeguimiento()).
-function irACarteraCliente(clienteId) {
-  _carteraAbrirAlLlegar = clienteId;
-  if (typeof setArea === 'function') setArea('cartera');
-}
-
 function carteraEstadoDe(clienteId) {
   return (carteraGestionMap[clienteId] && carteraGestionMap[clienteId].estado) || 'por-contactar';
-}
-
-// ── Compatibilidad con el arranque de la app ────────────────
-// app.js (iniciarApp) llama loadCartera() + updateCarteraCount() apenas
-// carga la página, para mostrar el contador en la pestaña 💰 Cartera antes
-// de que el usuario la abra. Antes leían de localStorage (síncrono); ahora
-// consultan lo mismo que fetchCartera() — solo para administradores, para
-// no disparar una consulta a Alegra (y un 403) en cada carga de un técnico.
-async function loadCartera() {
-  if (typeof currentUser === 'undefined' || !currentUser || currentUser.perfil !== 'admin') return;
-  await fetchCartera();
-}
-
-function updateCarteraCount() {
-  const cntEl = document.getElementById('cnt-cartera');
-  if (cntEl) cntEl.textContent = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) !== 'pagado').length;
 }
 
 // ── Tablero ──────────────────────────────────────────────────
@@ -244,17 +152,6 @@ function carteraCard(c) {
 function renderCartera() {
   const cntEl = document.getElementById('cnt-cartera');
   if (cntEl) cntEl.textContent = carteraClientes.filter(c => carteraEstadoDe(c.clienteId) !== 'pagado').length;
-
-  // Total general de la cartera vencida (suma de la deuda vigente de todos
-  // los clientes que Alegra sigue reportando como vencidos — los archivados,
-  // que ya pagaron, no entran aquí porque Alegra ya no los reporta).
-  const totalEl = document.getElementById('cartera-total-general');
-  if (totalEl) {
-    const totalGeneral = carteraClientes.reduce((sum, c) => sum + (Number(c.totalDeuda) || 0), 0);
-    totalEl.innerHTML = carteraClientes.length
-      ? `💰 Total cartera vencida: <strong>${formatCOP(totalGeneral)}</strong> — ${carteraClientes.length} cliente${carteraClientes.length===1?'':'s'}`
-      : '✅ No hay cartera vencida';
-  }
 
   if (!carteraClientes.length) {
     document.getElementById('cartera-kanban').innerHTML = '<div class="cartera-loading"><div style="font-size:32px;margin-bottom:8px">✅</div>No hay facturas vencidas en Alegra.</div>';
@@ -322,7 +219,7 @@ async function openCarteraModal(clienteId) {
   document.getElementById('cm-resumen').innerHTML = `
     <div style="font-size:20px;font-weight:800;color:#0f766e">${formatCOP(c.totalDeuda)}</div>
     <div style="color:var(--text-muted);font-size:12px;margin-top:3px">Fact. más antigua: ${c.fechaMasAntigua||'-'} · ${c.facturas?.length||0} factura(s)</div>
-    ${c.facturas?.map(f=>`<div style="font-size:11px;color:var(--text-muted)">${esc(f.num)}: ${formatCOP(f.balance)} — venció ${f.dueDate}</div>`).join('')||''}
+    ${c.facturas?.map(f=>`<div style="font-size:11px;color:var(--text-muted)">${esc(f.num)}: ${formatCOP(f.balance)} — vence ${f.dueDate}</div>`).join('')||''}
   `;
   document.getElementById('cm-estado').value = g.estado || 'por-contactar';
   const rSel = document.getElementById('cm-responsable');
@@ -334,23 +231,20 @@ async function openCarteraModal(clienteId) {
   document.getElementById('cm-celular').value = c.celular || '';
   document.getElementById('cm-email').value = c.email || '';
   document.getElementById('cm-nivel').value = g.plantilla_nivel || 'cordial';
-  document.getElementById('cm-nombre-contacto').value = '';
 
-  // Días HÁBILES para recordar seguir la gestión: si ya hay una fecha de
-  // seguimiento guardada, se muestran los días hábiles que faltan desde hoy;
-  // si no hay ninguna (cliente nuevo), se usa el estándar configurado.
-  // Editable para este caso puntual, tanto aquí como en el popup de
-  // confirmación al enviar.
-  let dias = 7;
-  try {
-    const cfg = await fetch(`${API_BASE}/configuracion.php`).then(r=>r.json());
-    dias = parseInt(cfg.cartera_dias_recordatorio, 10) || 7;
-  } catch(e) {}
-  if (g.fecha_proximo_seguimiento) {
-    const habiles = _carteraDiasHabilesHasta(g.fecha_proximo_seguimiento);
-    if (habiles > 0) dias = habiles;
+  // Próxima fecha de seguimiento: la guardada, o si no hay ninguna, hoy + el
+  // estándar configurado (editable para este caso puntual antes de guardar).
+  let fechaSeg = g.fecha_proximo_seguimiento || '';
+  if (!fechaSeg) {
+    let dias = 7;
+    try {
+      const cfg = await fetch(`${API_BASE}/configuracion.php`).then(r=>r.json());
+      dias = parseInt(cfg.cartera_dias_recordatorio, 10) || 7;
+    } catch(e) {}
+    const d = new Date(); d.setDate(d.getDate() + dias);
+    fechaSeg = d.toISOString().slice(0,10);
   }
-  document.getElementById('cm-dias-seguimiento').value = dias;
+  document.getElementById('cm-fecha-seguimiento').value = fechaSeg;
 
   carteraMensajeActual = null;
   document.getElementById('cm-mensaje-preview').style.display = 'none';
@@ -358,8 +252,6 @@ async function openCarteraModal(clienteId) {
 
   toggleCarteraAcuerdo(g.estado || 'por-contactar');
   document.getElementById('cm-estado').onchange = e => toggleCarteraAcuerdo(e.target.value);
-  carteraToggleNivelUI();
-  document.getElementById('cm-nivel').onchange = () => carteraToggleNivelUI();
   document.getElementById('cartera-modal').classList.add('open');
 }
 
@@ -367,17 +259,6 @@ function toggleCarteraAcuerdo(estado) {
   const show = estado==='acuerdo';
   document.getElementById('cm-g-fecha-acuerdo').style.display = show?'flex':'none';
   document.getElementById('cm-g-monto-acuerdo').style.display = show?'flex':'none';
-}
-
-// Etapa 2 (nivel 'firme') es deliberadamente corta y va por WhatsApp o
-// llamada, no por correo — se pide el nombre del contacto (para el saludo)
-// y se oculta "Enviar por correo" para que no se mande por ahí por error.
-function carteraToggleNivelUI() {
-  const esFirme = document.getElementById('cm-nivel').value === 'firme';
-  const gContacto = document.getElementById('cm-g-nombre-contacto');
-  if (gContacto) gContacto.style.display = esFirme ? 'flex' : 'none';
-  const btnCorreo = document.getElementById('cm-btn-correo');
-  if (btnCorreo) btnCorreo.style.display = esFirme ? 'none' : '';
 }
 
 function closeCarteraModal() {
@@ -419,7 +300,7 @@ async function saveCarteraItem() {
     fechaAcuerdo: document.getElementById('cm-fecha-acuerdo').value,
     montoAcuerdo: document.getElementById('cm-monto-acuerdo').value,
     notas: document.getElementById('cm-notas').value.trim(),
-    fechaProximoSeguimiento: _carteraFechaMasDias(document.getElementById('cm-dias-seguimiento').value || 7),
+    fechaProximoSeguimiento: document.getElementById('cm-fecha-seguimiento').value,
   };
   try {
     const res = await fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
@@ -446,10 +327,9 @@ async function carteraPrevisualizarMensaje() {
   const orig = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const nombreContacto = (document.getElementById('cm-nombre-contacto').value || '').trim();
     const res = await fetch(`${API_BASE}/cartera_mensaje.php`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ clienteNombre: c.clienteNombre, facturas: c.facturas, nivel, clienteAlegraId: editingCarteraId, nombreContacto }),
+      body: JSON.stringify({ clienteNombre: c.clienteNombre, facturas: c.facturas, nivel }),
     });
     const data = await res.json();
     if (data.error) { alert('⚠️ ' + data.error); return; }
@@ -463,25 +343,14 @@ async function carteraPrevisualizarMensaje() {
   }
 }
 
-function carteraEnviarCorreo() {
+async function carteraEnviarCorreo() {
   const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
   if (!c || !carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
-  if (document.getElementById('cm-nivel').value === 'firme') {
-    alert('La Etapa 2 es para WhatsApp o llamada, no se envía por correo.');
-    return;
-  }
   const destinatarios = (document.getElementById('cm-email').value || '').trim();
   if (!destinatarios) { alert('Falta el correo del cliente.'); return; }
-
-  carteraAbrirConfirmacion((avanzar, dias) => {
-    _carteraEnviarCorreoConfirmado(c, destinatarios, avanzar, dias);
-  });
-}
-
-async function _carteraEnviarCorreoConfirmado(c, destinatarios, avanzar, dias) {
   const cuerpoTexto = document.getElementById('cm-mensaje-texto').value;
   const nivel = document.getElementById('cm-nivel').value;
-  const fechaProximoSeguimiento = _carteraFechaMasDias(dias);
+  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
 
   const btn = document.getElementById('cm-btn-correo');
   const orig = btn.textContent;
@@ -491,7 +360,7 @@ async function _carteraEnviarCorreoConfirmado(c, destinatarios, avanzar, dias) {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         clienteAlegraId: editingCarteraId, clienteNombre: c.clienteNombre,
-        destinatarios, asunto: carteraMensajeActual.asunto, cuerpoTexto, nivel, avanzar, fechaProximoSeguimiento,
+        destinatarios, asunto: carteraMensajeActual.asunto, cuerpoTexto, nivel, fechaProximoSeguimiento,
       }),
     });
     const data = await res.json();
@@ -513,84 +382,36 @@ async function _carteraEnviarCorreoConfirmado(c, destinatarios, avanzar, dias) {
   }
 }
 
-// Copiar el texto del mensaje al portapapeles — para cuando Carlos prefiere
-// pegarlo a mano (SMS, otro correo, etc.) en vez de usar los botones de
-// envío directo. Cuenta como "mensaje enviado" para todos los efectos: pasa
-// por el mismo popup de confirmación (avanzar etapa + días) que correo/WhatsApp.
-function carteraCopiarTexto() {
-  const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
-  if (!carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
-
-  carteraAbrirConfirmacion(async (avanzar, dias) => {
-    const texto = document.getElementById('cm-mensaje-texto').value;
-    try {
-      await navigator.clipboard.writeText(texto);
-    } catch (e) {
-      alert('No se pudo copiar el texto al portapapeles.');
-      return;
-    }
-    const btn = document.getElementById('cm-btn-copiar');
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = '✅ Copiado';
-      setTimeout(() => { btn.textContent = orig; }, 1500);
-    }
-
-    const nivel = document.getElementById('cm-nivel').value;
-    const fechaProximoSeguimiento = _carteraFechaMasDias(dias);
-    const body = {
-      clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
-      plantillaNivel: nivel,
-      fechaUltimoContacto: _carteraHoyISO(),
-      fechaProximoSeguimiento,
-    };
-    if (avanzar) body.nivelEnviado = nivel; // el backend avanza el estado a la etapa de este nivel, sin retroceder
-    fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
-      method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body),
-    }).then(r=>r.json()).then(g=>{
-      carteraGestionMap[editingCarteraId] = g;
-      if (c) _carteraGuardarContactoSiCambio(c);
-      renderCartera();
-    }).catch(()=>{});
-  });
-}
-
 function carteraEnviarWhatsApp() {
   const c = carteraClientes.find(x=>x.clienteId===editingCarteraId);
   if (!carteraMensajeActual) { alert('Primero genera la vista previa del mensaje.'); return; }
   const celularRaw = (document.getElementById('cm-celular').value || '').trim().replace(/[^\d+]/g,'');
   if (!celularRaw) { alert('Falta el celular del cliente.'); return; }
+  const texto = document.getElementById('cm-mensaje-texto').value;
 
-  carteraAbrirConfirmacion((avanzar, dias) => {
-    const texto = document.getElementById('cm-mensaje-texto').value;
+  // Enlace wa.me: requiere el número con indicativo de país, sin "+". Para
+  // celulares colombianos de 10 dígitos se antepone 57; si ya trae
+  // indicativo (más de 10 dígitos) se respeta tal cual.
+  let numero = celularRaw.replace(/^\+/, '');
+  if (numero.length <= 10) numero = '57' + numero.replace(/^0+/, '');
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
 
-    // Enlace wa.me: requiere el número con indicativo de país, sin "+". Para
-    // celulares colombianos de 10 dígitos se antepone 57; si ya trae
-    // indicativo (más de 10 dígitos) se respeta tal cual. Se abre aquí, ya
-    // dentro del clic en "Confirmar" del popup, para que el navegador no lo
-    // bloquee por no venir de un gesto directo del usuario.
-    let numero = celularRaw.replace(/^\+/, '');
-    if (numero.length <= 10) numero = '57' + numero.replace(/^0+/, '');
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
-
-    const nivel = document.getElementById('cm-nivel').value;
-    const fechaProximoSeguimiento = _carteraFechaMasDias(dias);
-    const body = {
+  const nivel = document.getElementById('cm-nivel').value;
+  const fechaProximoSeguimiento = document.getElementById('cm-fecha-seguimiento').value;
+  const estadoActual = carteraGestionMap[editingCarteraId]?.estado;
+  fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
       clienteNombre: c ? c.clienteNombre : document.getElementById('cm-titulo').textContent,
+      estado: (estadoActual && estadoActual !== 'por-contactar') ? estadoActual : 'correo',
       plantillaNivel: nivel,
       fechaUltimoContacto: _carteraHoyISO(),
       fechaProximoSeguimiento,
-    };
-    if (avanzar) body.nivelEnviado = nivel; // el backend avanza el estado a la etapa de este nivel, sin retroceder
-    fetch(`${API_BASE}/cartera_gestion.php?cliente_alegra_id=${encodeURIComponent(editingCarteraId)}`, {
-      method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body),
-    }).then(r=>r.json()).then(g=>{
-      carteraGestionMap[editingCarteraId] = g;
-      if (c) _carteraGuardarContactoSiCambio(c);
-      renderCartera();
-    }).catch(()=>{});
-  });
+    }),
+  }).then(r=>r.json()).then(g=>{
+    carteraGestionMap[editingCarteraId] = g;
+    if (c) _carteraGuardarContactoSiCambio(c);
+    renderCartera();
+  }).catch(()=>{});
 }
 // ===================== FIN CARTERA =====================

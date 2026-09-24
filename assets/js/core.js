@@ -1,5 +1,21 @@
 const STORAGE_KEY = 'cowork_tareas_v4';
 
+// ===================== PANTALLA DE CARGA INICIAL =====================
+// El div #cargando-inicial (tareas-equipo.html) tapa la pantalla mientras
+// arranca la app, para que nunca se vea vacía ni un instante — ni en la
+// carga normal, ni si algún paso de iniciarApp() llegara a fallar.
+// Se oculta con el login (mostrarLogin() en auth.js) y se vuelve a mostrar
+// justo antes de iniciarApp() (intentarLogin() en auth.js, y aquí abajo en
+// iniciarApp() por si acaso).
+function mostrarCargandoInicial() {
+  const el = document.getElementById('cargando-inicial');
+  if (el) el.style.display = 'flex';
+}
+function ocultarCargandoInicial() {
+  const el = document.getElementById('cargando-inicial');
+  if (el) el.style.display = 'none';
+}
+
 // ===================== CONEXIÓN A BACKEND (cPanel) =====================
 // Si está vacío, la app funciona en modo local (localStorage), igual que hoy.
 // Cuando se publique en cPanel, poner la URL del backend, ej:

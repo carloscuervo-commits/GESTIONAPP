@@ -4,6 +4,36 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-24 — fix crítico: pantalla vacía al abrir/recargar Ginno + Cartera ya no se consulta al arrancar + pantalla de carga)
+
+### fix crítico: `loadCartera is not defined` volvía a romper el arranque completo de la app
+
+Carlos reportó que al abrir o recargar Ginno todo aparecía vacío (header y pestañas se veían, pero el tablero nunca se pintaba) hasta que hacía clic manualmente en "Kanban" o "Dashboard". La causa: `iniciarApp()` (en `app.js`) llamaba a `loadCartera()` y `updateCarteraCount()`, dos funciones que ya no existen — el módulo de Cartera se reescribió hace unas semanas para consultar Alegra en vivo y quedó como `fetchCartera()`, pero `app.js` nunca se actualizó. Esto ya había quedado documentado como bug conocido a mediados de septiembre (`loadCartera is not defined`), pero el arreglo de ese momento no llegó a este archivo — el bug seguía presente.
+
+Al llamar una función que no existe, el navegador lanza un error de JavaScript que nadie captura, y como esa llamada ocurre a mitad de `iniciarApp()`, todo lo que viene después se cancela: pintar el tablero, aplicar permisos por perfil, calcular contadores de pestañas, activar el chequeo de alarmas, etc. Por eso la pantalla se quedaba en blanco — no era un tema de "falta un mensaje de cargando", la app literalmente se caía a mitad de camino.
+
+**Fix + cambio de comportamiento pedido por Carlos**: la pestaña "💰 Cartera" ya hacía su propia consulta a Alegra cada vez que se entra a ella (`setArea('cartera')` → `fetchCartera()`), así que la llamada rota en el arranque sobraba por completo. Se eliminó de `iniciarApp()` — Cartera ahora **solo** se consulta cuando alguien abre esa pestaña (admin, los técnicos no la ven), nunca al iniciar la app. El contador de la pestaña (`cnt-cartera`) se actualiza dentro de `fetchCartera()` con una función nueva `updateCarteraCount()`, así que se queda en 0 hasta que alguien entra por primera vez en la sesión.
+
+**Pantalla de carga**: además, se agregó un overlay "⏳ Cargando información de Ginno..." que cubre toda la pantalla desde que se oculta el login (o al recargar con sesión activa) hasta que `iniciarApp()` termina de traer todo y pinta la vista correcta. `iniciarApp()` quedó envuelto en `try/finally` para que ese overlay se oculte siempre, incluso si algún paso futuro llegara a fallar — así nunca más se repite una pantalla en blanco "atascada".
+
+**Archivos**: `assets/js/core.js` (`?v=20260924a` — funciones `mostrarCargandoInicial()`/`ocultarCargandoInicial()`) · `assets/js/auth.js` (`?v=20260924a` — oculta el overlay en `mostrarLogin()`, lo vuelve a mostrar en `intentarLogin()` antes de `iniciarApp()`) · `assets/js/app.js` (`?v=20260924a` — `iniciarApp()` ya no llama a Cartera, queda en `try/finally`) · `assets/js/cartera.js` (`?v=20260924a` — nueva `updateCarteraCount()`, llamada desde `fetchCartera()`) · `tareas-equipo.html` (nuevo `<div id="cargando-inicial">`, `?v=` subido en los 4 archivos de arriba).
+
+**Nota**: queda pendiente, si Carlos lo pide más adelante, que los técnicos no descarguen TODAS las tareas de la empresa al arrancar (`load()` trae todo sin filtrar por usuario) — eso requeriría cambiar el backend para filtrar por técnico, un cambio más grande que se dejó fuera de esta tanda.
+
+### fix: se ocultaba "⚠️ Cliente con cartera vencida" a los técnicos en el resto de la app, pero no dentro del modal de editar tarjeta
+
+La pestaña y el widget de Cartera ya eran solo para admin, pero el aviso de cartera vencida dentro del modal de editar/crear tarjeta (`_verificarCarteraVencidaCliente()` en `tareas.js`) seguía apareciéndole a los técnicos. Se agregó el mismo filtro por perfil que ya usa el resto de la app. De paso, se ocultó el desplegable "💰 Finanzas" completo para técnicos (quedaba vacío una vez ocultas sus opciones, y abría un menú sin nada adentro).
+
+**Archivos**: `assets/js/tareas.js` (`?v=20260919a`) · `assets/js/auth.js` (`?v=20260919a`).
+
+### fix: "Buscar en Alegra" (marcar factura) sí encontraba resultados, pero quedaban tapados por un espacio en blanco
+
+Carlos reportó que "Buscar en Alegra" (para marcar una factura como facturada) no funcionaba — al probarlo en vivo contra su cuenta de Alegra, la búsqueda sí encontraba las facturas correctamente. El problema real era visual: el contenedor de resultados (`#facturas-alegra-lista`) tenía un `position:relative` puesto directamente en línea, que pisaba el `position:absolute` que la clase `.cliente-suggestions` necesita para flotar sobre el contenido sin empujar el layout. Como resultado, los resultados sí aparecían, pero empujados fuera de la vista — había que hacer scroll para verlos.
+
+**Fix**: se movió el `position:relative` (que sí hace falta, pero en el contenedor padre `#grupo-factura`) y se quitó del propio `#facturas-alegra-lista`, replicando el mismo patrón que ya usan los demás buscadores de cliente en la app.
+
+**Archivos**: `tareas-equipo.html`.
+
 ## Estado actual (última actualización: 2026-09-18 — nuevo: al finalizar visita con pausa activa, se pregunta la hora real de cierre)
 
 ### mejora: pop de "¿a qué hora terminaste la pausa?" al darle "Finalizar visita"

@@ -42,6 +42,54 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-24 — fix crítico: pantalla vacía al abrir/recargar Ginno + Cartera ya no se consulta al arrancar + pantalla de carga)
+
+Solo código y `?v=` nuevos — deploy normal. **Este es el más importante de los tres pendientes**: arregla que la app se quedara en blanco al abrir/recargar.
+
+**Qué se arregló**: `iniciarApp()` llamaba a `loadCartera()`/`updateCarteraCount()`, dos funciones que ya no existían (quedó `fetchCartera()` desde la reescritura de Cartera) — eso lanzaba un error de JavaScript que cancelaba silenciosamente el resto del arranque (nunca se pintaba el tablero) hasta que se hacía clic manual en "Kanban"/"Dashboard". Se quitó esa llamada rota del arranque; Cartera ahora solo se consulta cuando se entra a esa pestaña (ya lo hacía sola vía `setArea('cartera')`), nunca al iniciar. Además se agregó una pantalla "⏳ Cargando información de Ginno..." que cubre la app mientras arranca, para que nunca más se vea vacía ni un instante.
+
+**Archivos modificados:**
+- `assets/js/core.js` (`?v=20260924a`) — nuevas `mostrarCargandoInicial()`/`ocultarCargandoInicial()`.
+- `assets/js/auth.js` (`?v=20260924a`) — oculta la pantalla de carga en `mostrarLogin()`, la muestra de nuevo en `intentarLogin()` antes de `iniciarApp()`.
+- `assets/js/app.js` (`?v=20260924a`) — `iniciarApp()` ya no llama a Cartera; queda envuelto en `try/finally` para ocultar siempre la pantalla de carga al terminar.
+- `assets/js/cartera.js` (`?v=20260924a`) — nueva `updateCarteraCount()` llamada desde `fetchCartera()`.
+- `tareas-equipo.html` — nuevo `<div id="cargando-inicial">`; `?v=` subido en `core.js`, `auth.js`, `app.js`, `cartera.js`.
+
+**Prueba manual sugerida:**
+1. Recargar Ginno (con sesión activa) → debe verse brevemente "⏳ Cargando información de Ginno..." y luego el tablero, sin ningún instante de pantalla vacía.
+2. Cerrar sesión y volver a entrar con PIN → mismo comportamiento: login → carga → tablero.
+3. Abrir la consola del navegador (F12) durante ambos pasos anteriores → no debe aparecer ningún error en rojo.
+4. Como admin, entrar a la pestaña "💰 Cartera" → debe consultar Alegra igual que siempre y el contador de la pestaña debe quedar correcto.
+5. Como técnico, confirmar que el arranque es normal y que no ve la pestaña Cartera (ya estaba oculta para ellos).
+
+## Cambios pendientes de deploy (2026-09-19 — fix: aviso de cartera vencida en el modal de tarjeta + menú Finanzas, ocultos a técnicos)
+
+Solo código y `?v=` nuevos — deploy normal.
+
+**Qué se arregló**: el aviso "⚠️ Cliente con cartera vencida" dentro del modal de editar/crear tarjeta seguía viéndolo un técnico, aunque la pestaña y el widget de Cartera ya eran solo para admin. Se agregó el mismo filtro por perfil. También se oculta el desplegable "💰 Finanzas" completo para técnicos (les quedaba vacío).
+
+**Archivos modificados:**
+- `assets/js/tareas.js` (`?v=20260919a`) — `_verificarCarteraVencidaCliente()` ahora corta de una vez si el perfil no es admin.
+- `assets/js/auth.js` (`?v=20260919a`) — oculta el botón del desplegable "💰 Finanzas" para técnicos en `aplicarPermisosUI()`.
+
+**Prueba manual sugerida:**
+1. Con un usuario técnico, abrir/editar una tarjeta de un cliente con cartera vencida en Alegra → no debe aparecer el aviso "⚠️ Cliente con cartera vencida".
+2. Confirmar que el botón "💰 Finanzas" no aparece en la barra de pestañas para técnicos.
+3. Repetir ambas pruebas con un usuario admin → debe verse todo igual que antes.
+
+## Cambios pendientes de deploy (2026-09-19 — fix: "Buscar en Alegra" quedaba tapado por un espacio en blanco)
+
+Solo HTML/CSS — deploy normal, no requiere bump de `?v=` (el cambio es en `tareas-equipo.html`, que no se cachea como `assets/js/*`).
+
+**Qué se arregló**: "Buscar en Alegra" (para marcar una factura como facturada) sí encontraba resultados, pero un `position:relative` puesto en línea en `#facturas-alegra-lista` pisaba el `position:absolute` de `.cliente-suggestions`, empujando los resultados fuera de la vista (había que hacer scroll para verlos). Se movió el `position:relative` al contenedor padre `#grupo-factura` y se quitó del listado, igual que en los demás buscadores de cliente de la app.
+
+**Archivos modificados:**
+- `tareas-equipo.html` — estilos en línea de `#grupo-factura` y `#facturas-alegra-lista`.
+
+**Prueba manual sugerida:**
+1. En una tarjeta IT/IF en "Por facturar", clic en "🧾 Registrar factura" → "Buscar en Alegra".
+2. Escribir el nombre de un cliente con facturas en Alegra → los resultados deben aparecer justo debajo del campo de búsqueda, sin necesidad de hacer scroll.
+
 ## Cambios pendientes de deploy (2026-09-18 — nuevo: al finalizar visita con pausa activa, se pregunta la hora real de cierre)
 
 Solo código y un `?v=` nuevo — deploy normal.

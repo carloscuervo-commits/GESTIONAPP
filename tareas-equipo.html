@@ -36,6 +36,17 @@
   </div>
 </div>
 
+<!-- Pantalla de carga inicial: tapa el arranque de la app (header, pestañas,
+     tablero) hasta que iniciarApp() termina de traer los datos. Visible por
+     defecto para que nunca se vea la pantalla vacía ni un instante; la
+     ocultan/muestran mostrarLogin()/iniciarApp() (ver core.js/auth.js/app.js). -->
+<div id="cargando-inicial" style="position:fixed;inset:0;background:var(--bg);z-index:490;display:flex;align-items:center;justify-content:center;text-align:center">
+  <div>
+    <div style="font-size:32px;margin-bottom:10px">⏳</div>
+    <div style="font-weight:600;color:var(--text-muted)">Cargando información de Ginno...</div>
+  </div>
+</div>
+
 <div class="header">
   <div style="display:flex;align-items:center;gap:12px">
     <div class="logo">
@@ -1061,10 +1072,10 @@
 </div>
 
 
-<script src="assets/js/core.js?v=20260909a"></script>
-<script src="assets/js/auth.js?v=20260919a"></script>
+<script src="assets/js/core.js?v=20260924a"></script>
+<script src="assets/js/auth.js?v=20260924a"></script>
 <script src="assets/js/tareas.js?v=20260919a"></script>
-<script src="assets/js/cartera.js?v=20260913b"></script>
+<script src="assets/js/cartera.js?v=20260924a"></script>
 <script src="assets/js/anticipos.js?v=20260914d"></script>
 <script src="assets/js/facturacion.js?v=20260903a"></script>
 <script src="assets/js/reportes.js?v=20260918b"></script>
@@ -1081,6 +1092,6 @@
 <script src="assets/js/bitacora.js?v=20260807b"></script>
 <script src="assets/js/configuracion.js?v=20260917b"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
-<script src="assets/js/app.js?v=20260909a"></script>
+<script src="assets/js/app.js?v=20260924a"></script>
 </body>
 </html>

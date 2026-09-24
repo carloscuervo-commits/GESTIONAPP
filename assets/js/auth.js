@@ -54,6 +54,9 @@ function cerrarSesion() {
 
 // --------------- Pantalla de login ---------------
 async function mostrarLogin() {
+  // No hay sesión (o no es válida) — se muestra el login y se tapa la
+  // pantalla de carga, que hasta ahora cubría el arranque por defecto.
+  ocultarCargandoInicial();
   document.getElementById('login-step-pin').style.display = 'none';
   document.getElementById('login-step-usuario').style.display = 'block';
   document.getElementById('login-overlay').classList.add('open');
@@ -149,6 +152,7 @@ async function intentarLogin() {
     localStorage.setItem('sesion_usuario_cache', JSON.stringify(data.usuario));
     currentUser = data.usuario;
     ocultarLogin();
+    mostrarCargandoInicial();
     await iniciarApp();
   } catch (e) {
     console.error(e);

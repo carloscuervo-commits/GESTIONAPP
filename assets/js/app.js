@@ -69,45 +69,54 @@ function ajustarOffsetMenu(){
 window.addEventListener('resize', ajustarOffsetMenu);
 
 async function iniciarApp(){
-  ajustarOffsetMenu();
-  // Limpiar filtros que el navegador pudo haber restaurado (bfcache / session restore)
-  const searchEl = document.getElementById('search');
-  if (searchEl) searchEl.value = '';
-  const estadoEl = document.getElementById('f-estado');
-  if (estadoEl) estadoEl.value = '';
-  const respEl = document.getElementById('f-responsable');
-  if (respEl) respEl.value = '';
-
-  await loadTeam(); // carga equipo desde BD antes de renderizar tareas
-  await load();
-  loadCartera();
-  updateCarteraCount();
-  migrarSeedLocal();
-  await cargarVisitasActivas();
-  if (typeof revisarVisitasEnCursoAntiguas === 'function') revisarVisitasEnCursoAntiguas();
-
-  // Ventana abierta desde otra vista (ej. bitácora) con una tarjeta específica
-  // a mostrar, ej. tareas-equipo.html?abrir_tarea=ID&area=if
+  // Se muestra desde el HTML/mostrarLogin() por defecto — la ocultamos solo
+  // al terminar (en el finally), así nunca se ve la pantalla vacía mientras
+  // carga, ni aunque algún paso de abajo falle inesperadamente.
+  mostrarCargandoInicial();
   try {
-    const params = new URLSearchParams(location.search);
-    const abrirTareaId = params.get('abrir_tarea');
-    if (abrirTareaId) {
-      const areaParam = params.get('area');
-      if (areaParam && typeof setArea === 'function') setArea(areaParam);
-      if (typeof openModal === 'function') openModal(abrirTareaId);
-      // Limpiar el parámetro de la URL para que un refresh no reabra el modal
-      history.replaceState(null, '', location.pathname);
-    }
-  } catch (e) { console.error('No se pudo abrir la tarjeta solicitada', e); }
+    ajustarOffsetMenu();
+    // Limpiar filtros que el navegador pudo haber restaurado (bfcache / session restore)
+    const searchEl = document.getElementById('search');
+    if (searchEl) searchEl.value = '';
+    const estadoEl = document.getElementById('f-estado');
+    if (estadoEl) estadoEl.value = '';
+    const respEl = document.getElementById('f-responsable');
+    if (respEl) respEl.value = '';
 
-  aplicarPermisosUI();
-  iniciarAlarmaChecker();
-  iniciarAutoSync();
-  setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
-  // Iniciar push después de autenticar (fire-and-forget)
-  if (typeof iniciarPush === 'function') iniciarPush();
-  // Iniciar soporte offline (IndexedDB + banner + sync listener)
-  if (typeof offlineInit === 'function') offlineInit();
+    await loadTeam(); // carga equipo desde BD antes de renderizar tareas
+    await load();
+    // Nota: Cartera (fetchCartera) NO se carga aquí — es exclusiva de admin
+    // y solo se consulta cuando se entra a esa pestaña (ver setArea() en
+    // tareas.js), para no pedirle nada a Alegra en cada arranque de la app.
+    migrarSeedLocal();
+    await cargarVisitasActivas();
+    if (typeof revisarVisitasEnCursoAntiguas === 'function') revisarVisitasEnCursoAntiguas();
+
+    // Ventana abierta desde otra vista (ej. bitácora) con una tarjeta específica
+    // a mostrar, ej. tareas-equipo.html?abrir_tarea=ID&area=if
+    try {
+      const params = new URLSearchParams(location.search);
+      const abrirTareaId = params.get('abrir_tarea');
+      if (abrirTareaId) {
+        const areaParam = params.get('area');
+        if (areaParam && typeof setArea === 'function') setArea(areaParam);
+        if (typeof openModal === 'function') openModal(abrirTareaId);
+        // Limpiar el parámetro de la URL para que un refresh no reabra el modal
+        history.replaceState(null, '', location.pathname);
+      }
+    } catch (e) { console.error('No se pudo abrir la tarjeta solicitada', e); }
+
+    aplicarPermisosUI();
+    iniciarAlarmaChecker();
+    iniciarAutoSync();
+    setView(currentUser && currentUser.perfil === 'tecnico' ? 'kanban' : 'dashboard');
+    // Iniciar push después de autenticar (fire-and-forget)
+    if (typeof iniciarPush === 'function') iniciarPush();
+    // Iniciar soporte offline (IndexedDB + banner + sync listener)
+    if (typeof offlineInit === 'function') offlineInit();
+  } finally {
+    ocultarCargandoInicial();
+  }
 }
 
 // pageshow dispara tanto en carga normal como al restaurar desde bfcache.
