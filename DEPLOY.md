@@ -42,6 +42,24 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-24 — cambio de arquitectura: se desactiva la verificación automática de saldo de Anticipos)
+
+Solo código y `?v=` nuevo — deploy normal. Sin cambios de base de datos (usa las tablas ya existentes).
+
+**Qué se quitó**: el intento anterior de corregir el saldo de Anticipos (verificación perezosa + saneo por lotes, ver sección de abajo) resultó no arreglar el dato — se encontró que el cálculo (`_aaTotalAplicadoContacto()`) es fundamentalmente incapaz de detectar anticipos aplicados con el botón nativo "Aplicar anticipo" de Alegra (solo ve ajustes contables manuales). Detalle completo en `CONTEXTO.md`. Carlos decidió que, mientras no haya una forma confiable de calcularlo desde Ginno, la tabla `anticipos_saldo_tercero` la mantenga Claude a mano (vía SQL que le pasa a Carlos, a pedido de Carlos en el chat) — así que se quitó todo el código que intentaba calcularlo solo.
+
+**Archivos modificados:**
+- `backend/lib/alegra_anticipos.php` — se quitó el lote de saneo automático embebido en `anticiposActualizarCache()` (afecta también al cron nocturno). El escaneo de pagos nuevos sigue igual.
+- `backend/api/anticipos.php` — se quitó la acción `verificar_saldo`.
+- `assets/js/anticipos.js` (`?v=20260924c`) — se quitó la verificación perezosa automática al abrir la pestaña.
+- `tareas-equipo.html` — `?v=` subido en `anticipos.js`.
+- `ANTICIPOS_VERIFICACION.md` (nuevo, raíz del proyecto) — no se despliega (no lo lee el servidor), es el runbook que usa Claude; se sube a GitHub igual para que quede versionado con el resto.
+
+**Prueba manual sugerida:**
+1. Abrir "Anticipos recibidos" — debe cargar y mostrarse igual que antes (mismos contactos, mismos saldos guardados en `anticipos_saldo_tercero`), sin que nada cambie solo en los primeros segundos (la verificación automática ya no corre).
+2. Clic en "🔄 Actualizar ahora" y en "⚙️ Escaneo completo" — deben seguir funcionando normal (descubren pagos nuevos), sin error 500 ni cuelgue.
+3. Después del deploy, pedirle a Claude (en el chat) que corra el procedimiento de `ANTICIPOS_VERIFICACION.md` para corregir los 4 casos ya identificados (Senderos del Parque, Grupo Global, Llanuras del Castillo, Disproquín → los 4 en $0 real) — eso es lo que finalmente hace desaparecer esas tarjetas de la lista, no el deploy en sí.
+
 ## Cambios pendientes de deploy (2026-09-24 — fix: saldo de Anticipos desactualizado + "Escaneo completo" se colgaba/tiraba 500)
 
 Solo código y `?v=` nuevo — deploy normal. Sin cambios de base de datos (usa las tablas ya existentes de `043_anticipos.sql`/`044_anticipos_saldo_tercero.sql`).

@@ -168,9 +168,16 @@ function renderAnticipos(direccion) {
     </div>`;
   }).join('');
 
-  // Dispara (sin esperar) la verificación perezosa de los que se están
-  // mostrando y llevan rato sin chequearse contra Alegra.
-  _anticiposVerificarPendientes(direccion, items);
+  // NOTA (2026-09-24): la verificación automática perezosa (llamar aquí a
+  // _anticiposVerificarPendientes) se DESACTIVÓ — se comprobó que el cálculo
+  // que hace el backend (_aaTotalAplicadoContacto en alegra_anticipos.php,
+  // vía /api/v1/journals) no detecta los anticipos que se aplican con el
+  // botón nativo "Aplicar anticipo" de Alegra, solo los ajustes manuales —
+  // así que podía quedarse verificando en falso para siempre sin corregir
+  // el dato. Mientras no haya una forma confiable de calcular esto desde el
+  // backend, el saldo real de anticipos_saldo_tercero lo mantiene Carlos
+  // pidiéndole a Claude que lo actualice (ver ANTICIPOS_VERIFICACION.md en
+  // la raíz del proyecto) — Ginno solo muestra lo que hay en esa tabla.
 }
 
 // Verifica, uno por uno y espaciados, el saldo real en Alegra de los

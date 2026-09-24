@@ -4,6 +4,25 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-24 — cambio de arquitectura: Ginno deja de verificar solo el saldo de Anticipos contra Alegra; ahora lo mantiene Claude a mano)
+
+### cambio de arquitectura: verificación automática de saldo de Anticipos DESACTIVADA — la mantiene Claude, a pedido de Carlos
+
+El fix anterior (mismo día, ver sección de abajo) agregó verificación perezosa por contacto + saneo por lotes, pensando que el problema era solo de *cuándo* se volvía a preguntar el saldo a Alegra. Carlos hizo deploy, confirmó (con captura del Network tab) que el JS nuevo sí estaba en producción, y el dato seguía sin corregirse. Eso obligó a investigar más a fondo, y se encontró el problema real: **`_aaTotalAplicadoContacto()` (la función que calcula cuánto de un anticipo ya se aplicó) solo detecta anticipos aplicados con un AJUSTE CONTABLE MANUAL en Alegra** (`GET /journals?client_id=X`), porque así fue como se dedujo el mecanismo originalmente (caso Disproquín, ver sección 2026-09-14 más abajo). Pero Alegra también permite aplicar un anticipo con el botón nativo **"Aplicar anticipo"** desde la pantalla de la factura, y ESE mecanismo no genera el mismo tipo de journal — la consulta no lo ve. Se confirmó con un caso real: Grupo Global Importaciones tenía en Ginno $138.040 "pendientes"; en Alegra el anticipo ya estaba aplicado (real $0), pero por el botón nativo, no por ajuste manual — por eso `_aaTotalAplicadoContacto()` seguía calculando saldo pendiente indefinidamente, sin importar cuántas veces se le preguntara.
+
+Se investigó (vía Alegra MCP y documentación pública de la API) si existe un endpoint que replique desde PHP el cálculo correcto — el mismo que sí da bien el reporte "Balance de comprobación por tercero" (`reports_get_third_party_trial_balance`, que Claude sí puede consultar). No se encontró uno confirmado dentro de un esfuerzo razonable de investigación.
+
+**Decisión de Carlos**: en vez de seguir intentando arreglar el cálculo automático desde Ginno, Claude pasa a ser la fuente de la tabla `anticipos_saldo_tercero` — la actualiza a mano (con su propio acceso a Alegra vía MCP, que sí llega al dato correcto) cada vez que Carlos se lo pide en el chat, dándole el `INSERT ... ON DUPLICATE KEY UPDATE` listo para correr (nunca acceso directo a la base de datos — regla de la casa). Ginno deja de intentarlo solo:
+
+- **`assets/js/anticipos.js`** (`?v=20260924c`): se quitó la llamada a `_anticiposVerificarPendientes()` al final de `renderAnticipos()` — ya no verifica sola al abrir la pestaña. Las funciones (`_anticiposSaldoVencido()`, `_anticiposVerificarPendientes()`, etc.) se dejaron en el archivo por si sirven más adelante, solo no se llaman.
+- **`backend/lib/alegra_anticipos.php`**: se quitó el lote de saneo automático embebido en `anticiposActualizarCache()` (el que corría también desde el cron nocturno). `anticiposActualizarCache()` de aquí en adelante SOLO descubre anticipos nuevos (pagos) — nunca recalcula si ya se aplicaron. `anticiposActualizarSaldoContacto()` y `_aaTotalAplicadoContacto()` se dejaron definidas (sin usar) por si en el futuro se resuelve el cálculo confiable.
+- **`backend/api/anticipos.php`**: se quitó la acción `verificar_saldo` (ya no tiene sentido exponerla si nada la llama).
+- **Nuevo archivo `ANTICIPOS_VERIFICACION.md`** (raíz del proyecto): runbook con el procedimiento exacto que Claude debe seguir cada vez que Carlos pide actualizar anticipos — de dónde saca la lista de contactos pendientes, cómo consulta el saldo real en Alegra, y el formato del SQL que le entrega a Carlos. Pensado para que Carlos no tenga que reexplicarlo cada vez.
+
+**Qué NO cambió**: el escaneo de pagos nuevos (`accion=actualizar`/`escaneo_completo`, botones "🔄 Actualizar ahora"/"⚙️ Escaneo completo", cron nocturno) sigue funcionando igual que en el fix anterior — por lotes, sin riesgo de 500. Eso sigue siendo 100% automático; lo único que pasó a ser manual (a pedido de Carlos) es el cálculo de cuánto de esos anticipos ya se aplicó.
+
+**Archivos**: `backend/lib/alegra_anticipos.php` · `backend/api/anticipos.php` · `assets/js/anticipos.js` (`?v=20260924c`) · `tareas-equipo.html` (`?v=` subido) · `ANTICIPOS_VERIFICACION.md` (nuevo).
+
 ## Estado actual (última actualización: 2026-09-24 — fix: Anticipos recibidos/entregados mostraba saldos desactualizados y "Escaneo completo" se colgaba/tiraba 500)
 
 ### fix: saldo de anticipos desactualizado (nunca se re-verificaba a tiempo) + "Escaneo completo" colgado varios minutos y terminando en 500
@@ -23,7 +42,7 @@ Carlos reportó que "Anticipos recibidos" mostraba datos errados y que el botón
 
 **Con esto, el dato desactualizado que vio Carlos se corrige solo, sin tocar la base de datos a mano**: en cuanto suba este cambio y abra la pestaña de Anticipos, la verificación perezosa corrige en segundos los 4 casos ya identificados (y cualquier otro en la misma situación) contra el saldo real de Alegra.
 
-**Pendiente/duda abierta**: no quedó claro si el cron nocturno (`backend/cron/anticipos_index.php`, sugerido a las 2am en el comentario del archivo) está realmente configurado en cPanel — si no lo está, la caché nunca se refresca sola de un día para otro y todo depende de abrir la pestaña o del botón "Actualizar ahora". Vale la pena que Carlos confirme si ese cron existe.
+**Sobre el cron**: Carlos confirmó que `backend/cron/anticipos_index.php` sí está configurado en cPanel (`0 2 * * *`, corre todas las noches). Eso deja una pregunta sin resolver, no bloqueante: si el cron corría cada noche y el tope viejo era de 40 contactos por corrida (muy por encima de los ~4-8 que Ginno tenía pendientes en total), Grupo Global y Llanuras del Castillo deberían haber entrado en esos 40 cupos casi todas las noches — y aun así siguieron mal por meses. Lo más probable es que `_aaTotalAplicadoContacto()` les fallara silenciosamente para esos contactos puntuales (el `try/catch` alrededor de cada verificación se traga el error "por si Alegra no respondió ese día", así que un fallo que se repite siempre para el mismo contacto queda invisible). El cron no deja ningún registro de errores hoy — si Carlos quiere, se le puede agregar un aviso (Telegram o correo, ya existen esos módulos en `backend/lib/`) cuando una verificación de saldo falla varias veces seguidas para el mismo contacto, para que esto no vuelva a pasar desapercibido.
 
 **Archivos**: `backend/lib/alegra_anticipos.php` · `backend/api/anticipos.php` · `assets/js/anticipos.js` (`?v=20260924b`) · `tareas-equipo.html` (`?v=` subido).
 

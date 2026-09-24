@@ -237,34 +237,23 @@ function anticiposActualizarCache(PDO $pdo, string $direccion, bool $completo = 
     throw $e;
   }
 
-  // --- Sincroniza el saldo pendiente por cliente/proveedor -----------------
-  // Solo cuando el escaneo (de este lote o de todos) ya terminó — nunca a
-  // mitad de un escaneo completo por lotes, para no mezclar las dos cosas
-  // pesadas en la misma corrida. Esto es solo una red de seguridad para el
-  // cron nocturno (que no tiene pestaña abierta que dispare la verificación
-  // "perezosa" del navegador — ver anticipos.js): un lote chiquito, y solo
-  // de contactos que llevan más de 12 horas sin verificarse, para no volver
-  // a preguntarle a Alegra por el mismo contacto en cada corrida.
-  if ($terminoElEscaneo) {
-    $pendientesStmt = $pdo->prepare("
-      SELECT DISTINCT c.contacto_id, c.contacto_nombre
-      FROM anticipos_cache c
-      LEFT JOIN anticipos_saldo_tercero s
-        ON s.direccion = c.direccion AND s.contacto_id = c.contacto_id
-      WHERE c.direccion = ?
-        AND c.contacto_id IS NOT NULL
-        AND (s.contacto_id IS NULL OR (s.saldo > 0.5 AND s.consultado_en < DATE_SUB(NOW(), INTERVAL 12 HOUR)))
-      LIMIT 5
-    ");
-    $pendientesStmt->execute([$direccion]);
-    foreach ($pendientesStmt->fetchAll() as $row) {
-      try {
-        anticiposActualizarSaldoContacto($pdo, $direccion, $row['contacto_id'], $row['contacto_nombre']);
-      } catch (Throwable $e) {
-        // Alegra no respondió para este contacto puntual — se reintenta la próxima corrida.
-      }
-    }
-  }
+  // --- Sincronización automática de saldo: DESACTIVADA (2026-09-24) --------
+  // Aquí vivía un lote automático que llamaba a anticiposActualizarSaldoContacto()
+  // por cada cliente/proveedor pendiente. Se desactivó porque esa función
+  // (vía _aaTotalAplicadoContacto -> /api/v1/journals) solo detecta anticipos
+  // aplicados con un AJUSTE CONTABLE MANUAL en Alegra, no los aplicados con
+  // el botón nativo "Aplicar anticipo" desde la factura — confirmado con un
+  // caso real (Grupo Global Importaciones) donde Alegra ya tenía el anticipo
+  // en $0 pero esta función seguía calculando un saldo pendiente. Mantener
+  // esto activo solo reforzaba el dato incorrecto cada noche.
+  //
+  // Mientras no exista una forma confiable de calcular esto desde el
+  // backend, `anticipos_saldo_tercero` la mantiene Carlos pidiéndole a
+  // Claude que la actualice (Claude sí tiene una forma confiable de
+  // consultar el saldo real en Alegra) — ver ANTICIPOS_VERIFICACION.md en
+  // la raíz del proyecto para el procedimiento exacto. anticiposActualizarCache()
+  // de aquí en adelante SOLO descubre anticipos nuevos (pagos), nunca
+  // recalcula si ya se aplicaron.
 
   return [
     'encontrados'     => count($r['items']),
