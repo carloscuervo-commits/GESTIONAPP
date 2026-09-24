@@ -1,16 +1,20 @@
 // ============================================================
 // comentarios.js — Comentarios por tarjeta con @menciones
-// v20260820a
+// v20260924a
 // ============================================================
 // Se recarga cada vez que se abre el modal de una tarjeta existente
-// (ver openModal() en tareas.js). No se actualiza en vivo mientras el
-// modal permanece abierto — hay que cerrar y volver a abrir para ver
-// comentarios nuevos de otras personas (decisión explícita para no sumar
-// más carga de polling al servidor).
+// (ver openModal() en tareas.js). Mientras el modal sigue abierto, se
+// refresca solo esta lista de comentarios cada 30s (_iniciarPollingComentarios)
+// para que aparezcan mensajes nuevos de otras personas sin tener que cerrar
+// y volver a abrir la tarjeta — es una consulta liviana (solo los
+// comentarios de esa tarjeta puntual) y se detiene sola en cuanto se cierra
+// el modal o se abre otra tarjeta.
 
 let _comentTareaId = null;
 let _comentCandidatos = []; // [{id,name,initials,color}] — a quién se puede mencionar en esta tarjeta
 let _comentMencionActiva = null; // {inicio, fin} posición del "@..." que se está escribiendo
+let _comentPollTimer = null;
+let _comentUltimoCount = 0;
 
 async function renderComentariosTarea(tareaId) {
   _comentTareaId = tareaId;
@@ -40,9 +44,49 @@ async function renderComentariosTarea(tareaId) {
     const _uid = encodeURIComponent(currentUser?.id || '');
     const res = await fetch(`${API_BASE}/comentarios.php?tareaId=${tareaId}&usuarioId=${_uid}&perfil=${_perfil}`);
     const data = await res.json();
-    _renderListaComentarios(Array.isArray(data) ? data : []);
+    const comentarios = Array.isArray(data) ? data : [];
+    _comentUltimoCount = comentarios.length;
+    _renderListaComentarios(comentarios);
+    _iniciarPollingComentarios(tareaId);
   } catch (e) {
     listaDiv.innerHTML = '<div style="padding:10px 0;color:#dc2626;font-size:12px">Error cargando comentarios.</div>';
+  }
+}
+
+// ----------------- Refresco en vivo mientras el modal está abierto -----------------
+
+function _iniciarPollingComentarios(tareaId) {
+  _detenerPollingComentarios();
+  _comentPollTimer = setInterval(() => _pollComentarios(tareaId), 30000);
+}
+
+function _detenerPollingComentarios() {
+  if (_comentPollTimer) { clearInterval(_comentPollTimer); _comentPollTimer = null; }
+}
+
+async function _pollComentarios(tareaId) {
+  // Si ya se cerró el modal, o se abrió otra tarjeta mientras tanto, no
+  // seguir consultando — se detiene solo.
+  const modalEl = document.getElementById('modal');
+  if (!modalEl || !modalEl.classList.contains('open') || _comentTareaId !== tareaId) {
+    _detenerPollingComentarios();
+    return;
+  }
+  if (!API_BASE) return;
+  try {
+    const _perfil = currentUser?.perfil || '';
+    const _uid = encodeURIComponent(currentUser?.id || '');
+    const res = await fetch(`${API_BASE}/comentarios.php?tareaId=${tareaId}&usuarioId=${_uid}&perfil=${_perfil}`);
+    const data = await res.json();
+    const comentarios = Array.isArray(data) ? data : [];
+    // Solo repintar si hay algo nuevo (evita saltar el scroll al final cada
+    // 30s si el usuario está leyendo comentarios viejos más arriba).
+    if (comentarios.length !== _comentUltimoCount) {
+      _comentUltimoCount = comentarios.length;
+      _renderListaComentarios(comentarios);
+    }
+  } catch (e) {
+    // Silencioso: un fallo de red en el refresco de fondo no debe interrumpir al usuario.
   }
 }
 

@@ -42,6 +42,22 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-24 — mejora: los comentarios de una tarjeta se refrescan solos cada 30s mientras el modal está abierto)
+
+Solo código y `?v=` nuevo — deploy normal.
+
+**Qué se agregó**: los comentarios de una tarjeta ya no se quedan "congelados" mientras el modal permanece abierto — se vuelven a consultar cada 30 segundos (solo esa tarjeta, no toda la app) para que los mensajes nuevos de otra persona aparezcan sin tener que cerrar y volver a abrir la tarjeta. Se detiene sola al cerrar el modal.
+
+**Archivos modificados:**
+- `assets/js/comentarios.js` (`?v=20260924a`) — nuevas `_iniciarPollingComentarios()`/`_detenerPollingComentarios()`/`_pollComentarios()`.
+- `tareas-equipo.html` — `?v=` subido para `comentarios.js`.
+
+**Prueba manual sugerida:**
+1. Con dos usuarios (o dos navegadores/pestañas con sesiones distintas), abrir la misma tarjeta en ambos.
+2. Desde uno, enviar un comentario.
+3. En el otro, sin cerrar ni recargar, esperar hasta 30 segundos → el comentario nuevo debe aparecer solo.
+4. Cerrar el modal y confirmar (en la consola, con `console.log` temporal si hace falta, o simplemente esperando) que no sigue habiendo tráfico de `comentarios.php` de fondo.
+
 ## Cambios pendientes de deploy (2026-09-24 — fix crítico: pantalla vacía al abrir/recargar Ginno + Cartera ya no se consulta al arrancar + pantalla de carga)
 
 Solo código y `?v=` nuevos — deploy normal. **Este es el más importante de los tres pendientes**: arregla que la app se quedara en blanco al abrir/recargar.

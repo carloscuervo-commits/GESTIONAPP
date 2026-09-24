@@ -4,6 +4,16 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-24 — mejora: los comentarios de una tarjeta se refrescan solos cada 30s mientras el modal está abierto)
+
+### mejora: comentarios en vivo dentro de una tarjeta abierta
+
+Carlos reportó que, cruzando mensajes con otro usuario dentro de una tarjeta, los comentarios nuevos no aparecían hasta recargar Ginno por completo. Causa: `renderComentariosTarea()` (en `comentarios.js`) siempre había cargado los comentarios una sola vez, al abrir el modal — era una decisión explícita (ya documentada en el propio código) para no sumarle más polling al servidor, y además el auto-sync general de la app se salta por completo cualquier modal abierto.
+
+**Fix**: mientras el modal de una tarjeta existente sigue abierto, se vuelve a consultar `comentarios.php` cada 30 segundos — solo los comentarios de esa tarjeta puntual, no toda la app. Si el número de comentarios no cambió, no hace nada visible (evita saltar el scroll si el usuario está leyendo mensajes viejos más arriba); si hay comentarios nuevos, repinta la lista. Se detiene sola en cuanto se cierra el modal o se abre otra tarjeta — no queda ningún temporizador corriendo de fondo.
+
+**Archivos**: `assets/js/comentarios.js` (`?v=20260924a`) · `tareas-equipo.html` (`?v=` subido).
+
 ## Estado actual (última actualización: 2026-09-24 — fix crítico: pantalla vacía al abrir/recargar Ginno + Cartera ya no se consulta al arrancar + pantalla de carga)
 
 ### fix crítico: `loadCartera is not defined` volvía a romper el arranque completo de la app
