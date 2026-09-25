@@ -1,0 +1,19 @@
+-- ============================================================================
+-- ARCHIVO RETRACTADO — NO CORRER
+-- ============================================================================
+-- Este INSERT se calculó con mcp__Alegra__reports_get_third_party_trial_balance
+-- (filtro idClient), que resultó no ser confiable: el filtro no aísla bien
+-- los movimientos de cada tercero (evidencia y detalle en CONTEXTO.md,
+-- sección 2026-09-25, y en ANTICIPOS_VERIFICACION.md).
+--
+-- Casos confirmados como incorrectos en este archivo:
+--   - 927 GRUPO INNOVATE S.A.S (recibido): decía 10.834.392,00 — el valor
+--     real en Alegra es 4.488.717,00.
+--   - 867, 9, 1667, 582, 514 (entregado): este archivo los calculó con
+--     saldo negativo grande — el valor real en Alegra es 0,00 para los 5.
+--   - 1276 Saulo Andres Pizo Jimenez (entregado): decía 226.700,00 — el
+--     valor real en Alegra es 426.700,00.
+--
+-- Usar en su lugar: anticipos_fix_2026-09-25_corregido.sql (mismo directorio),
+-- verificado contacto por contacto en la interfaz de Alegra.
+-- ============================================================================

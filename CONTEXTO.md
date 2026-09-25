@@ -4,6 +4,20 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-25 — corrección: la primera corrida de `anticipos_saldo_tercero` se calculó mal, se rehizo verificando en la interfaz de Alegra)
+
+### corrección: `reports_get_third_party_trial_balance` (Alegra MCP) no es confiable para calcular el saldo de anticipos por tercero
+
+La primera corrida del procedimiento de `ANTICIPOS_VERIFICACION.md` (2026-09-25, ver sección de abajo) se hizo con `mcp__Alegra__reports_get_third_party_trial_balance` filtrando por `idClient`. Carlos revisó varios de esos resultados directamente en Alegra y no coincidían: 5 contactos que Claude había calculado con saldo negativo grande (Alfredo Santimone, GVS Colombia, Hometech, Jorge Guerrero, Sebastian Gamboa) estaban en realidad en $0, y Grupo Innovate (contacto 927, la propia empresa) tenía $4.488.717 de "Anticipos recibidos" según el cuadro de Alegra, no los $10.834.392 que había calculado Claude (sumó por error dos cuentas contables distintas — "Avances y anticipos recibidos" + "Anticipo recibido por identificar" — cuando solo la segunda aplicaba).
+
+Se confirmó el problema de raíz: el filtro `idClient` de ese reporte no aísla de forma confiable los movimientos de un solo tercero — se encontró, para el contacto GVS Colombia, que TODAS las líneas de la respuesta (incluidas cuentas sin ninguna relación, como bancos o cajas menores internas) venían etiquetadas con el `thirdPartyId` de GVS, y que el total de la cuenta "Avances y anticipos entregados" sin filtrar por tercero (vía `reports_get_trial_balance`) daba una magnitud parecida a lo que se le había atribuido solo a GVS. Parece un efecto del comportamiento interno `includeZeroBalanceAccounts=true` del reporte (no expuesto como parámetro), que filtra mal cuando el tercero no tiene movimiento real en una cuenta.
+
+**Método nuevo (el que se usó para esta corrección y el que se debe usar de ahora en adelante):** en vez de la API de reportes, se usa Claude en Chrome para buscar cada contacto por nombre directamente en la interfaz de Alegra (app.alegra.com) y leer el cuadro "Anticipos recibidos / Anticipos entregados" que aparece en la parte superior de la pantalla del contacto — el mismo cuadro que Carlos lee a simple vista. Se armó un prompt reutilizable (`prompt_claude_chrome_anticipos.txt`) con la lista de contactos y el formato de tabla esperado de vuelta. Se actualizó `ANTICIPOS_VERIFICACION.md` para documentar este método como el principal.
+
+Resultado de la corrida corregida (94 contactos, ver detalle completo en `ANTICIPOS_VERIFICACION.md`): coincide con la corrida anterior en casi todo, salvo los 5 negativos (ahora en $0, confirmado) y dos correcciones de monto: Grupo Innovate S.A.S. (927) baja de $10.834.392 a $4.488.717, y Saulo Andres Pizo Jimenez (1276) sube de $226.700 a $426.700. SQL corregido: `anticipos_fix_2026-09-25_corregido.sql` (raíz del proyecto) — reemplaza a `anticipos_fix_2026-09-25.sql`, que quedó como archivo retractado con una nota apuntando al nuevo.
+
+**Archivos**: `ANTICIPOS_VERIFICACION.md` (procedimiento actualizado + corrida corregida) · `anticipos_fix_2026-09-25_corregido.sql` (nuevo) · `anticipos_fix_2026-09-25.sql` (retractado). Sin cambios de código — no requiere deploy.
+
 ## Estado actual (última actualización: 2026-09-24 — cambio de arquitectura: Ginno deja de verificar solo el saldo de Anticipos contra Alegra; ahora lo mantiene Claude a mano)
 
 ### cambio de arquitectura: verificación automática de saldo de Anticipos DESACTIVADA — la mantiene Claude, a pedido de Carlos

@@ -1,6 +1,6 @@
 # Verificación de anticipos (recibidos/entregados) — procedimiento para Claude
 
-**Última actualización:** 2026-09-24
+**Última actualización:** 2026-09-25
 
 ## Por qué existe este archivo
 
@@ -68,31 +68,45 @@ correr el SELECT para no dejar contactos viejos sin revisar.
 
 ### 2. Para cada contacto, consultar el saldo real en Alegra
 
-Usar `mcp__Alegra__reports_get_third_party_trial_balance` con:
-- `idClient` = el `contacto_id` (el id de Alegra, mismo que `contacto_id` en Ginno)
-- `fromDate` = `2025-01-01` (o antes si el contacto es viejo — mejor ampliar
-  que dejar por fuera movimientos)
-- `toDate` = fecha de hoy
+**MÉTODO PRINCIPAL — Claude en Chrome, leyendo la interfaz de Alegra
+(usar este, no la API de reportes; ver el porqué más abajo):**
 
-Si no se conoce el `contacto_id` de antemano (por ejemplo, Carlos solo dio
-el nombre), resolverlo primero con `mcp__Alegra__contacts_getContactByName`.
+1. Armar un prompt para Claude en Chrome con la lista de contactos
+   (`contacto_id | nombre`, sin dirección — el cuadro de Alegra muestra
+   ambos valores, recibidos y entregados, para cualquier contacto) y las
+   instrucciones: buscar cada contacto por nombre en `app.alegra.com`
+   (por NIT si el nombre no lo encuentra bien), abrirlo, y anotar los
+   valores exactos de "Anticipos recibidos" y "Anticipos entregados" del
+   cuadro que aparece en la parte superior de la pantalla del contacto
+   (junto a "Cuentas por cobrar", "Por pagar", "Notas crédito/débito por
+   aplicar"). Pedir que devuelva una tabla
+   `contacto_id | nombre | anticipos_recibidos | anticipos_entregados`,
+   y que avise explícitamente si algún contacto no aparece o hay
+   ambigüedad (nunca que adivine o lo salte en silencio). El prompt
+   completo usado el 2026-09-25 quedó guardado como referencia en
+   `prompt_claude_chrome_anticipos.txt` (raíz del proyecto).
+2. Pasarle ese prompt a Carlos para que lo corra en su propia sesión de
+   Claude en Chrome (con Alegra ya logueado ahí) y que pegue la tabla de
+   resultados de vuelta en el chat.
+3. Con esa tabla: la columna que aplica es `anticipos_recibidos` para
+   contactos con `direccion='recibido'` y `anticipos_entregados` para
+   `direccion='entregado'` (según la dirección de `anticipos_cache`).
 
-En la respuesta, buscar la línea de cuenta correspondiente en
-`thirdPartyLines`:
-- **Dirección `recibido`** → cuenta "Avances y anticipos recibidos"
-  (cuentas 5042 / 211894 / 212026 en el plan de Grupo Innovate).
-- **Dirección `entregado`** → cuenta "Avances y anticipos entregados"
-  (cuentas 5044 / 211878).
+**MÉTODO DESCARTADO — API de reportes (`reports_get_third_party_trial_balance`
+con `idClient`):** se usó en la primera corrida (2026-09-25) y dio
+resultados incorrectos — el filtro `idClient` no aísla de forma confiable
+los movimientos de un solo tercero (parece filtrar mal cuando el tercero
+no tiene movimiento real en una cuenta, mezclando datos de otros
+terceros/cuentas). Confirmado por Carlos revisando varios contactos a
+mano en Alegra. Detalle completo de la evidencia en la sección "Primera
+corrida" más abajo. **No usar este método salvo que se encuentre y
+confirme una forma distinta de consultarlo por API.**
 
-El saldo real pendiente es el `finalBalance` de esa línea. Si no aparece
-ninguna línea de esa cuenta para el contacto, el saldo es 0 (no quedó nada
-pendiente, o nunca tuvo movimiento en esa cuenta en el rango de fechas —
-ampliar `fromDate` si hay duda).
-
-**Redondeo:** `finalBalance` a veces da un valor casi-cero por diferencias
-de centavos (ej. -2.600 sobre movimientos de $15.108.544) — tratar como 0
-cualquier valor con magnitud menor a, digamos, $5.000, salvo que el
-contexto sugiera que sí es un saldo real pequeño.
+**Redondeo:** NO se redondea ni se clampea nada — se guarda el valor
+exacto que muestra el cuadro de Alegra para cada contacto, por chico que
+sea (incluyendo negativos, como -$0,05). A diferencia de la API, este
+cuadro es la fuente que Carlos mismo lee, así que su valor —aunque sea
+$0,40 o $11— es el dato real, no ruido de cálculo nuestro.
 
 ### 3. Armar el SQL de actualización
 
@@ -129,18 +143,80 @@ valor (y de cuánto a cuánto), y cuáles quedaron igual. Si algún contacto no
 se pudo verificar (Alegra no respondió, o no se encontró el contacto), decirlo
 explícitamente — no omitirlo silenciosamente.
 
-## Caso ya resuelto (referencia, 2026-09-24)
+## Primera corrida (2026-09-25) — RETRACTADA, no usar sus valores
 
-Estos 4 contactos se confirmaron en $0 real en Alegra (estaban mostrando
-saldo pendiente en Ginno por error, con la lógica automática vieja):
+Se hizo con `reports_get_third_party_trial_balance` (`idClient`,
+`fromDate=2020-01-01`). SQL entregado entonces: `anticipos_fix_2026-09-25.sql`.
+Carlos revisó varios contactos directamente en Alegra y los valores no
+coincidían (ver detalle en `CONTEXTO.md`, sección 2026-09-25). Causa:
+el filtro `idClient` de ese reporte no aísla de forma confiable los
+movimientos de un solo tercero. **Los valores de esa corrida no son
+válidos** — quedan reemplazados por la corrida corregida de abajo.
+`anticipos_fix_2026-09-25.sql` se dejó en el repo con una nota de
+retractación al inicio, apuntando a `anticipos_fix_2026-09-25_corregido.sql`.
+
+## Corrida corregida (2026-09-25) — verificada en la interfaz de Alegra
+
+Mismos 94 contactos (18 `recibido` + 76 `entregado`), esta vez verificados
+uno por uno leyendo el cuadro "Anticipos recibidos/entregados" en la
+pantalla de cada contacto en Alegra, vía Claude en Chrome (ver método
+principal en el paso 2 más arriba). SQL entregado:
+`anticipos_fix_2026-09-25_corregido.sql` (raíz del proyecto).
+
+A pedido de Carlos, esta corrida **no redondea ni clampea nada** — se
+guarda el valor exacto que muestra el cuadro de Alegra para cada
+contacto, por chico que sea. Quedaron con saldo distinto de $0:
 
 | contacto_id | contacto_nombre | dirección | saldo real Alegra |
 |---|---|---|---|
-| 546 | CONJUNTO RESIDENCIAL SENDEROS DEL PARQUE PROPIEDAD HORIZONTAL | recibido | 0 |
-| 1901 | GRUPO GLOBAL IMPORTACIONES S.A.S. | recibido | 0 |
-| 1858 | CONJUNTO RESIDENCIAL LLANURAS DEL CASTILLO | recibido | 0 |
-| 995 | DISPROQUIN S A S | recibido | 0 |
+| 927 | GRUPO INNOVATE S.A.S | recibido | 4.488.717,00 |
+| 8 | EL COMERCIO ELECTRICO S.A.S. | entregado | 1.287.884,60 |
+| 1196 | ALEJANDRO ZUÑIGA VALENCIA | entregado | 1.000.000,00 |
+| 1622 | ALUMCENTRO SAS | entregado | 572.000,00 |
+| 1155 | OSCAR EDMUNDO LA TORRE CESPEDES | entregado | 490.677,00 |
+| 1276 | Saulo Andres Pizo Jimenez | entregado | 426.700,00 |
+| 1796 | ANDRES FELIPE CARVAJAL CARVAJAL | entregado | 200.000,00 |
+| 413 | LILIANA BOLAÑOS URBANO | entregado | 107.718,00 |
+| 1274 | MIGUEL MATEO RIVERA GRIJALBA | entregado | 100.000,00 |
+| 1448 | LEONARDO ZAPATA JORDAN | entregado | 97.000,00 |
+| 1648 | DIEGO FERNANDO PINZON REYES | entregado | 79.900,00 |
+| 1897 | GRUPO CONTROL DE COLOMBIA SAS | entregado | 45.252,70 |
+| 296 | SION TECHNOLOGY S.A.S. | entregado | 3.950,00 |
+| 1797 | PANCE CAMPESTRE ETAPA 1 - PROPIEDAD HORIZONTAL | recibido | 5.520,00 |
+| 1011 | CAROLINA ARISTIZABAL MONTOYA | recibido | 4.163,00 |
+| 1658 | SIDERURGICA DEL OCCIDENTE S.A.S. SIDOC S.A.S. | entregado | 10.000,00 |
+| 1639 | ALONDRA CONJUNTO RESIDENCIAL ETAPA I - P-H | recibido | 807,70 |
+| 1563 | ALUMINIOS Y VIDRIOS X METRO S.A.S | entregado | 17,30 |
+| 138 | IZC Mayorista SAS | entregado | 11,00 |
+| 1827 | COVAL COMERCIAL S.A.S | entregado | 0,50 |
+| 1816 | CONDOMINIO SOL DE LA ARBOLEDA | recibido | 0,40 |
+| 139 | MULTIREDES Y TECNOLOGIA S.A.S | entregado | 3,00 |
+| 9 | GVS COLOMBIA S.A.S | entregado | -0,05 |
 
-(Confirmar la dirección exacta — `recibido` vs `entregado` — contra
-`anticipos_cache` antes de correr el SQL, por si alguno en realidad es un
-anticipo entregado a proveedor.)
+Los otros 71 contactos quedaron en $0,00 exacto (sin ningún movimiento
+pendiente en Alegra).
+
+Respecto a la corrida retractada, dos correcciones de monto:
+- **927 GRUPO INNOVATE S.A.S**: $10.834.392 (mal) → **$4.488.717** (correcto
+  — confirmado por Carlos directamente en el cuadro de Alegra). El valor
+  viejo sumaba por error dos cuentas contables distintas.
+- **1276 Saulo Andres Pizo Jimenez**: $226.700 (mal) → **$426.700**
+  (correcto). Diferencia de $200.000.
+
+**Los 5 "negativos" de la corrida anterior quedaron confirmados en $0**
+(el negativo era el bug de la API, no un saldo real): Alfredo José
+Santimone Barreto, GVS Colombia S.A.S. (da -$0,05 en Alegra, se clampa a
+0), Hometech El Hogar Digital S.A.S., Jorge Javier Guerrero Bedoya y
+Sebastian Gamboa Collazos.
+
+**Caso Grupo Innovate S.A.S. (927)** ya no es un "caso raro sin resolver"
+— Carlos confirmó el valor $4.488.717 directamente en Alegra, es un
+anticipo recibido real y pendiente de la propia empresa como cliente.
+
+**Otra observación de Carlos, confirmada en los datos**: ningún contacto
+de los 94 tiene saldo pendiente en las dos direcciones a la vez — el que
+tiene algo en "recibido" no tiene nada en "entregado", y viceversa.
+
+(Al construir el `INSERT`, se usó como `contacto_nombre` el nombre COMPLETO
+que devuelve Alegra — no el de `anticipos_cache`, que en la consulta de
+phpMyAdmin venía truncado a ~50 caracteres por la vista de la tabla.)
