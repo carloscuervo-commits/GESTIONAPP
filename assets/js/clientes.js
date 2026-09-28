@@ -81,6 +81,29 @@ function _cmContratoAreaChange() {
   if (grpAlerta) grpAlerta.style.display = area ? '' : 'none';
 }
 
+// ----------------- Contrato tiempo completo (técnico in-house) -----------------
+function _cmInhouseChange() {
+  const grp = document.getElementById('cm-inhouse-grp');
+  const chk = document.getElementById('cm-inhouse-check');
+  if (grp) grp.style.display = chk?.checked ? '' : 'none';
+}
+
+async function _cmCargarTecnicosInhouse(selectedId) {
+  const sel = document.getElementById('cm-inhouse-tecnico');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Cargando…</option>';
+  try {
+    const res = await fetch(`${API_BASE}/usuarios.php`);
+    const todos = await res.json();
+    const tecnicos = Array.isArray(todos) ? todos.filter(u => u.perfil === 'tecnico_inhouse' && u.activo) : [];
+    sel.innerHTML = '<option value="">Selecciona un técnico in-house…</option>'
+      + tecnicos.map(t => `<option value="${t.id}">${esc(t.nombre)}</option>`).join('');
+    sel.value = selectedId || '';
+  } catch (e) {
+    sel.innerHTML = '<option value="">No se pudo cargar la lista</option>';
+  }
+}
+
 // ----------------- Carga y render -----------------
 async function cargarClientes() {
   if (!API_BASE) return;
@@ -334,6 +357,12 @@ function abrirModalCliente(id = null) {
   if (chkAlerta) chkAlerta.checked = c ? c.alertar_fin_mes_contrato != 0 : true;
   _cmContratoAreaChange();
 
+  // Contrato tiempo completo (técnico in-house)
+  const chkInhouse = document.getElementById('cm-inhouse-check');
+  if (chkInhouse) chkInhouse.checked = c?.contrato_tipo === 'tiempo_completo';
+  _cmInhouseChange();
+  _cmCargarTecnicosInhouse(c?.tecnico_inhouse_id || '');
+
   const btnEliminar = document.getElementById('cm-btn-eliminar');
   if (btnEliminar) btnEliminar.style.display = id ? 'inline-flex' : 'none';
 
@@ -398,6 +427,10 @@ async function guardarCliente() {
   const contratoCorte = document.getElementById('cm-contrato-corte')?.value;
   const contratoAlerta = document.getElementById('cm-contrato-alerta')?.checked ?? true;
 
+  const esInhouse = document.getElementById('cm-inhouse-check')?.checked || false;
+  const inhouseTecnico = document.getElementById('cm-inhouse-tecnico')?.value || '';
+  if (esInhouse && !inhouseTecnico) { alert('Selecciona el técnico in-house asignado a este cliente.'); return; }
+
   const body = {
     nombre,
     email:              document.getElementById('cm-email')?.value.trim() || null,
@@ -412,6 +445,8 @@ async function guardarCliente() {
     fecha_corte_contrato: contratoArea && contratoCorte !== '' ? (parseInt(contratoCorte, 10) || null) : null,
     alertar_fin_mes_contrato: contratoArea ? (contratoAlerta ? 1 : 0) : 1,
     valor_transporte:   (() => { const v = document.getElementById('cm-transporte')?.value; return v !== '' && v != null ? parseInt(v) || null : null; })(),
+    contrato_tipo:      esInhouse ? 'tiempo_completo' : 'ninguno',
+    tecnico_inhouse_id: esInhouse ? inhouseTecnico : null,
   };
 
   if (body.lat !== null && isNaN(body.lat)) { alert('Latitud inválida.'); return; }

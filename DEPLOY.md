@@ -42,6 +42,28 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (2026-09-28 — nuevo: técnicos in-house, reporte diario)
+
+**Requiere correr la migración `db/047_tecnico_inhouse.sql` en phpMyAdmin ANTES del deploy** — agrega el perfil `tecnico_inhouse` a `usuarios`, las columnas `contrato_tipo`/`tecnico_inhouse_id` a `clientes`, y crea `reporte_diario`/`reporte_diario_actividad`. No borra ni modifica datos existentes.
+
+**Archivos nuevos:**
+- `reporte-diario.html` (raíz) — página propia para el técnico in-house. `.cpanel.yml` copiaba archivos HTML de la raíz solo por nombre explícito (no por wildcard) y no incluía este; **ya se agregó la línea `cp reporte-diario.html $DEPLOYPATH`** — sin eso el deploy "tendría éxito" pero la página no llegaría a producción.
+- `backend/api/reporte_diario.php` (se copia solo — `.cpanel.yml` ya copia toda `backend/api/`)
+- `assets/js/reporte_diario_admin.js` (`?v=20260928a`, se copia solo — `.cpanel.yml` ya copia toda `assets/js/`)
+
+**Archivos modificados:**
+- `backend/api/auth.php`, `backend/api/usuarios.php`, `backend/api/clientes.php`
+- `assets/js/auth.js` (`?v=20260928a`), `assets/js/clientes.js` (`?v=20260928a`), `assets/js/tareas.js` (`?v=20260928a`)
+- `tareas-equipo.html` — `?v=` subido en los tres JS de arriba + `<script>` nuevo de `reporte_diario_admin.js`.
+
+**Prueba manual sugerida:**
+1. En ⚙️ Usuarios, crear (o editar) un usuario con perfil "Técnico in-house" y PIN.
+2. En Clientes, editar un cliente → marcar "Este cliente tiene un técnico dedicado de tiempo completo" → asignar ese usuario → Guardar. Intentar asignarlo a un segundo cliente debe dar error (técnico ya asignado).
+3. Abrir `reporte-diario.html` directamente (no `tareas-equipo.html`), loguearse con el PIN de ese técnico: debe mostrar solo el reporte del día (nombre del cliente correcto), sin ningún rastro del tablero.
+4. Marcar inicio, agregar 2-3 actividades (una con horario, otra sin), marcar fin — el formulario debe bloquearse (reporte cerrado).
+5. Como admin en `tareas-equipo.html`, pestaña "📅 Reportes diarios": debe aparecer ese reporte con sus actividades; probar "Reabrir" y confirmar que el técnico puede volver a editar.
+6. Confirmar que si ese mismo usuario (perfil `tecnico_inhouse`) intenta entrar por `tareas-equipo.html`, lo manda derecho a `reporte-diario.html` sin mostrar el tablero.
+
 ## Cambios pendientes de deploy (2026-09-24 — cambio de arquitectura: se desactiva la verificación automática de saldo de Anticipos)
 
 Solo código y `?v=` nuevo — deploy normal. Sin cambios de base de datos (usa las tablas ya existentes).

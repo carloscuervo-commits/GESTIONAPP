@@ -26,6 +26,10 @@ async function cargarSesion() {
       return false;
     }
     currentUser = data.usuario;
+    // Los técnicos in-house no usan el tablero — tienen su propia página
+    // (reporte-diario.html), mucho más liviana. Si por algún motivo entran
+    // aquí (ej. bookmark equivocado), se les redirige de una vez.
+    if (currentUser.perfil === 'tecnico_inhouse') { location.href = 'reporte-diario.html'; return false; }
     localStorage.setItem('sesion_usuario_cache', JSON.stringify(currentUser));
     return true;
   } catch (e) {
@@ -148,6 +152,11 @@ async function intentarLogin() {
       renderPinDots();
       return;
     }
+    if (data.usuario.perfil === 'tecnico_inhouse') {
+      localStorage.setItem('sesion_token', data.token);
+      location.href = 'reporte-diario.html';
+      return;
+    }
     localStorage.setItem('sesion_token', data.token);
     localStorage.setItem('sesion_usuario_cache', JSON.stringify(data.usuario));
     currentUser = data.usuario;
@@ -190,6 +199,8 @@ function aplicarPermisosUI() {
   if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
+  const tabReporteDiario = document.getElementById('tab-reporte-diario');
+  if (tabReporteDiario) tabReporteDiario.style.display = esTecnico ? 'none' : '';
   // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
   const btnSettings = document.getElementById('btn-settings');
   if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';

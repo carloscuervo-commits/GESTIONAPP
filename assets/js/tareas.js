@@ -1175,7 +1175,8 @@ function setArea(a) {
   const isTransportes = a === 'transportes';
   const isBitacora       = a === 'bitacora';
   const isAusencias      = a === 'ausencias';
-  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora || isAusencias;
+  const isReporteDiario  = a === 'reporte_diario';
+  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora || isAusencias || isReporteDiario;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -1190,6 +1191,7 @@ function setArea(a) {
   document.getElementById('transportes-view').style.display = isTransportes  ? 'block' : 'none';
   document.getElementById('bitacora-view').style.display       = isBitacora       ? 'block' : 'none';
   document.getElementById('ausencias-view').style.display      = isAusencias      ? 'block' : 'none';
+  document.getElementById('reporte-diario-admin-view').style.display = isReporteDiario ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -1207,6 +1209,7 @@ function setArea(a) {
   else if (isTransportes) { iniciarTransportes(); }
   else if (isBitacora)       { if (typeof renderBitacoraView    === 'function') renderBitacoraView(); }
   else if (isAusencias)   { if (typeof renderAusenciasView === 'function') renderAusenciasView(); }
+  else if (isReporteDiario) { if (typeof renderReporteDiarioAdminView === 'function') renderReporteDiarioAdminView(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.

@@ -36,12 +36,20 @@ function _avisarBloqueoUsuario(PDO $pdo, string $nombreUsuario): void {
 }
 
 // --------------------------------------------------------------
-// GET /auth.php?action=usuarios
+// GET /auth.php?action=usuarios[&perfil=X]
 // Lista pública de usuarios activos (sin pin_hash) para mostrar
 // el selector de "¿quién eres?" en la pantalla de login.
+// &perfil=X filtra por perfil exacto (ej. reporte-diario.html solo
+// quiere mostrar 'tecnico_inhouse', nunca admin ni técnicos normales).
 // --------------------------------------------------------------
 if ($method === 'GET' && ($_GET['action'] ?? '') === 'usuarios') {
-  $stmt = $pdo->query("SELECT id, nombre, iniciales, color FROM usuarios WHERE activo = 1 ORDER BY nombre");
+  $perfilFiltro = $_GET['perfil'] ?? null;
+  if ($perfilFiltro) {
+    $stmt = $pdo->prepare("SELECT id, nombre, iniciales, color FROM usuarios WHERE activo = 1 AND perfil = ? ORDER BY nombre");
+    $stmt->execute([$perfilFiltro]);
+  } else {
+    $stmt = $pdo->query("SELECT id, nombre, iniciales, color FROM usuarios WHERE activo = 1 ORDER BY nombre");
+  }
   jsonOut($stmt->fetchAll());
 }
 

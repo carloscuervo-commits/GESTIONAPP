@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Ginno · Reporte diario</title>
+<style>
+  :root{
+    --primary:#169BBC; --primary-dark:#0D3B40; --primary-pale:#D6F3F4;
+    --ok:#94C023; --warn:#F29206; --warn-bg:#FFF4E0;
+    --bg:#f7fafb; --card:#ffffff; --border:#e2e8ec;
+    --text:#1A1A1A; --text-muted:#666; --text-soft:#888;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text)}
+  .header{background:var(--primary-dark);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  .header .brand{font-weight:700;color:var(--primary)}
+  .header .brand small{display:block;font-weight:400;color:var(--primary-pale);font-size:11px}
+  .header button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer}
+  main{max-width:520px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+  .muted{color:var(--text-muted);font-size:13px}
+  .soft{color:var(--text-soft);font-size:12px}
+  h2{font-size:15px;margin:0 0 10px;color:var(--primary-dark)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;padding:13px 16px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:disabled{background:#b9dee6;cursor:not-allowed}
+  .btn-ok{background:var(--ok);color:#fff}
+  .btn-ok:disabled{background:#d8e8b8;cursor:not-allowed}
+  .btn-outline{background:#fff;border:1px solid var(--border);color:var(--text)}
+  .btn-sm{padding:8px 12px;font-size:13px;width:auto}
+  input,textarea,select{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:#fff;color:var(--text)}
+  label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+  .hora-badge{display:inline-block;background:var(--primary-pale);color:var(--primary-dark);padding:4px 10px;border-radius:99px;font-size:13px;font-weight:600}
+  .act{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .act-desc{font-size:14px;color:var(--text)}
+  .act-hora{font-size:12px;color:var(--primary-dark);font-weight:600;margin-top:2px}
+  .act-del{background:transparent;border:none;color:#c0392b;font-size:16px;cursor:pointer;padding:4px}
+  .banner-cerrado{background:var(--warn-bg);border:1px solid var(--warn);color:#8a5a00;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .banner-err{background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .hidden{display:none !important}
+  /* ---- Login ---- */
+  #login{max-width:360px;margin:60px auto;padding:0 16px;text-align:center}
+  #login .logo{color:var(--primary);font-weight:700;font-size:20px;margin-bottom:4px}
+  #login .sub{color:var(--text-muted);font-size:13px;margin-bottom:24px}
+  .user-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+  .user-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer}
+  .user-avatar{width:42px;height:42px;border-radius:99px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+  .pin-dots{display:flex;gap:12px;justify-content:center;margin:16px 0}
+  .pin-dot{width:14px;height:14px;border-radius:99px;border:2px solid var(--primary)}
+  .pin-dot.filled{background:var(--primary)}
+  .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto}
+  .pin-pad button{padding:16px 0;font-size:18px;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer}
+  #login-error{color:#b91c1c;font-size:13px;min-height:18px;margin-top:6px}
+  #cargando{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:14px}
+</style>
+</head>
+<body>
+
+<div id="cargando">Cargando…</div>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login" class="hidden">
+  <div class="logo">GINNO</div>
+  <div class="sub">Reporte diario · técnico in-house</div>
+
+  <div id="login-step-usuario">
+    <div class="user-grid" id="login-usuarios-grid"></div>
+  </div>
+
+  <div id="login-step-pin" class="hidden">
+    <div style="margin-bottom:8px;font-weight:600" id="login-pin-nombre"></div>
+    <div class="pin-dots" id="login-pin-dots"></div>
+    <div class="pin-pad" id="login-pin-pad"></div>
+    <div id="login-error"></div>
+    <button class="btn btn-outline btn-sm" style="margin-top:14px" onclick="volverSelector()">‹ Cambiar de usuario</button>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app" class="hidden">
+  <div class="header">
+    <div class="brand">GINNO <small>Reporte diario</small></div>
+    <button onclick="cerrarSesion()">Salir</button>
+  </div>
+
+  <main>
+    <div class="card" id="resumen-card">
+      <h2 id="rd-cliente-nombre">—</h2>
+      <div class="row" style="align-items:center">
+        <div class="muted" id="rd-tecnico-nombre"></div>
+        <input type="date" id="rd-fecha-input" onchange="cambiarFecha(this.value)" style="max-width:170px">
+      </div>
+    </div>
+
+    <div id="rd-error" class="banner-err hidden"></div>
+    <div id="rd-cerrado-banner" class="banner-cerrado hidden">
+      🔒 Este reporte ya está cerrado. Si necesitas corregir algo, pídele a un administrador que lo reabra.
+    </div>
+
+    <div class="card" id="rd-jornada-card">
+      <h2>Jornada</h2>
+      <div class="row" style="margin-bottom:10px">
+        <div>
+          <div class="soft">Hora de inicio</div>
+          <div id="rd-hora-inicio" class="hora-badge">—</div>
+        </div>
+        <div>
+          <div class="soft">Hora de fin</div>
+          <div id="rd-hora-fin" class="hora-badge">—</div>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="btn-marcar-inicio" onclick="marcarInicio()">▶ Marcar inicio</button>
+        <button class="btn btn-ok" id="btn-marcar-fin" onclick="marcarFin()">⏹ Marcar fin</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Actividades del día</h2>
+      <div id="rd-actividades"></div>
+      <div id="rd-sin-actividades" class="muted hidden">Todavía no has agregado actividades.</div>
+
+      <div id="rd-form-actividad" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+        <label for="act-desc">¿Qué hiciste?</label>
+        <textarea id="act-desc" rows="2" placeholder="Describe la actividad…"></textarea>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer">
+          <input type="checkbox" id="act-con-horario" style="width:16px;height:16px" onchange="toggleHorarioActividad()">
+          <span style="font-weight:400;font-size:13px;color:var(--text)">Esta actividad tiene hora de inicio y fin propia</span>
+        </label>
+        <div class="row hidden" id="act-horario-grp" style="margin-top:8px">
+          <div><label>Inicio</label><input type="time" id="act-hora-inicio"></div>
+          <div><label>Fin</label><input type="time" id="act-hora-fin"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="agregarActividad()">+ Agregar actividad</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API_BASE = 'https://grupoinnovate.com/ginno/backend/api';
+
+// Mismo patrón que core.js: agrega Authorization: Bearer <token> a toda
+// llamada a la API automáticamente (misma sesión/token que tareas-equipo.html).
+(function() {
+  const _fetchOriginal = window.fetch;
+  window.fetch = function(input, init) {
+    const url = typeof input === 'string' ? input : ((input && input.url) || '');
+    if (url.startsWith(API_BASE)) {
+      const token = localStorage.getItem('sesion_token');
+      if (token) {
+        init = init ? Object.assign({}, init) : {};
+        const headers = new Headers(init.headers || {});
+        headers.set('Authorization', 'Bearer ' + token);
+        init.headers = headers;
+      }
+    }
+    return _fetchOriginal.call(window, input, init);
+  };
+})();
+
+let currentUser = null;
+let reporteActual = null;
+let fechaVista = null;
+let _loginUsuarios = [];
+let _loginSeleccionado = null;
+let _loginPin = '';
+
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function hoyBogota(){
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Bogota' }); // 'sv-SE' da formato YYYY-MM-DD
+}
+
+// ---------------- Sesión ----------------
+async function init() {
+  const token = localStorage.getItem('sesion_token');
+  if (!token) { mostrarLogin(); return; }
+  try {
+    const res = await fetch(`${API_BASE}/auth.php?action=verificar&token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    if (data.error || !data.usuario) { localStorage.removeItem('sesion_token'); mostrarLogin(); return; }
+    if (data.usuario.perfil !== 'tecnico_inhouse') {
+      document.getElementById('cargando').textContent = 'Esta página es solo para técnicos in-house. Cierra sesión e ingresa con el usuario correcto.';
+      return;
+    }
+    currentUser = data.usuario;
+    await mostrarApp();
+  } catch (e) {
+    document.getElementById('cargando').textContent = 'No se pudo conectar con el servidor.';
+  }
+}
+
+function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión en este dispositivo?')) return;
+  const token = localStorage.getItem('sesion_token');
+  if (token) {
+    fetch(`${API_BASE}/auth.php`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'logout', token }) }).catch(()=>{});
+  }
+  localStorage.removeItem('sesion_token');
+  location.reload();
+}
+
+// ---------------- Login ----------------
+async function mostrarLogin() {
+  document.getElementById('cargando').classList.add('hidden');
+  document.getElementById('login').classList.remove('hidden');
+  try {
+    const res = await fetch(`${API_BASE}/auth.php?action=usuarios&perfil=tecnico_inhouse`);
+    _loginUsuarios = await res.json();
+  } catch (e) { _loginUsuarios = []; }
+
+  const grid = document.getElementById('login-usuarios-grid');
+  if (!Array.isArray(_loginUsuarios) || !_loginUsuarios.length) {
+    grid.innerHTML = '<div class="muted" style="grid-column:1/-1">No hay técnicos in-house configurados todavía.</div>';
+    return;
+  }
+  grid.innerHTML = _loginUsuarios.map(u => `
+    <button type="button" class="user-btn" onclick="seleccionarUsuario('${u.id}','${esc(u.nombre)}')">
+      <span class="user-avatar">${esc(u.iniciales||'')}</span>
+      <span style="font-size:11px">${esc((u.nombre||'').split(' ')[0])}</span>
+    </button>
+  `).join('');
+}
+
+function seleccionarUsuario(id, nombre) {
+  _loginSeleccionado = id; _loginPin = '';
+  document.getElementById('login-step-usuario').classList.add('hidden');
+  document.getElementById('login-step-pin').classList.remove('hidden');
+  document.getElementById('login-pin-nombre').textContent = nombre;
+  document.getElementById('login-error').textContent = '';
+  renderPinDots(); renderPinPad();
+}
+function volverSelector() {
+  _loginSeleccionado = null; _loginPin = '';
+  document.getElementById('login-step-pin').classList.add('hidden');
+  document.getElementById('login-step-usuario').classList.remove('hidden');
+}
+function renderPinDots() {
+  document.getElementById('login-pin-dots').innerHTML = [0,1,2,3].map(i =>
+    `<span class="pin-dot ${i < _loginPin.length ? 'filled' : ''}"></span>`).join('');
+}
+function renderPinPad() {
+  const teclas = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  document.getElementById('login-pin-pad').innerHTML = teclas.map(k => {
+    if (k==='') return '<div></div>';
+    const accion = k==='⌫' ? 'pinBorrar()' : `pinDigito('${k}')`;
+    return `<button type="button" onclick="${accion}">${k}</button>`;
+  }).join('');
+}
+function pinDigito(d){ if(_loginPin.length>=4) return; _loginPin+=d; renderPinDots(); if(_loginPin.length===4) intentarLogin(); }
+function pinBorrar(){ _loginPin=_loginPin.slice(0,-1); document.getElementById('login-error').textContent=''; renderPinDots(); }
+
+async function intentarLogin() {
+  try {
+    const res = await fetch(`${API_BASE}/auth.php`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ usuarioId:_loginSeleccionado, pin:_loginPin }) });
+    const data = await res.json();
+    if (data.error) { document.getElementById('login-error').textContent = data.error; _loginPin=''; renderPinDots(); return; }
+    if (data.usuario.perfil !== 'tecnico_inhouse') {
+      document.getElementById('login-error').textContent = 'Este acceso es solo para técnicos in-house.';
+      _loginPin=''; renderPinDots(); return;
+    }
+    localStorage.setItem('sesion_token', data.token);
+    currentUser = data.usuario;
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('cargando').classList.remove('hidden');
+    await mostrarApp();
+  } catch (e) {
+    document.getElementById('login-error').textContent = 'No se pudo conectar con el servidor.';
+    _loginPin=''; renderPinDots();
+  }
+}
+
+// ---------------- App ----------------
+async function mostrarApp() {
+  document.getElementById('cargando').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  fechaVista = hoyBogota();
+  document.getElementById('rd-fecha-input').value = fechaVista;
+  document.getElementById('rd-fecha-input').max = hoyBogota();
+  document.getElementById('rd-tecnico-nombre').textContent = currentUser.nombre;
+  await cargarReporte();
+}
+
+async function cambiarFecha(fecha) {
+  fechaVista = fecha;
+  await cargarReporte();
+}
+
+async function cargarReporte() {
+  ocultarError();
+  try {
+    const res = await fetch(`${API_BASE}/reporte_diario.php?fecha=${fechaVista}`);
+    const data = await res.json();
+    if (data.error) { mostrarError(data.error); reporteActual = null; render(); return; }
+    reporteActual = data.reporte;
+    render();
+  } catch (e) {
+    mostrarError('No se pudo cargar el reporte. Revisa tu conexión.');
+  }
+}
+
+function mostrarError(msg){ const el=document.getElementById('rd-error'); el.textContent=msg; el.classList.remove('hidden'); }
+function ocultarError(){ document.getElementById('rd-error').classList.add('hidden'); }
+
+function render() {
+  const r = reporteActual;
+  const esHoy = fechaVista === hoyBogota();
+
+  if (!r) {
+    document.getElementById('rd-cliente-nombre').textContent = esHoy ? '—' : 'Sin reporte ese día';
+    document.getElementById('rd-hora-inicio').textContent = '—';
+    document.getElementById('rd-hora-fin').textContent = '—';
+    document.getElementById('rd-actividades').innerHTML = '';
+    document.getElementById('rd-sin-actividades').classList.remove('hidden');
+    document.getElementById('rd-jornada-card').classList.toggle('hidden', !esHoy);
+    document.getElementById('rd-form-actividad').classList.add('hidden');
+    document.getElementById('rd-cerrado-banner').classList.add('hidden');
+    return;
+  }
+
+  document.getElementById('rd-jornada-card').classList.remove('hidden');
+  document.getElementById('rd-cliente-nombre').textContent = r.cliente_nombre || '—';
+  document.getElementById('rd-hora-inicio').textContent = r.hora_inicio ? r.hora_inicio.slice(0,5) : '—';
+  document.getElementById('rd-hora-fin').textContent = r.hora_fin ? r.hora_fin.slice(0,5) : '—';
+
+  const cerrado = !!Number(r.cerrado);
+  document.getElementById('rd-cerrado-banner').classList.toggle('hidden', !cerrado);
+  document.getElementById('btn-marcar-inicio').disabled = cerrado || !!r.hora_inicio;
+  document.getElementById('btn-marcar-fin').disabled = cerrado || !r.hora_inicio || !!r.hora_fin;
+  document.getElementById('rd-form-actividad').classList.toggle('hidden', cerrado);
+
+  const acts = r.actividades || [];
+  document.getElementById('rd-sin-actividades').classList.toggle('hidden', acts.length > 0);
+  document.getElementById('rd-actividades').innerHTML = acts.map(a => `
+    <div class="act">
+      <div>
+        <div class="act-desc">${esc(a.descripcion)}</div>
+        ${a.hora_inicio ? `<div class="act-hora">${a.hora_inicio.slice(0,5)} – ${a.hora_fin ? a.hora_fin.slice(0,5) : '?'}</div>` : `<div class="soft">General</div>`}
+      </div>
+      ${cerrado ? '' : `<button class="act-del" onclick="eliminarActividad('${a.id}')" title="Eliminar">🗑</button>`}
+    </div>
+  `).join('');
+}
+
+async function marcarInicio() {
+  try {
+    const res = await fetch(`${API_BASE}/reporte_diario.php`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ accion:'marcar_inicio', fecha: fechaVista }) });
+    const data = await res.json();
+    if (data.error) { mostrarError(data.error); return; }
+    await cargarReporte();
+  } catch (e) { mostrarError('No se pudo guardar. Revisa tu conexión.'); }
+}
+
+async function marcarFin() {
+  if (!confirm('¿Marcar el fin de tu jornada? El reporte de hoy quedará cerrado y ya no podrás editarlo (un administrador lo puede reabrir si hace falta).')) return;
+  try {
+    const res = await fetch(`${API_BASE}/reporte_diario.php`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ accion:'marcar_fin', fecha: fechaVista }) });
+    const data = await res.json();
+    if (data.error) { mostrarError(data.error); return; }
+    await cargarReporte();
+  } catch (e) { mostrarError('No se pudo guardar. Revisa tu conexión.'); }
+}
+
+function toggleHorarioActividad() {
+  document.getElementById('act-horario-grp').classList.toggle('hidden', !document.getElementById('act-con-horario').checked);
+}
+
+async function agregarActividad() {
+  const descripcion = document.getElementById('act-desc').value.trim();
+  if (!descripcion) { alert('Escribe qué hiciste.'); return; }
+  const conHorario = document.getElementById('act-con-horario').checked;
+  const horaInicio = conHorario ? document.getElementById('act-hora-inicio').value : '';
+  const horaFin    = conHorario ? document.getElementById('act-hora-fin').value    : '';
+
+  try {
+    const res = await fetch(`${API_BASE}/reporte_diario.php`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ accion:'agregar_actividad', fecha: fechaVista, descripcion, hora_inicio: horaInicio, hora_fin: horaFin }),
+    });
+    const data = await res.json();
+    if (data.error) { mostrarError(data.error); return; }
+    document.getElementById('act-desc').value = '';
+    document.getElementById('act-con-horario').checked = false;
+    document.getElementById('act-hora-inicio').value = '';
+    document.getElementById('act-hora-fin').value = '';
+    toggleHorarioActividad();
+    await cargarReporte();
+  } catch (e) { mostrarError('No se pudo guardar. Revisa tu conexión.'); }
+}
+
+async function eliminarActividad(id) {
+  if (!confirm('¿Eliminar esta actividad?')) return;
+  try {
+    const res = await fetch(`${API_BASE}/reporte_diario.php`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ accion:'eliminar_actividad', actividad_id: id, fecha: fechaVista }) });
+    const data = await res.json();
+    if (data.error) { mostrarError(data.error); return; }
+    await cargarReporte();
+  } catch (e) { mostrarError('No se pudo eliminar. Revisa tu conexión.'); }
+}
+
+init();
+</script>
+</body>
+</html>

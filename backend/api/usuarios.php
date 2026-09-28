@@ -96,7 +96,7 @@ if ($method === 'POST') {
     ($d['rol']    ?? null) ?: null,
     ($d['email']  ?? null) ?: null,
     ($d['cedula'] ?? null) ?: null,
-    in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : 'tecnico',
+    in_array($d['perfil'] ?? '', ['admin','tecnico','tecnico_inhouse']) ? $d['perfil'] : 'tecnico',
     $pin_hash,
     $telegramChatId,
     $celular,
@@ -149,7 +149,7 @@ if ($method === 'PUT') {
   $celular        = array_key_exists('celular', $d)          ? (($d['celular']          ?? '') ?: null) : $prev['celular'];
   $notifCorreo    = isset($d['notif_menciones_correo']) ? (int)!!$d['notif_menciones_correo'] : (int)$prev['notif_menciones_correo'];
   $notifTg        = isset($d['notif_menciones_tg'])     ? (int)!!$d['notif_menciones_tg']     : (int)$prev['notif_menciones_tg'];
-  $perfil         = in_array($d['perfil'] ?? '', ['admin','tecnico']) ? $d['perfil'] : $prev['perfil'];
+  $perfil         = in_array($d['perfil'] ?? '', ['admin','tecnico','tecnico_inhouse']) ? $d['perfil'] : $prev['perfil'];
   $activo         = isset($d['activo']) ? (int)$d['activo'] : (int)$prev['activo'];
   $fechaInicioContrato = array_key_exists('fecha_inicio_contrato', $d) ? (($d['fecha_inicio_contrato'] ?? '') ?: null) : $prev['fecha_inicio_contrato'];
   $diasVacacionesAnual = array_key_exists('dias_vacaciones_anual', $d)

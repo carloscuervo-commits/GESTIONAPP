@@ -4,6 +4,36 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-28 — nuevo: técnicos in-house, reporte diario en página aparte)
+
+### feat: técnico in-house con reporte diario (hora inicio/fin + actividades), página propia sin cargar el tablero
+
+Carlos tiene técnicos que trabajan tiempo completo, de lunes a viernes, embebidos en un solo cliente (contrato de tiempo completo, distinto al contrato de bolsa de horas que ya existía). Necesitaba que ese técnico, al entrar a Ginno, solo pudiera diligenciar un reporte diario (hora de inicio/fin de jornada + lista de actividades, algunas con horario propio y otras generales) — y que el admin pudiera revisar esos reportes. Explícitamente pidió que no se cargara nada más del tablero para ese usuario.
+
+**Decisión de arquitectura**: en vez de ocultar una pestaña más dentro de `tareas-equipo.html` (como hace hoy `perfil='tecnico'` vía `aplicarPermisosUI()`), se creó una **página aparte y liviana**, `reporte-diario.html` — HTML/CSS/JS 100% inline, un solo archivo, sin ninguno de los 21 `<script>` que carga el tablero (algunos de >100KB). Es necesario porque en el tablero los `<script>` están todos al final del `<body>` y el navegador ya los pidió al servidor antes de que cualquier JS pudiera redirigir — ocultar con CSS no evita la descarga.
+
+**Modelo de datos (migración `047_tecnico_inhouse.sql`)**:
+- `usuarios.perfil` gana un tercer valor: `'tecnico_inhouse'` (además de `admin`/`tecnico`). Login por PIN igual que hoy (`auth.php`), pero tras autenticar se redirige a `reporte-diario.html` en vez de cargar el tablero (`auth.js`, tanto en `cargarSesion()` como en `intentarLogin()` — red de seguridad si alguien con este perfil abre `tareas-equipo.html` por error).
+- `clientes` gana `contrato_tipo` (`'ninguno'`/`'tiempo_completo'`) y `tecnico_inhouse_id` (FK a `usuarios`, `UNIQUE` — un técnico in-house solo puede estar asignado a un cliente a la vez). Es un eje independiente del contrato de bolsa de horas (`contrato_area`/`contrato_horas_mes`) que ya existía — no lo toca ni lo reemplaza.
+- `reporte_diario`: una fila por técnico/día (`hora_inicio`, `hora_fin`, `cerrado`). `cliente_id` se copia al crear el reporte (no cambia retroactivamente si el técnico se reasigna después). Se cierra solo al marcar hora de fin — un admin lo puede reabrir.
+- `reporte_diario_actividad`: descripción + `hora_inicio`/`hora_fin` opcionales (`NULL` = actividad general, sin franja horaria).
+
+**Archivos nuevos**:
+- `reporte-diario.html` (raíz) — página del técnico in-house: login por PIN (usuarios filtrados a `perfil=tecnico_inhouse` vía `auth.php?action=usuarios&perfil=X`, parámetro nuevo), marcar inicio/fin de jornada, agregar/eliminar actividades (texto libre, con checkbox opcional "tiene horario propio"), reporte de hoy se crea solo al abrirlo. Reutiliza el mismo `sesion_token` de `localStorage` que el tablero (mismo `auth.php`).
+- `backend/api/reporte_diario.php` — GET (técnico: su reporte del día; admin: reportes en rango `desde`/`hasta`, con actividades), POST (técnico: `marcar_inicio`/`marcar_fin`/`agregar_actividad`/`eliminar_actividad`, solo si no está cerrado), PUT (admin: `reabrir`).
+- `assets/js/reporte_diario_admin.js` — pestaña nueva "📅 Reportes diarios" (solo admin, junto a Clientes/Transportes/Bitácora en el mismo patrón de `aplicarPermisosUI()`): filtro por técnico + rango de fechas, lista de reportes con sus actividades, botón "Reabrir" en los cerrados.
+
+**Archivos modificados**:
+- `backend/api/auth.php` — `GET ?action=usuarios` acepta `&perfil=X` para filtrar el selector de login (lo usa `reporte-diario.html` para no mostrar admins/técnicos normales).
+- `backend/api/usuarios.php` — el perfil `tecnico_inhouse` se agregó a la lista blanca de perfiles válidos (POST y PUT).
+- `backend/api/clientes.php` — persiste `contrato_tipo`/`tecnico_inhouse_id`; devuelve error 409 legible si se intenta asignar un técnico in-house que ya está en otro cliente (choque con el `UNIQUE`).
+- `assets/js/auth.js` (`?v=20260928a`) — redirección a `reporte-diario.html` para perfil `tecnico_inhouse`; nueva pestaña `tab-reporte-diario` oculta para técnicos en `aplicarPermisosUI()`.
+- `assets/js/clientes.js` (`?v=20260928a`) — caja "🏠 Técnico in-house" en el modal de cliente (checkbox + selector de técnico).
+- `assets/js/tareas.js` (`?v=20260928a`) — `setArea()` reconoce el área `reporte_diario`.
+- `tareas-equipo.html` — opción `tecnico_inhouse` en el selector de perfil (modal Usuarios), caja de contrato tiempo completo en el modal de Clientes, pestaña + contenedor de vista nuevos, `<script>` de `reporte_diario_admin.js`, `?v=` subido en `auth.js`/`clientes.js`/`tareas.js`.
+
+**Qué NO se tocó**: el contrato de bolsa de horas (`contrato_area`/`contrato_horas_mes`/`fecha_corte_contrato`) y su dashboard de "contratos vigentes" siguen exactamente igual — `contrato_tipo`/`tecnico_inhouse_id` son columnas nuevas e independientes.
+
 ## Estado actual (última actualización: 2026-09-25 — corrección: la primera corrida de `anticipos_saldo_tercero` se calculó mal, se rehizo verificando en la interfaz de Alegra)
 
 ### corrección: `reports_get_third_party_trial_balance` (Alegra MCP) no es confiable para calcular el saldo de anticipos por tercero
