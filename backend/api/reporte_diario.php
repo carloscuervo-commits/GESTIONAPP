@@ -70,14 +70,18 @@ if ($method === 'GET') {
     $filtroTec = '';
     if (!empty($_GET['tecnico_id'])) { $filtroTec = ' AND rd.tecnico_id = ?'; $params[] = $_GET['tecnico_id']; }
 
-    // COLLATE explícito en los JOIN: usuarios/clientes no necesariamente
-    // comparten colación (ver nota en la migración 047) — mismo patrón
-    // defensivo que ya usa bitacora.php.
+    // COLLATE explícito solo en el JOIN hacia usuarios: usuarios.id usa
+    // utf8mb4_general_ci y rd.tecnico_id hereda esa misma colación de la
+    // tabla, así que en teoría ya coinciden — se deja el COLLATE de todas
+    // formas por consistencia con bitacora.php. El JOIN hacia clientes no
+    // necesita forzar colación: rd.cliente_id se declaró con COLLATE
+    // utf8mb4_unicode_ci explícito en la migración 047 para coincidir de
+    // forma nativa con clientes.id.
     $stmt = $pdo->prepare(
       "SELECT rd.*, ut.nombre AS tecnico_nombre, ut.iniciales AS tecnico_iniciales, c.nombre AS cliente_nombre
        FROM reporte_diario rd
        JOIN usuarios ut ON ut.id COLLATE utf8mb4_general_ci = rd.tecnico_id COLLATE utf8mb4_general_ci
-       JOIN clientes c  ON c.id  COLLATE utf8mb4_general_ci = rd.cliente_id COLLATE utf8mb4_general_ci
+       JOIN clientes c  ON c.id = rd.cliente_id
        WHERE rd.fecha BETWEEN ? AND ? $filtroTec
        ORDER BY rd.fecha DESC, ut.nombre ASC"
     );
@@ -194,6 +198,38 @@ if ($method === 'PUT') {
     ->execute([$tecId, $fecha]);
 
   jsonOut(['ok' => true]);
+}
+
+// --------------------------------------------------------------
+// DELETE — admin: borrar una actividad puntual o un reporte completo
+// --------------------------------------------------------------
+if ($method === 'DELETE') {
+  if ($u['perfil'] !== 'admin') jsonOut(['error' => 'Se requiere perfil administrador'], 403);
+
+  $d      = jsonInput();
+  $accion = $d['accion'] ?? '';
+
+  // Borra una actividad puntual de cualquier técnico, sin importar si el
+  // reporte está cerrado (a diferencia de la acción del propio técnico,
+  // que solo puede borrar sus propias actividades y solo mientras el
+  // reporte está abierto).
+  if ($accion === 'eliminar_actividad') {
+    $actId = $d['actividad_id'] ?? null;
+    if (!$actId) jsonOut(['error' => 'actividad_id requerido'], 400);
+    $pdo->prepare("DELETE FROM reporte_diario_actividad WHERE id = ?")->execute([$actId]);
+    jsonOut(['ok' => true]);
+  }
+
+  // Borra el reporte del día completo (jornada). Las actividades se
+  // borran solas por el FK fk_rda_reporte ON DELETE CASCADE.
+  if ($accion === 'eliminar_reporte') {
+    $repId = $d['reporte_diario_id'] ?? null;
+    if (!$repId) jsonOut(['error' => 'reporte_diario_id requerido'], 400);
+    $pdo->prepare("DELETE FROM reporte_diario WHERE id = ?")->execute([$repId]);
+    jsonOut(['ok' => true]);
+  }
+
+  jsonOut(['error' => 'Acción no reconocida'], 400);
 }
 
 jsonOut(['error' => 'Método no soportado'], 405);

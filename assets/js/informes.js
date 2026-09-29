@@ -1,11 +1,15 @@
 // ===================== INFORMES (solo admin) =====================
-// 4 informes puntuales, pensados para uso diario:
-//  1) Actividades de un técnico por rango de fechas (sus visitas: check-in/check-out)
-//  2) Todas las tarjetas de un cliente (cualquier área)
-//  3) Facturas generadas en Alegra desde el módulo de Facturación
-//  4) Reportes de tarjetas operativas: buscar por fecha/cliente, editar y descargar PDF
-// Acceso restringido a perfil 'admin' (aplicarPermisosUI en auth.js oculta
-// la pestaña "Informes" para técnicos; setArea también la bloquea).
+// Cada entrada del objeto INFORMES (más abajo) es un informe seleccionable
+// desde el dropdown de esta pestaña. Algunos ejemplos:
+//  - Actividades de un técnico por rango de fechas (sus visitas: check-in/check-out)
+//  - Actividades InHouse: reporte diario de los técnicos in-house (registrado
+//    desde reporte-diario.html) — ver renderActividadesInhouseHTML en
+//    reporte_diario_admin.js, que se registra aquí pero vive en su propio archivo.
+//  - Todas las tarjetas de un cliente (cualquier área)
+//  - Facturas generadas en Alegra desde el módulo de Facturación
+//  - Reportes de tarjetas operativas: buscar por fecha/cliente, editar y descargar PDF
+// Acceso restringido a perfil 'admin' (setArea en tareas.js bloquea a los
+// técnicos con perfil 'tecnico' fuera de it/if/agenda).
 
 let informesReportesVisita = []; // cache de reportes.php?todos=1
 let informesFacturas = [];       // cache de facturas_generadas.php
@@ -583,6 +587,7 @@ async function renderSinReporteHTML(filtros) {
 
 const INFORMES = {
   actividades_tecnico: { nombre: '👷 Actividades de un técnico', campos: ['tecnico', 'desde', 'hasta'], calcular: calcActividadesTecnico },
+  actividades_inhouse: { nombre: '🏠 Actividades InHouse', campos: ['tecnico', 'desde', 'hasta'], customAsync: (filtros) => renderActividadesInhouseHTML(filtros) },
   tarjetas_cliente: { nombre: '📋 Tarjetas de un cliente', campos: ['cliente'], calcular: calcTarjetasCliente },
   facturas_modulo: { nombre: '🧾 Facturas generadas (módulo Facturación)', campos: ['desde', 'hasta', 'cliente'], calcular: calcFacturasModulo },
   reportes_busqueda: { nombre: '🔍 Reportes de tarjetas operativas', campos: ['desde', 'hasta', 'cliente', 'estadoReporte'], calcular: calcReportesBusqueda, custom: renderReportesBusquedaHTML },

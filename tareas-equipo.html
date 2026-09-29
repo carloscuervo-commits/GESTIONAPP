@@ -91,7 +91,6 @@
     </div>
   </div>
   <button class="area-tab" data-area="bitacora" id="tab-bitacora" onclick="setArea('bitacora')" style="display:none">📋 Bitácora</button>
-  <button class="area-tab" data-area="reporte_diario" id="tab-reporte-diario" onclick="setArea('reporte_diario')" style="display:none">📅 Reportes diarios</button>
 </div>
 
 <!-- Banner offline: visible solo cuando no hay conexión o hay cola pendiente -->
@@ -214,7 +213,6 @@
 <div id="transportes-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="bitacora-view" style="display:none;padding:16px 20px 30px"></div>
 <div id="ausencias-view" style="display:none;padding:16px 20px 30px"></div>
-<div id="reporte-diario-admin-view" style="display:none;padding:16px 20px 30px"></div>
 <!-- SETTINGS PANEL — accesible solo para admins desde el botón ⚙️ del header -->
 <div id="settings-panel" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto">
   <div style="position:sticky;top:0;z-index:1;background:var(--bg);border-bottom:2px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
@@ -586,6 +584,7 @@
         <span id="modal-title-text">Nueva Tarea</span>
         <span id="modal-short-id" style="display:none;font-size:12px;font-weight:700;color:#94a3b8;letter-spacing:0.05em"></span>
         <span id="modal-fecha-creacion" style="display:none;font-size:11px;font-weight:500;color:var(--text-muted)"></span>
+        <span id="modal-origen-tarjeta" style="display:none;font-size:12px;font-weight:600;color:var(--primary);cursor:pointer;text-decoration:underline" onclick="verTarjetaOrigen()"></span>
       </div>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
@@ -1096,15 +1095,15 @@
 </div>
 
 
-<script src="assets/js/core.js?v=20260924a"></script>
-<script src="assets/js/auth.js?v=20260928a"></script>
-<script src="assets/js/tareas.js?v=20260928a"></script>
+<script src="assets/js/core.js?v=20260929a"></script>
+<script src="assets/js/auth.js?v=20260929a"></script>
+<script src="assets/js/tareas.js?v=20260929b"></script>
 <script src="assets/js/cartera.js?v=20260924b"></script>
 <script src="assets/js/anticipos.js?v=20260924c"></script>
 <script src="assets/js/facturacion.js?v=20260924a"></script>
 <script src="assets/js/reportes.js?v=20260918b"></script>
 <script src="assets/js/comentarios.js?v=20260924a"></script>
-<script src="assets/js/informes.js?v=20260909a"></script>
+<script src="assets/js/informes.js?v=20260929a"></script>
 <script src="assets/js/alarma.js?v=20260827a"></script>
 <script src="assets/js/usuarios.js?v=20260917a"></script>
 <script src="assets/js/ausencias.js?v=20260918a"></script>
@@ -1116,7 +1115,7 @@
 <script src="assets/js/bitacora.js?v=20260807b"></script>
 <script src="assets/js/configuracion.js?v=20260917b"></script>
 <script src="assets/js/offline.js?v=20260704n"></script>
-<script src="assets/js/reporte_diario_admin.js?v=20260928a"></script>
+<script src="assets/js/reporte_diario_admin.js?v=20260929a"></script>
 <script src="assets/js/app.js?v=20260924a"></script>
 </body>
 </html>

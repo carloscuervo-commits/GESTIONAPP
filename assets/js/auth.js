@@ -199,8 +199,10 @@ function aplicarPermisosUI() {
   if (tabTransportes) tabTransportes.style.display = esTecnico ? 'none' : '';
   const tabBitacora = document.getElementById('tab-bitacora');
   if (tabBitacora) tabBitacora.style.display = esTecnico ? 'none' : '';
-  const tabReporteDiario = document.getElementById('tab-reporte-diario');
-  if (tabReporteDiario) tabReporteDiario.style.display = esTecnico ? 'none' : '';
+  // Nota: "Actividades InHouse" (antes "Reportes diarios") ya no es una pestaña
+  // propia — vive dentro del informe del mismo nombre en la pestaña Informes.
+  // El acceso a Informes ya estaba restringido a admin desde setArea() en
+  // tareas.js (perfil 'tecnico' solo puede navegar a it/if/agenda).
   // Botón ⚙️ solo visible para administradores (reemplaza tabs de Usuarios y Configuración)
   const btnSettings = document.getElementById('btn-settings');
   if (btnSettings) btnSettings.style.display = esTecnico ? 'none' : '';

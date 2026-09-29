@@ -1175,8 +1175,7 @@ function setArea(a) {
   const isTransportes = a === 'transportes';
   const isBitacora       = a === 'bitacora';
   const isAusencias      = a === 'ausencias';
-  const isReporteDiario  = a === 'reporte_diario';
-  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora || isAusencias || isReporteDiario;
+  const isOther = isCartera || isAnticiposRecibidos || isAnticiposEntregados || isFacturacion || isInformes || isClientes || isAgenda || isTransportes || isBitacora || isAusencias;
   document.getElementById('kanban-view').style.display   = isOther ? 'none' : (currentView==='kanban'?'flex':'none');
   document.getElementById('lista-view').style.display    = isOther ? 'none' : (currentView==='lista'?'block':'none');
   const archSection = document.getElementById('arch-section');
@@ -1191,7 +1190,6 @@ function setArea(a) {
   document.getElementById('transportes-view').style.display = isTransportes  ? 'block' : 'none';
   document.getElementById('bitacora-view').style.display       = isBitacora       ? 'block' : 'none';
   document.getElementById('ausencias-view').style.display      = isAusencias      ? 'block' : 'none';
-  document.getElementById('reporte-diario-admin-view').style.display = isReporteDiario ? 'block' : 'none';
   document.querySelector('.filters').style.display       = isOther ? 'none' : 'flex';
   document.getElementById('stats').style.display         = isOther ? 'none' : 'grid';
   document.querySelector('.view-toggle').style.display   = 'flex';
@@ -1209,7 +1207,6 @@ function setArea(a) {
   else if (isTransportes) { iniciarTransportes(); }
   else if (isBitacora)       { if (typeof renderBitacoraView    === 'function') renderBitacoraView(); }
   else if (isAusencias)   { if (typeof renderAusenciasView === 'function') renderAusenciasView(); }
-  else if (isReporteDiario) { if (typeof renderReporteDiarioAdminView === 'function') renderReporteDiarioAdminView(); }
   else {
     // Si estábamos en el Dashboard (vista sin filtro por área), al elegir
     // un área específica mostramos el tablero kanban de esa área.
@@ -1683,6 +1680,17 @@ function openModal(id, preArea, preEstado) {
     }
   }
   document.getElementById('btn-delete').style.display=(t && currentUser?.perfil==='admin')?'inline-block':'none';
+  // Enlace de vuelta a la tarjeta operativa (IT/IF) que generó esta tarjeta
+  // comercial, cuando aplica — ver verTarjetaOrigen() más abajo.
+  const origenEl = document.getElementById('modal-origen-tarjeta');
+  if (origenEl) {
+    if (t?.origenOperativoId) {
+      origenEl.textContent = '🔗 Ver tarjeta operativa origen';
+      origenEl.style.display = 'inline';
+    } else {
+      origenEl.style.display = 'none';
+    }
+  }
   document.getElementById('f-titulo').value=t?.titulo||'';
   document.getElementById('f-desc').value=t?.desc||'';
   const defaultArea = preArea || t?.area || (currentArea!=='all'&&currentArea!=='cartera'?currentArea:'it');
@@ -1837,6 +1845,19 @@ function openModal(id, preArea, preEstado) {
 
   document.getElementById('modal').classList.add('open');
   setTimeout(()=>document.getElementById('f-titulo').focus(),50);
+}
+
+// Abre la tarjeta operativa (IT/IF) que generó la tarjeta comercial que
+// está abierta actualmente en el modal — ver el enlace "modal-origen-tarjeta"
+// en openModal(). Cambia de pestaña a la del área origen antes de abrir.
+function verTarjetaOrigen() {
+  const t = editingId ? tasks.find(x => x.id === editingId) : null;
+  if (!t?.origenOperativoId) return;
+  const destino = tasks.find(x => x.id === t.origenOperativoId);
+  if (!destino) { alert('La tarjeta operativa origen ya no existe (pudo haber sido eliminada).'); return; }
+  closeModal();
+  setArea(t.origenOperativoArea || destino.area);
+  openModal(destino.id);
 }
 
 // ===================== AUTOCOMPLETAR CLIENTE (ALEGRA) =====================
@@ -2198,6 +2219,8 @@ async function saveTask() {
     laborAdmin, solicitudComercial, incluyeProg, tipoTarea, avisarCliente, reporteInterno,
     adminTaskId: prev?.adminTaskId || null,
     comercialTaskId: prev?.comercialTaskId || null,
+    origenOperativoId: prev?.origenOperativoId || null,
+    origenOperativoArea: prev?.origenOperativoArea || null,
     cotizacionDocx: prev?.cotizacionDocx || null,
     reporteArchivo: prev?.reporteArchivo || null,
   };
@@ -2240,6 +2263,7 @@ async function saveTask() {
       seguimientoHistorial: [],
       laborAdmin: '', solicitudComercial: '', incluyeProg: false,
       adminTaskId: null, comercialTaskId: null,
+      origenOperativoId: null, origenOperativoArea: null,
     };
     extraTasks.push(adminTask);
     task.adminTaskId = adminTask.id;
@@ -2271,6 +2295,9 @@ async function saveTask() {
       seguimientoHistorial: [],
       laborAdmin: '', solicitudComercial: '', incluyeProg: false,
       adminTaskId: null, comercialTaskId: null,
+      // Enlace de vuelta hacia la tarjeta operativa que generó esta cotización,
+      // para poder verla desde el modal de la tarjeta comercial (pedido de Carlos, 2026-09-29).
+      origenOperativoId: task.id, origenOperativoArea: task.area,
     };
     extraTasks.push(comercialTask);
     task.comercialTaskId = comercialTask.id;

@@ -140,8 +140,8 @@ if ($method === 'POST') {
     (id, titulo, descripcion, area, estado, tipo_tarea, cliente, fecha_programacion, hora_programacion, dias_programacion, fecha_limite,
      tiempo_estimado, tiempo_real, recursos, notas, reporte, modalidad, factura, motivo_no_factura, creado_por,
      realizado_en, enviada_en, programado_en, seguimiento_fecha, seguimiento_historial,
-     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, cotizacion_docx, incluye_prog, avisar_cliente, reporte_interno)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+     solicitud_admin, solicitud_comercial, admin_tarea_id, comercial_tarea_id, origen_operativo_id, origen_operativo_area, cotizacion_docx, incluye_prog, avisar_cliente, reporte_interno)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
   $stmt->execute([
     $id, $d['titulo'], $d['desc'] ?? null, $d['area'], $d['estado'],
     $tipoTareaIn,
@@ -153,7 +153,9 @@ if ($method === 'POST') {
     $d['creadoPor'] ?? null, $realizadoEn, $enviadaEn, $programadoEn,
     $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
-    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $d['cotizacionDocx'] ?? null,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null,
+    $d['origenOperativoId'] ?? null, $d['origenOperativoArea'] ?? null,
+    $d['cotizacionDocx'] ?? null,
     empty($d['incluyeProg']) ? 0 : 1,
     $avisarClienteIn, $reporteInternoIn,
   ]);
@@ -270,7 +272,7 @@ if ($method === 'PUT') {
     titulo=?, descripcion=?, area=?, estado=?, tipo_tarea=?, cliente=?, fecha_programacion=?, hora_programacion=?, dias_programacion=?, fecha_limite=?,
     tiempo_estimado=?, tiempo_real=?, recursos=?, notas=?, reporte=?, modalidad=?, factura=?, motivo_no_factura=?,
     realizado_en=?, enviada_en=?, programado_en=?, seguimiento_fecha=?, seguimiento_historial=?,
-    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, cotizacion_docx=?, incluye_prog=?,
+    solicitud_admin=?, solicitud_comercial=?, admin_tarea_id=?, comercial_tarea_id=?, origen_operativo_id=?, origen_operativo_area=?, cotizacion_docx=?, incluye_prog=?,
     avisar_cliente=?, reporte_interno=?, alerta_retraso_enviada=?
     WHERE id=?");
   $stmt->execute([
@@ -283,7 +285,9 @@ if ($method === 'PUT') {
     array_key_exists('motivoNoFactura', $d) ? $d['motivoNoFactura'] : ($prev['motivo_no_factura'] ?? null),
     $realizadoEn, $enviadaEn, $programadoEn, $d['seguimientoFecha'] ?? null, $seguimientoHistorial,
     $d['laborAdmin'] ?? null, $d['solicitudComercial'] ?? null,
-    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null, $cotizacionDocx,
+    $d['adminTaskId'] ?? null, $d['comercialTaskId'] ?? null,
+    $d['origenOperativoId'] ?? null, $d['origenOperativoArea'] ?? null,
+    $cotizacionDocx,
     empty($d['incluyeProg']) ? 0 : 1,
     $avisarClienteUp, $reporteInternoUp,
     $alertaRetraso, $id,

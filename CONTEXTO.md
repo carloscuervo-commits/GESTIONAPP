@@ -4,6 +4,26 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-29 — fix migración 047 + admin puede borrar reportes diarios + se movieron a Informes como "Actividades InHouse" + enlace comercial→operativa origen)
+
+### fix: migración `047_tecnico_inhouse.sql` fallaba con #1005/errno 150 por colación
+
+Carlos corrió la migración 047 (ver sección 2026-09-28 más abajo) y el `ALTER TABLE clientes` falló con `#1005 - Foreign key constraint is incorrectly formed`. Causa: `clientes.tecnico_inhouse_id` no llevaba `COLLATE` explícito, así que heredó el de `clientes` (`utf8mb4_unicode_ci`), pero su FK apunta a `usuarios.id`, que es `utf8mb4_general_ci` — mismo tipo de problema ya documentado para `visita_participantes`. Confirmado por Carlos vía la pestaña Estructura de phpMyAdmin (SQL vía `information_schema` no funciona en este hosting — visibilidad restringida para este usuario de BD, se intentó por tres vías distintas y las tres fallaron o devolvieron vacío). Corregido declarando cada columna nueva con el cotejamiento exacto de la tabla que referencia por FK: `clientes.tecnico_inhouse_id COLLATE utf8mb4_general_ci`, `reporte_diario.cliente_id COLLATE utf8mb4_unicode_ci`. El paso 1 (`usuarios.perfil`) ya se había aplicado bien y es idempotente; los pasos 2-4 nunca llegaron a aplicarse (el `ALTER` fallido detiene el lote completo), así que no hubo que deshacer nada — se re-subió `db/047_tecnico_inhouse.sql` corregido para correr de nuevo tal cual. De paso se simplificó el JOIN admin en `reporte_diario.php`: ya no fuerza colación hacia `clientes` porque `cliente_id` ahora coincide de forma nativa.
+
+### feat: admin puede borrar actividades puntuales o el reporte completo de un día (técnicos in-house)
+
+Nuevo método `DELETE` en `reporte_diario.php`, solo admin: `eliminar_actividad` (borra una actividad puntual de cualquier técnico, sin importar si el reporte está cerrado — a diferencia de la acción del propio técnico, que solo puede borrar las suyas y solo mientras el reporte está abierto) y `eliminar_reporte` (borra la jornada completa de un día; las actividades se van solas por `ON DELETE CASCADE`). En la UI: botón 🗑 por actividad y botón "🗑 Eliminar día" por tarjeta de reporte, ambos con `confirm()`.
+
+### refactor: "Reportes diarios" deja de ser pestaña propia — ahora es el informe "🏠 Actividades InHouse" dentro de Informes
+
+A pedido de Carlos, se quitó la pestaña top-level `tab-reporte-diario` / `#reporte-diario-admin-view` y se registró como una entrada más del dropdown de la pestaña Informes (`INFORMES.actividades_inhouse` en `informes.js`, con `campos: ['tecnico','desde','hasta']` — reutiliza el selector de técnico genérico que ya usa "Actividades de un técnico", que lista TEAM completo, no solo `tecnico_inhouse`). `reporte_diario_admin.js` se reescribió para exponer `renderActividadesInhouseHTML(filtros)` como `customAsync` (registrado con una función flecha `(filtros) => renderActividadesInhouseHTML(filtros)` para evitar un `ReferenceError` por orden de carga entre archivos `<script>`) en vez de tener su propio init/filtro/contenedor; las acciones (reabrir/eliminar) ahora refrescan con `recalcularInforme()` del framework de Informes en vez de su propio `_rdaCargar()`. `setArea()` en `tareas.js` perdió toda la rama `isReporteDiario`.
+
+### feat: enlace de vuelta desde la tarjeta comercial auto-generada hacia la tarjeta operativa (IT/IF) que la originó
+
+Cuando una tarjeta IT/IF tiene "Solicitud comercial" llena por primera vez, Ginno ya auto-creaba una tarjeta "COTIZACION OPERATIVO: ..." en Comercial (`comercialTaskId` en la tarjeta operativa, ver `guardarTarea()` en `tareas.js`) — pero no había forma de volver de la comercial a la operativa que la generó. Se agregaron dos columnas nuevas (migración `048_origen_operativo.sql`): `tareas.origen_operativo_id`/`origen_operativo_area`, autorreferencia dentro de la misma tabla (mismo tipo que `tareas.id`, sin colación cruzada, sin FK — mismo criterio informal que ya usan `admin_tarea_id`/`comercial_tarea_id`). Se llenan solo al auto-crear la tarjeta comercial. En el modal, cuando la tarjeta tiene `origenOperativoId`, aparece un enlace "🔗 Ver tarjeta operativa origen" junto al título (mismo lugar que el ID corto y la fecha de creación) que cambia de pestaña y abre la tarjeta origen (`verTarjetaOrigen()`).
+
+**Archivos**: `db/047_tecnico_inhouse.sql` (corregido) · `db/048_origen_operativo.sql` (nuevo) · `backend/api/reporte_diario.php` · `backend/api/tareas.php` · `assets/js/reporte_diario_admin.js` (reescrito) · `assets/js/informes.js` (`?v=20260929a`) · `assets/js/core.js` (`?v=20260929a`) · `assets/js/tareas.js` (`?v=20260929b`) · `assets/js/auth.js` (`?v=20260929a`) · `tareas-equipo.html`.
+
 ## Estado actual (última actualización: 2026-09-28 — nuevo: técnicos in-house, reporte diario en página aparte)
 
 ### feat: técnico in-house con reporte diario (hora inicio/fin + actividades), página propia sin cargar el tablero
