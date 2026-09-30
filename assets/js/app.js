@@ -147,7 +147,10 @@ async function autoSync() {
   if (modalesEdicion.some(id => document.getElementById(id)?.classList.contains('open'))) return;
 
   try {
-    await load();
+    // silencioso=true: si falla (ej. red que se está reconectando tras
+    // reposo del PC), no interrumpir con el alert() de load() — se
+    // reintenta solo en 20s con los datos que ya se tenían en pantalla.
+    await load(true);
     render();
     // cargarVisitasActivas también llama render() internamente
     await cargarVisitasActivas();

@@ -42,6 +42,10 @@ Este archivo se adjunta en la conversación "deploy" para que Claude haga el dep
 - ⚠️ **Caché de `assets/js/*.js` (7 días)**: estos archivos se sirven con `Cache-Control: public, max-age=604800`. Si un deploy modifica cualquier archivo en `assets/js/`, hay que actualizar el query param `?v=YYYYMMDD` en los 5 `<script src="assets/js/...?v=...">` de `tareas-equipo.html` (subirlo a una fecha nueva), o los navegadores seguirán usando el JS viejo hasta una semana después del deploy.
 - Para más detalle de arquitectura/estructura del proyecto, ver `CONTEXTO.md`.
 
+## Cambios pendientes de deploy (actualizado 2026-09-30 — + fix: alert de "sin conexión" interrumpía por fallos silenciosos de autoSync)
+
+**fix: `load()` ya no muestra un `alert()` bloqueante ni vacía el tablero cuando falla la recarga automática en segundo plano.** Carlos reportó que al dejar el PC quieto un rato, al volver le aparecía "No se pudo conectar con el servidor." — causa: `autoSync()` (polling cada 20s) llama a `load()`, y `load()` mostraba ese `alert()` y reseteaba `tasks = []` en CUALQUIER fallo de red, sin distinguir una carga inicial real de un simple hipo de conexión en segundo plano (típico al despertar el PC de reposo, wifi reconectando). Ahora `load(silencioso)` acepta un parámetro: `autoSync()` lo llama con `silencioso=true` (sin alert, y ya no borra `tasks` — conserva los últimos datos buenos, mismo criterio que ya usa `cargarVisitasActivas()` en `reportes.js`) y las demás llamadas (carga inicial, `resolverTareaTerminada()`) siguen alertando igual que antes. **Archivos**: `assets/js/core.js` (`?v=20260930a`), `assets/js/app.js` (`?v=20260930a`), `tareas-equipo.html`. Solo código y `?v=`, sin cambios de base de datos.
+
 ## Cambios pendientes de deploy (actualizado 2026-09-29 — técnicos in-house + reporte diario en Informes + enlace comercial→operativa)
 
 **Requiere correr DOS migraciones en phpMyAdmin ANTES del deploy, en este orden:**
@@ -57,7 +61,7 @@ Ninguna de las dos borra ni modifica datos existentes.
 
 **Archivos modificados:**
 - `backend/api/auth.php`, `backend/api/usuarios.php`, `backend/api/clientes.php`, `backend/api/tareas.php`
-- `assets/js/auth.js` (`?v=20260929a`), `assets/js/clientes.js` (`?v=20260928a`), `assets/js/tareas.js` (`?v=20260929b`), `assets/js/core.js` (`?v=20260929a`), `assets/js/informes.js` (`?v=20260929a`)
+- `assets/js/auth.js` (`?v=20260929a`), `assets/js/clientes.js` (`?v=20260928a`), `assets/js/tareas.js` (`?v=20260929b`), `assets/js/core.js` (`?v=20260930a`, ver también el fix de abajo), `assets/js/informes.js` (`?v=20260929a`)
 - `tareas-equipo.html` — `?v=` subido en los JS de arriba, quitada la pestaña/contenedor propios de "Reportes diarios" (ahora vive dentro de Informes), agregado el `<span id="modal-origen-tarjeta">` en el modal de tarjetas.
 
 **Nota**: "Reportes diarios" ya NO es una pestaña aparte — se movió al dropdown de la pestaña **Informes**, renombrado a **"🏠 Actividades InHouse"**. El admin ahora también puede borrar ahí una actividad puntual o el reporte completo de un día (botones 🗑), sin importar si el reporte está cerrado.

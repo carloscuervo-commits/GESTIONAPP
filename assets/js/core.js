@@ -241,7 +241,14 @@ let currentView = 'dashboard';
 let currentArea = 'it';
 let selectedTeam = []; // ids
 
-async function load() {
+// silencioso=true: no mostrar el alert() bloqueante si falla (usado por
+// autoSync, que recarga en segundo plano cada 20s — ver app.js). Un fallo de
+// red transitorio ahí (ej. el PC despertando de reposo, el wifi
+// reconectando) no debe interrumpir al usuario con un popup ni vaciar el
+// tablero: por eso tampoco se reinicia `tasks` en el catch — si falla, se
+// preservan los últimos datos buenos conocidos (mismo criterio que ya usa
+// cargarVisitasActivas() en reportes.js).
+async function load(silencioso) {
   if (!API_BASE) {
     try { tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { tasks = []; }
     return;
@@ -250,7 +257,10 @@ async function load() {
     const res = await fetch(`${API_BASE}/tareas.php`);
     const rows = await res.json();
     tasks = rows.map(apiToTask);
-  } catch (e) { console.error('Error cargando tareas', e); tasks = []; alert('No se pudo conectar con el servidor.'); }
+  } catch (e) {
+    console.error('Error cargando tareas', e);
+    if (!silencioso) alert('No se pudo conectar con el servidor.');
+  }
 }
 function save() { if (!API_BASE) localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }

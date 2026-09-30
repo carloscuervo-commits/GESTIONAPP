@@ -4,6 +4,16 @@
 
 URL pública: https://grupoinnovate.com/ginno/ (antes: /gestion/tareas-equipo.html)
 
+## Estado actual (última actualización: 2026-09-30 — fix: alert de "sin conexión" disparado por autoSync en segundo plano)
+
+### fix: `load()` alertaba y vaciaba el tablero ante cualquier fallo de red, incluso los silenciosos de autoSync
+
+Carlos reportó: "cuando dejo un rato quieto el pc me aparece un error de conexión con el servidor". Causa encontrada en `core.js`: `load()` (la función que trae todas las tareas desde `tareas.php`) atrapaba internamente cualquier error de `fetch` y, sin excepción, hacía `tasks = []` + `alert('No se pudo conectar con el servidor.')`. El problema es que `load()` la llama tanto la carga inicial de la app (`iniciarApp()`, donde sí tiene sentido avisar) como `autoSync()` en `app.js` — el polling silencioso cada 20 segundos que mantiene el tablero al día entre usuarios. `autoSync()` ya tenía su propio `try/catch` pensado para fallar en silencio (`console.warn`), pero nunca llegaba a usarse porque `load()` absorbía el error antes de que se propagara. Resultado: cualquier hipo de red transitorio en segundo plano (típicamente el PC despertando de reposo, el wifi reconectando) disparaba un `alert()` bloqueante y, peor, vaciaba el tablero completo (`tasks = []`) hasta el siguiente ciclo exitoso 20s después.
+
+**Fix**: `load()` ahora acepta un parámetro `silencioso`. `autoSync()` la llama como `load(true)`: no muestra el `alert()` y, más importante, ya NO resetea `tasks` en el catch — si falla, se quedan los últimos datos buenos conocidos en pantalla (mismo criterio que ya usaba `cargarVisitasActivas()` en `reportes.js` para el mismo tipo de fallo). Las demás llamadas a `load()` (carga inicial en `iniciarApp()`, `resolverTareaTerminada()` en `reportes.js` tras cerrar una visita) siguen sin pasar el parámetro, así que mantienen el `alert()` — ahí sí es una falla real que el usuario necesita ver.
+
+**Archivos**: `assets/js/core.js` (`?v=20260930a`) · `assets/js/app.js` (`?v=20260930a`) · `tareas-equipo.html` (`?v=` subido en ambos). Sin cambios de base de datos.
+
 ## Estado actual (última actualización: 2026-09-29 — fix migración 047 + admin puede borrar reportes diarios + se movieron a Informes como "Actividades InHouse" + enlace comercial→operativa origen)
 
 ### fix: migración `047_tecnico_inhouse.sql` fallaba con #1005/errno 150 por colación
